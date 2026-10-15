@@ -67,6 +67,8 @@ const plan: Plan = {
           picked_by: "selection",
           flags: [],
           why: [],
+          counted_against: [],
+          path: [],
         },
       ],
     },
@@ -74,6 +76,7 @@ const plan: Plan = {
   trace: {
     read: [],
     restrictions: [],
+    alternatives: [],
     excluded: [
       { reason: "Loads the left knee", rule: null, exercises: ["Jumping Jack"], trusted: true, sources: [] },
     ],

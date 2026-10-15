@@ -15,8 +15,9 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from coachkg.generator import alternatives as alt
 from coachkg.generator import assemble, intent, selection, trace
-from coachkg.generator.scoring import Focus, score_candidates
+from coachkg.generator.scoring import Focus, Scored, score_candidates
 from coachkg.kg.graph import region_node
 from coachkg.llm import LLM, CallStats, LLMError
 from coachkg.member import Clearance, Member
@@ -126,7 +127,7 @@ def _member_summary(m: Member) -> dict[str, Any]:
     }
 
 
-def _item_json(it: assemble.Item, flags: list[str], why: list[str]) -> dict[str, Any]:
+def _item_json(it: assemble.Item, flags: list[str], sc: Scored) -> dict[str, Any]:
     ex = it.exercise
     return {
         "exercise_id": ex.id,
@@ -144,7 +145,9 @@ def _item_json(it: assemble.Item, flags: list[str], why: list[str]) -> dict[str,
         "patterns": ex.movement_patterns,
         "picked_by": it.picked_by,
         "flags": flags,
-        "why": why,
+        "why": sc.why,
+        "counted_against": sc.against,
+        "path": sc.path,
     }
 
 
@@ -237,6 +240,19 @@ async def run(
         return
 
     # 4. Score and 5. pool.
+    said_missing = {str(world.store.node(q)["label"]) for q in unavailable}
+    blocks_cfg = world.programming.blocks
+    alts = alt.find(
+        safety,
+        world.store,
+        focus.patterns,
+        focus.muscles,
+        said_missing,
+        set(blocks_cfg.warmup.patterns) | set(blocks_cfg.cooldown.patterns),
+    )
+    stands_in: dict[str, str] = {}
+    for a in alts:
+        stands_in.setdefault(a.use.id, a.instead_of.name)
     scored = score_candidates(
         safety=safety,
         store=world.store,
@@ -245,7 +261,17 @@ async def run(
         focus=focus,
         focus_patterns=world.programming.focus_patterns,
         as_of=s.as_of_date,
+        alternatives=stands_in,
     )
+    disliked = sorted({x.exercise.name for x in scored if x.disliked})
+    if disliked:
+        notes.append(
+            f"Left out {len(disliked)} exercise(s) the member says they dislike: {', '.join(disliked)}. "
+            "Name one in the request to include it."
+        )
+    scored = [x for x in scored if not x.disliked]
+    kept = {x.exercise.id for x in scored}
+    alts = [a for a in alts if a.use.id in kept]
     minutes = req.minutes or it.minutes or int(member.preferences.get("preferred_session_minutes", 45))
     budgets = assemble.block_budgets(minutes, world.programming)
     pool = assemble.pools(scored, world.programming, POOL_SIZES)
@@ -286,7 +312,7 @@ async def run(
                     _item_json(
                         i,
                         [d.reason for d in safety.flags_for(i.exercise.id)],
-                        by_id[i.exercise.id].why,
+                        by_id[i.exercise.id],
                     )
                     for i in items
                 ],
@@ -315,6 +341,7 @@ async def run(
             "read": read,
             "restrictions": trace.restriction_rows(safety),
             "excluded": trace.excluded_groups(safety, world.rules),
+            "alternatives": [a.json() for a in alts],
             "unverified": trace.unverified_lines(safety, world.programming.review.trusted),
             "notes": notes,
             "model_calls": [

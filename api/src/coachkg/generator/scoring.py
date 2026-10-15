@@ -27,8 +27,11 @@ class Focus:
 class Scored:
     exercise: Exercise
     score: float
-    why: list[str]
+    why: list[str]  # reasons it ranked up
     focus_match: bool
+    against: list[str] = field(default_factory=list)  # reasons it ranked down
+    path: list[dict[str, str]] = field(default_factory=list)  # graph edges behind `why`
+    disliked: str | None = None  # the member's dislike it matches, unless the coach asked for it
 
 
 def _families(store: NetworkXStore, ex: Exercise) -> set[str]:
@@ -84,7 +87,9 @@ def score_candidates(
     focus: Focus,
     focus_patterns: dict[str, list[str]],
     as_of: date,
+    alternatives: dict[str, str] | None = None,
 ) -> list[Scored]:
+    """`alternatives` maps a safe exercise id to the excluded exercise it can stand in for."""
     goal_pats = _goal_patterns(member, focus_patterns)
     recent = _recent_patterns(member, resolver, store, as_of)
     prefs = member.preferences or {}
@@ -98,12 +103,20 @@ def score_candidates(
 
     out: list[Scored] = []
     for ex in safety.candidates:
-        s, why = 0.0, []
+        s, why, against, path = 0.0, [], [], []
+        node = ex_node(ex.id)
         fams = _families(store, ex)
         pats = set(ex.movement_patterns)
-        match = bool(
-            focus and (pats & focus.patterns or _muscles(store, ex) & focus.muscles or fams & focus.families)
-        )
+        muscles = _muscles(store, ex)
+        match = False
+        if focus:
+            for p in sorted(pats & focus.patterns):
+                path.append({"src": node, "kind": "has-pattern", "dst": f"pattern:{p.strip().lower()}"})
+            for m in sorted(muscles & focus.muscles):
+                path.append({"src": node, "kind": "targets", "dst": m})
+            for f in sorted(fams & focus.families):
+                path.append({"src": node, "kind": "variant-of", "dst": f})
+            match = bool(path)
         if match:
             s += 3
             why.append("matches the requested focus")
@@ -113,18 +126,19 @@ def score_candidates(
         if liked_equipment & set(ex.equipment_required):
             s += 1
             why.append("uses equipment the member prefers")
-        hit = next(
-            (label for node, label in disliked.items() if node in fams or node == ex_node(ex.id)), None
-        )
-        if hit:
-            s -= 3
-            why.append(f"member dislikes {hit}")
+        if alternatives and ex.id in alternatives:
+            s += 1
+            why.append(f"stands in for {alternatives[ex.id]}, which needs equipment the member lacks")
+        hit = next((label for n, label in disliked.items() if n in fams or n == node), None)
+        asked_for = bool(fams & focus.families) or node in focus.families
+        if hit and asked_for:
+            against.append(f"member dislikes {hit} (kept because the request asks for it)")
         if pats & recent:
             s -= 1.5
-            why.append("same pattern trained in the last two days")
+            against.append("same pattern trained in the last two days")
         for d in safety.flags_for(ex.id):
             s -= 2 if d.outcome == "downranked" else 0.5
-            why.append(d.reason)
-        out.append(Scored(ex, s, why, match))
+            against.append(d.reason)
+        out.append(Scored(ex, s, why, match, against, path, hit if hit and not asked_for else None))
     out.sort(key=lambda x: (-x.score, x.exercise.name))
     return out

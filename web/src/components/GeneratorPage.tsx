@@ -1,6 +1,15 @@
 import { useRef, useState, type FormEvent } from "react";
 import { api, generate } from "../api";
-import type { Blocker, ExcludedGroup, MemberView, Plan, PlanBlock, PlanItem, ReadRow } from "../types";
+import type {
+  Alternative,
+  Blocker,
+  ExcludedGroup,
+  MemberView,
+  Plan,
+  PlanBlock,
+  PlanItem,
+  ReadRow,
+} from "../types";
 
 type State =
   | { kind: "idle" }
@@ -164,6 +173,9 @@ export function GeneratorPage({ member }: { member: MemberView }) {
             <PlanCard key={state.plan.id} plan={state.plan} onDiscard={() => setState({ kind: "idle" })} />
             <div className="cards">
               <FilteredCard groups={state.plan.trace.excluded} />
+              {state.plan.trace.alternatives.length > 0 && (
+                <AlternativesCard alts={state.plan.trace.alternatives} planned={plannedIds(state.plan)} />
+              )}
               <TraceCard plan={state.plan} />
             </div>
           </>
@@ -349,6 +361,7 @@ function PlanCard({ plan, onDiscard }: { plan: Plan; onDiscard: () => void }) {
                         <td>
                           {i.name}
                           {i.side_note && <div className="xsmall muted">{i.side_note}</div>}
+                          <ItemReasons item={i} />
                           {i.flags.length > 0 && (
                             <div className="chips">
                               {i.flags.map((f) => (
@@ -398,6 +411,73 @@ function PlanCard({ plan, onDiscard }: { plan: Plan; onDiscard: () => void }) {
           </div>
         )}
       </div>
+    </section>
+  );
+}
+
+function node(id: string): string {
+  return id.replace(/^ex:.*/, "this exercise").replace(/^[a-z]+:/, "");
+}
+
+function ItemReasons({ item }: { item: PlanItem }) {
+  if (!item.why.length && !item.counted_against.length) return null;
+  return (
+    <details className="reasons">
+      <summary className="xsmall">Why</summary>
+      {item.why.length > 0 && (
+        <div className="xsmall">
+          <span className="muted">Chosen because: </span>
+          {item.why.join("; ")}.
+        </div>
+      )}
+      {item.counted_against.length > 0 && (
+        <div className="xsmall">
+          <span className="muted">Counted against: </span>
+          {item.counted_against.join("; ")}.
+        </div>
+      )}
+      {item.path.length > 0 && (
+        <div className="xsmall muted">
+          Graph: {item.path.map((e) => `${node(e.src)} ${e.kind} ${node(e.dst)}`).join(" · ")}
+        </div>
+      )}
+    </details>
+  );
+}
+
+function plannedIds(plan: Plan): Set<string> {
+  return new Set(plan.blocks.flatMap((b) => b.items.map((i) => i.exercise_id)));
+}
+
+function AlternativesCard({ alts, planned }: { alts: Alternative[]; planned: Set<string> }) {
+  return (
+    <section className="card" aria-labelledby="alts-h">
+      <h2 id="alts-h">Equivalent alternatives</h2>
+      <p className="small muted" style={{ margin: "0 0 12px" }}>
+        For exercises left out only for missing equipment: safe exercises that share a movement pattern and a
+        target muscle in the graph.
+      </p>
+      <ul className="list">
+        {alts.map((a) => (
+          <li key={`${a.instead_of_id}|${a.use_id}`}>
+            <div style={{ fontWeight: 500 }}>
+              {a.use} instead of {a.instead_of}
+            </div>
+            <div className="small" style={{ color: "var(--ink-2)" }}>
+              {a.instead_of} needs {a.needs.join(", ")}. Both train {a.shared_patterns.join(", ")} and target{" "}
+              {a.shared_muscles.join(", ")}.
+            </div>
+            <div className="chips">
+              {planned.has(a.use_id) && <span className="chip ok">in this plan</span>}
+              {a.substitute && (
+                <span className="chip">
+                  {a.substitute.use} substitutes for {a.substitute.for} (signed)
+                </span>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

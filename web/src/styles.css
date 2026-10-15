@@ -538,3 +538,14 @@ table.kv td:last-child {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
 }
+
+details.reasons {
+  margin-top: 4px;
+}
+details.reasons summary {
+  cursor: pointer;
+  color: var(--ink-2);
+}
+details.reasons > div {
+  margin-top: 2px;
+}

@@ -195,3 +195,61 @@ def test_api_scopes_members_and_confirms_plans(world: World, tmp_path: Path) -> 
 def test_blocks_are_ordered(world: World) -> None:
     plan = _plan(_run(world, FakeLLM(_intent(), _all_offered), "upper body"))
     assert [b["name"] for b in plan["blocks"]] == list(BLOCKS)
+
+
+def _run_for(world: World, member_id: str, llm: FakeLLM, prompt: str, **kw: Any) -> dict[str, Any]:
+    member = world.members[member_id]
+    req = GenerateRequest(member_id=member_id, prompt=prompt, **kw)
+
+    async def collect() -> list[dict[str, Any]]:
+        return [e async for e in run(world, llm, req, member, "coach_01HXSAM")]  # type: ignore[arg-type]
+
+    return _plan(asyncio.run(collect()))
+
+
+def test_missing_equipment_surfaces_equivalent_alternatives(world: World) -> None:
+    llm = FakeLLM(_intent(focus=["upper body"], unavailable_equipment=["Barbell"]), _all_offered)
+    plan = _run_for(world, "mbr_01HXGEN0002", llm, "upper body, no barbell today", minutes=30)
+    alts = plan["trace"]["alternatives"]
+    assert alts, "expected alternatives for barbell exercises"
+    from coachkg.safety import SafetyRequest
+
+    member = world.members["mbr_01HXGEN0002"]
+    safe = {e.id for e in world.safety.run(SafetyRequest(member=member)).candidates}
+    first = alts[0]
+    assert "Barbell" in first["needs"]
+    assert first["use_id"] in safe
+    assert first["shared_patterns"] and first["shared_muscles"]
+    kinds = {e["kind"] for e in first["path"]}
+    assert {"has-pattern", "targets"} <= kinds
+
+
+def test_signed_substitute_edge_ranks_first(world: World) -> None:
+    llm = FakeLLM(_intent(focus=["lower body"], unavailable_equipment=["Kettlebell"]), _all_offered)
+    plan = _run_for(world, "mbr_01HXGEN0006", llm, "lower body, no kettlebell", minutes=30)
+    subs = [a for a in plan["trace"]["alternatives"] if a["substitute"]]
+    assert subs and subs[0]["substitute"] == {
+        "use": "Dumbbell",
+        "for": "Kettlebell",
+        "source": "kg/rules/equipment.yaml",
+    }
+    assert subs[0]["path"][-1]["kind"] == "substitutes-for"
+
+
+def test_disliked_exercises_are_left_out_unless_requested(world: World) -> None:
+    llm = FakeLLM(_intent(focus=["cardio"]), _all_offered)
+    plan = _run_for(world, "mbr_01HXGEN0004", llm, "cardio", minutes=30)
+    assert "Jumping Jack" not in {i["name"] for b in plan["blocks"] for i in b["items"]}
+    assert any("dislike" in n and "Jumping Jack" in n for n in plan["trace"]["notes"])
+
+
+def test_items_split_reasons_and_carry_graph_path(world: World) -> None:
+    plan = _plan(_run(world, FakeLLM(_intent(focus=["upper body"]), _all_offered), "upper body"))
+    items = [i for b in plan["blocks"] for i in b["items"]]
+    focused = [i for i in items if "matches the requested focus" in i["why"]]
+    assert focused
+    for i in focused:
+        assert i["path"] and all(e["src"] == f"ex:{i['exercise_id']}" for e in i["path"])
+    for i in items:
+        assert not any(w.startswith("member dislikes") for w in i["why"])
+        assert all(isinstance(r, str) for r in i["counted_against"])

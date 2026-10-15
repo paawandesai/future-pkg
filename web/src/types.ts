@@ -63,6 +63,26 @@ export interface PlanItem {
   picked_by: "selection" | "fill";
   flags: string[];
   why: string[];
+  counted_against: string[];
+  path: GraphEdge[];
+}
+
+export interface GraphEdge {
+  src: string;
+  kind: string;
+  dst: string;
+}
+
+export interface Alternative {
+  instead_of: string;
+  instead_of_id: string;
+  needs: string[];
+  use: string;
+  use_id: string;
+  shared_patterns: string[];
+  shared_muscles: string[];
+  substitute: { use: string; for: string; source: string } | null;
+  path: GraphEdge[];
 }
 
 export interface PlanBlock {
@@ -111,6 +131,7 @@ export interface Plan {
       confidence: number;
     }[];
     excluded: ExcludedGroup[];
+    alternatives: Alternative[];
     unverified: string[];
     notes: string[];
     model_calls: { purpose: string; model: string; ms: number }[];
