@@ -56,6 +56,7 @@ CI fails if this file is stale or if a GPL/AGPL/SSPL/BUSL/non-commercial license
 | starlette | 1.7.0 | BSD-3-Clause |
 | truststore | 0.10.5 | MIT |
 | types-PyYAML | 6.0.12.20260906 | Apache-2.0 |
+| types-networkx | 3.6.1.20261006 | Apache-2.0 |
 | typing-inspection | 0.4.4 | MIT |
 | typing_extensions | 4.16.0 | PSF-2.0 |
 | uvicorn | 0.54.0 | BSD-3-Clause |
