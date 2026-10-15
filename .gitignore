@@ -38,3 +38,4 @@ cdk.context.json
 *.sqlite3
 *.db
 .DS_Store
+*.tsbuildinfo
