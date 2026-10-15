@@ -4,6 +4,9 @@
   only describes in words ("login frequency down vs. prior month").
 - fixtures/generated-member-2.json: a second fictional member under a different coach, used to
   test that a coach can only see their own members.
+- fixtures/generated-member-3..7.json: five more fictional members for the demo coach, each showing
+  a different case (shoulder restriction, no equipment with a sore back, slipping adherence,
+  an injury already cleared, a beginner). Built from DEMO_MEMBERS below.
 
 Both files say they are generated, in their own _note field, in the UI and in the README.
 """
@@ -34,12 +37,173 @@ def logins(member_id: str, seed: int, weekly: list[int]) -> list[dict[str, str]]
     return out
 
 
+def adherence(pcts: list[int], trend: str) -> dict[str, object]:
+    weeks = [AS_OF - timedelta(days=AS_OF.weekday()) - timedelta(weeks=len(pcts) - 1 - i) for i in range(len(pcts))]
+    return {"weekly_completion_pct": [{"week_of": w.isoformat(), "pct": p} for w, p in zip(weeks, pcts)], "trend": trend}
+
+
+def history(sessions: list[tuple[int, str, bool, int, int | None, list[str]]]) -> list[dict[str, object]]:
+    """(days before AS_OF, title, completed, minutes, rpe, exercises), newest first."""
+    return [
+        {"date": (AS_OF - timedelta(days=d)).isoformat(), "title": t, "planned": True, "completed": c,
+         "duration_min": m if c else 0, "rpe": r if c else None, "exercises": ex if c else []}
+        for d, t, c, m, r, ex in sessions
+    ]
+
+
+def chat(tz: str, lines: list[tuple[int, str, str, str]]) -> list[dict[str, str]]:
+    """(days before AS_OF, HH:MM, sender, text), newest first."""
+    return [{"ts": f"{(AS_OF - timedelta(days=d)).isoformat()}T{hm}:00{tz}", "from": who, "text": text}
+            for d, hm, who, text in lines]
+
+
+def sleep(seed: int, mean: float) -> list[float]:
+    rng = random.Random(seed)
+    return [round(min(9.0, max(4.5, rng.gauss(mean, 0.6))), 1) for _ in range(7)]
+
+
+# Five demo members for the demo coach (coach_01HXSAM). Each shows a different case.
+DEMO_MEMBERS: list[dict[str, object]] = [
+    {
+        "seed": 23, "logins": [5, 4, 5, 5, 4, 5, 5, 4],
+        "profile": {"id": "mbr_01HXGEN0003", "name": "Priya Nair", "age": 33, "sex": "female",
+                    "timezone": "America/New_York", "member_since": "2025-08-11", "tier": "1:1 Coaching"},
+        "case": "Active right rotator cuff tendinopathy: overhead work is flagged for the coach",
+        "goals": [{"id": "goal_pullup", "text": "First unassisted chin-up", "priority": 1, "target_date": "2026-09-30"},
+                  {"id": "goal_shoulder", "text": "Press overhead without shoulder pain", "priority": 1, "target_date": None}],
+        "preferences": {"preferred_session_minutes": 45, "training_days_per_week": 3,
+                        "preferred_days": ["Tue", "Thu", "Sat"], "dislikes": [], "notes": "Trains at a commercial gym."},
+        "equipment_available": ["Dumbbell", "Barbell", "Plate", "Rack", "Flat Bench", "Adjustable Bench - Incline",
+                                "Pull-Up Bar", "Resistance Band - Loop", "Cable Resistance Machine", "Yoga Mat"],
+        "injuries": [{"id": "inj_shoulder_right", "region": "right shoulder", "joint": "shoulder",
+                      "status": "active", "severity": "mild", "since": "2026-05-18",
+                      "notes": "Rotator cuff tendinopathy, right side. Pain on overhead pressing above shoulder height."}],
+        "workout_history": history([(2, "Pull Day", True, 44, 7, ["Band-Assisted Chin-Up (From Foot)", "Single-Arm Chest-Supported Incline Row"]),
+                                    (5, "Lower Body", True, 46, 7, ["Dumbbell Goblet Split Squat", "RNT Split Squat"]),
+                                    (7, "Push Day", True, 40, 6, ["Dumbbell Neutral-Grip Bench Press"])]),
+        "adherence": adherence([100, 100, 100, 100], "stable"),
+        "biomarkers": {"resting_hr_bpm": 61, "hrv_ms": 52, "sleep_mean": 7.3},
+        "chat": [(1, "19:20", "member", "Chin-up negatives felt strong today. Shoulder only grumbled on the last set."),
+                 (1, "19:41", "coach", "Great work. Let's keep pressing below shoulder height this week."),
+                 (6, "08:05", "member", "Physio says keep the shoulder work below head height for now.")],
+    },
+    {
+        "seed": 29, "logins": [3, 4, 3, 4, 3, 4, 3, 4],
+        "profile": {"id": "mbr_01HXGEN0004", "name": "Marcus Bell", "age": 52, "sex": "male",
+                    "timezone": "America/Denver", "member_since": "2026-01-06", "tier": "1:1 Coaching"},
+        "case": "No equipment beyond a mat; low back pain restricts lumbar loading",
+        "goals": [{"id": "goal_move", "text": "Move without back stiffness in the morning", "priority": 1, "target_date": None},
+                  {"id": "goal_weight", "text": "Lose 5 kg", "priority": 2, "target_date": "2026-12-01"}],
+        "preferences": {"preferred_session_minutes": 30, "training_days_per_week": 3,
+                        "preferred_days": ["Mon", "Wed", "Fri"], "dislikes": ["Jumping Jack"],
+                        "notes": "Trains at home in a small apartment; no equipment except a yoga mat."},
+        "equipment_available": ["Yoga Mat", "Wall"],
+        "injuries": [{"id": "inj_low_back", "region": "lower back", "joint": "lumbar spine",
+                      "status": "recovering", "severity": "mild", "since": "2026-04-22",
+                      "notes": "Non-specific low back pain. Avoid loaded spinal flexion for now."}],
+        "workout_history": history([(1, "Mobility and Core", True, 28, 5, ["Cow Pose", "High Plank Bird Dog"]),
+                                    (3, "Full Body - Bodyweight", True, 30, 6, ["Bodyweight Pike", "World's Greatest Stretch"]),
+                                    (5, "Mobility and Core", False, 30, None, [])]),
+        "adherence": adherence([67, 67, 100, 67], "stable"),
+        "biomarkers": {"resting_hr_bpm": 68, "hrv_ms": 34, "sleep_mean": 6.6},
+        "chat": [(1, "07:10", "member", "Back was a bit stiff this morning but loosened up after the session."),
+                 (4, "20:30", "coach", "Nice consistency. Keep the bird dogs slow and controlled.")],
+    },
+    {
+        "seed": 31, "logins": [6, 6, 5, 6, 4, 2, 1, 1],
+        "profile": {"id": "mbr_01HXGEN0005", "name": "Elena Petrova", "age": 29, "sex": "female",
+                    "timezone": "Europe/Berlin", "member_since": "2025-03-02", "tier": "1:1 Coaching"},
+        "case": "Adherence and logins sliding over a month: churn signal is high",
+        "goals": [{"id": "goal_10k", "text": "Run a 10K under 55 minutes", "priority": 1, "target_date": "2026-10-04"}],
+        "preferences": {"preferred_session_minutes": 40, "training_days_per_week": 4,
+                        "preferred_days": ["Mon", "Tue", "Thu", "Sat"], "dislikes": [], "notes": "Home kettlebell and dumbbells."},
+        "equipment_available": ["Dumbbell", "Kettlebell", "Yoga Mat", "Jump Rope"],
+        "injuries": [],
+        "workout_history": history([(4, "Strength - Lower", False, 40, None, []),
+                                    (8, "Strength - Upper", True, 35, 6, ["Alternating Dumbbell Overhead Press"]),
+                                    (11, "Strength - Lower", False, 40, None, []),
+                                    (15, "Conditioning", True, 38, 7, ["Jumping Jack", "Kettlebell Goblet Cyclist Squat"])]),
+        "adherence": adherence([100, 75, 50, 25], "declining"),
+        "biomarkers": {"resting_hr_bpm": 57, "hrv_ms": 58, "sleep_mean": 6.2},
+        "chat": [(9, "22:40", "member", "Sorry, new job is eating my evenings. I'll try to get back on track."),
+                 (9, "23:02", "coach", "No stress. Want to switch to two shorter sessions a week for now?"),
+                 (24, "18:15", "member", "Loving the kettlebell circuits!")],
+    },
+    {
+        "seed": 37, "logins": [4, 5, 4, 5, 5, 4, 5, 5],
+        "profile": {"id": "mbr_01HXGEN0006", "name": "Theo Lindqvist", "age": 38, "sex": "male",
+                    "timezone": "America/Los_Angeles", "member_since": "2024-11-20", "tier": "1:1 Coaching"},
+        "case": "Right ankle sprain already cleared: no restriction, the history still shows it",
+        "goals": [{"id": "goal_power", "text": "Improve jumping power for volleyball", "priority": 1, "target_date": "2026-08-15"}],
+        "preferences": {"preferred_session_minutes": 50, "training_days_per_week": 3,
+                        "preferred_days": ["Mon", "Wed", "Sat"], "dislikes": [], "notes": "Garage gym."},
+        "equipment_available": ["Dumbbell", "Kettlebell", "Box", "Jump Rope", "Medicine Ball", "Yoga Mat",
+                                "Resistance Band - Loop", "Flat Bench"],
+        "injuries": [{"id": "inj_ankle_right", "region": "right ankle", "joint": "ankle",
+                      "status": "cleared", "severity": "moderate", "since": "2026-02-03",
+                      "notes": "Lateral ankle sprain. Cleared by physio on 2026-04-10 for full activity."}],
+        "workout_history": history([(1, "Power", True, 52, 8, ["Vertical Jump to Broad Jump", "Med Ball Scoop Toss"]),
+                                    (3, "Strength", True, 48, 7, ["Dumbbell Goblet Split Squat"]),
+                                    (6, "Power", True, 50, 8, ["Static Jump", "Jump Rope - Single-Leg"])]),
+        "adherence": adherence([100, 100, 67, 100], "stable"),
+        "biomarkers": {"resting_hr_bpm": 55, "hrv_ms": 63, "sleep_mean": 7.5},
+        "chat": [(1, "17:55", "member", "Broad jumps felt explosive today, ankle felt totally normal."),
+                 (2, "09:00", "coach", "Love it. Next block adds single-leg landings.")],
+    },
+    {
+        "seed": 41, "logins": [0, 0, 0, 0, 0, 3, 5, 6],
+        "profile": {"id": "mbr_01HXGEN0007", "name": "Aisha Rahman", "age": 46, "sex": "female",
+                    "timezone": "America/Chicago", "member_since": "2026-05-20", "tier": "1:1 Coaching"},
+        "case": "New member two weeks in: short history, bands only",
+        "goals": [{"id": "goal_habit", "text": "Train three times a week for a month", "priority": 1, "target_date": "2026-06-30"}],
+        "preferences": {"preferred_session_minutes": 25, "training_days_per_week": 3,
+                        "preferred_days": ["Mon", "Wed", "Fri"], "dislikes": [], "notes": "New to strength training; trains at home."},
+        "equipment_available": ["Resistance Band - Loop", "Resistance Band - With Handles", "Yoga Mat"],
+        "injuries": [],
+        "workout_history": history([(2, "Intro Full Body", True, 24, 5, ["Standing Miniband Hip Flexion", "Resistance Band Reverse Curl"]),
+                                    (5, "Intro Full Body", True, 22, 5, ["High Plank Bird Dog"]),
+                                    (7, "Intro Full Body", True, 20, 4, ["Cow Pose"])]),
+        "adherence": adherence([100, 100], "new"),
+        "biomarkers": {"resting_hr_bpm": 72, "hrv_ms": 31, "sleep_mean": 7.0},
+        "chat": [(2, "12:30", "member", "Week two done! The bands are harder than I expected."),
+                 (2, "13:05", "coach", "That's the point. Proud of you for showing up every time.")],
+    },
+]
+
+TZ = {"America/New_York": "-04:00", "America/Denver": "-06:00", "Europe/Berlin": "+02:00",
+      "America/Los_Angeles": "-07:00", "America/Chicago": "-05:00"}
+
+
+def demo_member(spec: dict[str, object]) -> dict[str, object]:
+    profile = dict(spec["profile"])  # type: ignore[call-overload]
+    profile["coach_id"] = "coach_01HXSAM"
+    bio = dict(spec["biomarkers"])  # type: ignore[call-overload]
+    seed = int(spec["seed"])  # type: ignore[call-overload]
+    return {
+        "_note": NOTE.format(seed=seed) + f" Demo case: {spec['case']}.",
+        "profile": profile,
+        "goals": spec["goals"],
+        "preferences": spec["preferences"],
+        "equipment_available": spec["equipment_available"],
+        "injuries": spec["injuries"],
+        "workout_history": spec["workout_history"],
+        "adherence": spec["adherence"],
+        "biomarkers": {"resting_hr_bpm": bio["resting_hr_bpm"], "hrv_ms": bio["hrv_ms"],
+                       "sleep_hours_last_7_days": sleep(seed, float(bio["sleep_mean"]))},
+        "chat_history": chat(TZ[str(profile["timezone"])], spec["chat"]),  # type: ignore[arg-type]
+    }
+
+
 def main() -> None:
     jordan = logins("mbr_01HX9JORDAN", 7, [6, 5, 6, 6, 5, 6, 3, 2])  # 8 weeks to 2026-06-04
     other = logins("mbr_01HXGEN0002", 11, [4, 4, 5, 4, 4, 5, 4, 4])
+    demo = [e for spec in DEMO_MEMBERS for e in logins(spec["profile"]["id"], int(spec["seed"]), spec["logins"])]  # type: ignore[index, call-overload, arg-type]
+    seeds = ", ".join(["7", "11"] + [str(spec["seed"]) for spec in DEMO_MEMBERS])
     (ROOT / "fixtures" / "generated-login-events.json").write_text(
-        json.dumps({"_note": NOTE.format(seed="7, 11"), "events": jordan + other}, indent=1) + "\n"
+        json.dumps({"_note": NOTE.format(seed=seeds), "events": jordan + other + demo}, indent=1) + "\n"
     )
+    for i, spec in enumerate(DEMO_MEMBERS, start=3):
+        (ROOT / "fixtures" / f"generated-member-{i}.json").write_text(json.dumps(demo_member(spec), indent=1) + "\n")
     member2 = {
         "_note": NOTE.format(seed="n/a") + " Belongs to another coach; used for access-scoping tests.",
         "profile": {

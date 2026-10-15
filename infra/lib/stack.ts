@@ -4,6 +4,7 @@
 import {
   CfnOutput,
   Duration,
+  Fn,
   RemovalPolicy,
   Stack,
   type StackProps,
@@ -11,6 +12,7 @@ import {
   aws_cloudfront_origins as origins,
   aws_cognito as cognito,
   aws_dynamodb as dynamodb,
+  aws_iam as iam,
   aws_events as events,
   aws_events_targets as targets,
   aws_lambda as lambda,
@@ -18,6 +20,7 @@ import {
   aws_s3 as s3,
   aws_s3_deployment as s3deploy,
   aws_secretsmanager as secretsmanager,
+  custom_resources as cr,
 } from "aws-cdk-lib";
 import type { Construct } from "constructs";
 
@@ -32,6 +35,8 @@ export interface DemoStackProps extends StackProps {
   webDir: string;
   modelFast: string;
   modelMain: string;
+  /** Existing pool user (by email) to put in the admin group; only AWS can grant admin. */
+  adminEmail?: string;
 }
 
 export class DemoStack extends Stack {
@@ -40,6 +45,14 @@ export class DemoStack extends Stack {
 
     // ---------- storage ----------
     const plans = new dynamodb.Table(this, "Plans", {
+      partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: "expires_at",
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    // Access requests (email, optional name, reason) expire after 7 days; rate counters after 2 hours.
+    const access = new dynamodb.Table(this, "AccessRequests", {
       partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: "expires_at",
@@ -91,6 +104,27 @@ export class DemoStack extends Stack {
       writeAttributes: new cognito.ClientAttributes().withStandardAttributes({ email: true }),
     });
 
+    // Admins approve access requests and manage reviewer accounts. Membership is granted only by
+    // AWS (this stack, or the console), never by the app.
+    const admins = new cognito.CfnUserPoolGroup(this, "Admins", {
+      userPoolId: pool.userPoolId,
+      groupName: "admin",
+      description: "Demo admins: approve access requests, invite and disable reviewers",
+    });
+    if (props.adminEmail) {
+      const grant = new cr.AwsCustomResource(this, "FirstAdmin", {
+        onUpdate: {
+          service: "CognitoIdentityServiceProvider",
+          action: "adminAddUserToGroup",
+          parameters: { UserPoolId: pool.userPoolId, GroupName: "admin", Username: props.adminEmail },
+          physicalResourceId: cr.PhysicalResourceId.of("first-admin"),
+        },
+        policy: cr.AwsCustomResourcePolicy.fromSdkCalls({ resources: [pool.userPoolArn] }),
+        installLatestAwsSdk: false,
+      });
+      grant.node.addDependency(admins);
+    }
+
     // ---------- API ----------
     const apiLogs = new logs.LogGroup(this, "ApiLogs", {
       retention: logs.RetentionDays.TWO_WEEKS,
@@ -114,6 +148,9 @@ export class DemoStack extends Stack {
         COGNITO_USER_POOL_ID: pool.userPoolId,
         COGNITO_CLIENT_ID: client.userPoolClientId,
         PLAN_TABLE: plans.tableName,
+        ACCESS_TABLE: access.tableName,
+        // Salt for hashing client addresses in rate counters: the stack's own GUID, not a secret.
+        RATE_SALT: Fn.select(2, Fn.split("/", this.stackId)),
         ANTHROPIC_SECRET_ID: apiKey.secretName,
         LLM_MODEL_FAST: props.modelFast,
         LLM_MODEL_MAIN: props.modelMain,
@@ -124,7 +161,20 @@ export class DemoStack extends Stack {
       },
     });
     plans.grantReadWriteData(api);
+    access.grantReadWriteData(api);
     apiKey.grantRead(api);
+    api.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "cognito-idp:AdminCreateUser",
+          "cognito-idp:AdminDisableUser",
+          "cognito-idp:AdminEnableUser",
+          "cognito-idp:ListUsers",
+          "cognito-idp:ListUsersInGroup",
+        ],
+        resources: [pool.userPoolArn],
+      }),
+    );
     // Public URL; every /api route verifies a Cognito ID token, /healthz returns only {"status":"ok"}.
     const apiUrl = api.addFunctionUrl({
       authType: lambda.FunctionUrlAuthType.NONE,

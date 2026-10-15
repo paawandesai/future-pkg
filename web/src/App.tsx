@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import { onSessionExpired, setToken } from "./auth";
 import { CopilotPage } from "./components/CopilotPage";
+import { AdminPage } from "./components/AdminPage";
 import { GeneratorPage } from "./components/GeneratorPage";
 import { Login } from "./components/Login";
 import { MemberHeader } from "./components/MemberHeader";
@@ -19,8 +20,11 @@ export function DemoBanner() {
 
 function Workspace({ onSignOut }: { onSignOut: () => void }) {
   const [tab, setTab] = useState<Tab>("draft");
+  const [picked, setPicked] = useState<string | null>(null);
+  const [view, setView] = useState<"workspace" | "admin">("workspace");
+  const me = useQuery({ queryKey: ["me"], queryFn: api.me });
   const members = useQuery({ queryKey: ["members"], queryFn: api.members });
-  const memberId = members.data?.[0]?.id;
+  const memberId = picked ?? members.data?.[0]?.id;
   const member = useQuery({
     queryKey: ["member", memberId],
     queryFn: () => api.member(memberId as string),
@@ -35,6 +39,33 @@ function Workspace({ onSignOut }: { onSignOut: () => void }) {
           <span className="tag">Coach decision support</span>
         </div>
         <div className="row small muted">
+          {me.data?.admin && (
+            <button
+              type="button"
+              className="btn small"
+              aria-pressed={view === "admin"}
+              onClick={() => setView(view === "admin" ? "workspace" : "admin")}
+            >
+              {view === "admin" ? "Back to members" : "Admin"}
+            </button>
+          )}
+          {view === "workspace" && members.data && members.data.length > 1 && (
+            <label className="row" style={{ gap: 6 }}>
+              <span>Member</span>
+              <select
+                className="input"
+                style={{ padding: "6px 8px" }}
+                value={memberId ?? ""}
+                onChange={(e) => setPicked(e.target.value)}
+              >
+                {members.data.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <span>Signed in</span>
           <button type="button" className="linkish" onClick={onSignOut}>
             Sign out
@@ -42,16 +73,29 @@ function Workspace({ onSignOut }: { onSignOut: () => void }) {
         </div>
       </header>
       <div className="page">
-        {members.isError && <p role="alert">Couldn't load members: {String(members.error.message)}</p>}
-        {members.data && members.data.length === 0 && <p>No members are assigned to you.</p>}
-        {member.isError && <p role="alert">Couldn't load the member: {String(member.error.message)}</p>}
-        {member.data && (
+        {view === "admin" ? (
           <>
-            <MemberHeader member={member.data} tab={tab} onTab={setTab} />
-            {tab === "draft" ? <GeneratorPage member={member.data} /> : <CopilotPage member={member.data} />}
+            <h1 style={{ fontSize: 24, fontWeight: 600 }}>Demo access</h1>
+            <AdminPage />
+          </>
+        ) : (
+          <>
+            {members.isError && <p role="alert">Couldn't load members: {String(members.error.message)}</p>}
+            {members.data && members.data.length === 0 && <p>No members are assigned to you.</p>}
+            {member.isError && <p role="alert">Couldn't load the member: {String(member.error.message)}</p>}
+            {member.data && (
+              <>
+                <MemberHeader member={member.data} tab={tab} onTab={setTab} />
+                {tab === "draft" ? (
+                  <GeneratorPage key={member.data.id} member={member.data} />
+                ) : (
+                  <CopilotPage key={member.data.id} member={member.data} />
+                )}
+              </>
+            )}
+            {(members.isPending || member.isPending) && !members.isError && <p className="muted">Loading…</p>}
           </>
         )}
-        {(members.isPending || member.isPending) && !members.isError && <p className="muted">Loading…</p>}
       </div>
     </>
   );

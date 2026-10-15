@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -11,11 +12,23 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from coachkg.auth import current_coach
+from coachkg.access import (
+    AccessRequestIn,
+    AccessStore,
+    AccountExists,
+    Accounts,
+    CognitoAccounts,
+    DynamoAccessStore,
+    MemoryAccessStore,
+    MemoryAccounts,
+    RateLimited,
+    client_key,
+)
+from coachkg.auth import Admin, current_admin, current_coach
 from coachkg.config import REPO_ROOT
 from coachkg.copilot import agent, data
 from coachkg.generator.pipeline import GenerateRequest, run
@@ -62,9 +75,26 @@ def get_llm() -> LLM:
     return LLM()
 
 
+@lru_cache(maxsize=1)
+def get_access() -> AccessStore:
+    if table := os.environ.get("ACCESS_TABLE"):
+        return DynamoAccessStore.from_env(table)
+    return MemoryAccessStore()
+
+
+@lru_cache(maxsize=1)
+def get_accounts() -> Accounts:
+    if os.environ.get("AUTH_MODE") == "cognito" and (pool := os.environ.get("COGNITO_USER_POOL_ID")):
+        return CognitoAccounts.from_env(pool)
+    return MemoryAccounts()
+
+
 WorldDep = Annotated[World, Depends(get_world)]
 PlansDep = Annotated[PlanStore, Depends(get_plans)]
 LLMDep = Annotated[LLM, Depends(get_llm)]
+AccessDep = Annotated[AccessStore, Depends(get_access)]
+AccountsDep = Annotated[Accounts, Depends(get_accounts)]
+AdminDep = Annotated[Admin, Depends(current_admin)]
 
 
 @app.get("/healthz")
@@ -223,3 +253,105 @@ def member_graph(member_id: str, coach: Coach, world: WorldDep) -> dict[str, Any
         "nodes": [{"id": n, "kind": d.get("kind"), "label": d.get("label")} for n, d in g.g.nodes(data=True)],
         "edges": [{"from": e.src, "to": e.dst, "kind": e.kind, "prov": e.prov} for e in g.all_edges()],
     }
+
+
+# ---------- demo access: public request form, admin approval ----------
+
+
+@app.post("/api/access-requests", status_code=202)
+def request_access(req: AccessRequestIn, request: Request, access: AccessDep) -> dict[str, str]:
+    """Public. The same answer whether or not the email already asked, so the form reveals nothing."""
+    # Right-most hops are added by CloudFront and the function URL; anything to their left is
+    # client-supplied, so it is ignored. The total cap on pending requests bounds what's left.
+    hops = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",") if h.strip()]
+    address = ",".join(hops[-2:]) or (request.client.host if request.client else None)
+    try:
+        access.submit(req, client_key(address))
+    except RateLimited:
+        raise HTTPException(status_code=429, detail="Too many requests right now. Try again later.") from None
+    return {"status": "received"}
+
+
+@app.get("/api/me")
+def me(coach: Coach, authorization: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """What the signed-in person may see: the admin tab appears only for admins."""
+    try:
+        current_admin(authorization)
+        admin = True
+    except HTTPException:
+        admin = False
+    return {"coach_id": coach, "admin": admin}
+
+
+@app.get("/api/admin/requests")
+def admin_requests(admin: AdminDep, access: AccessDep) -> list[dict[str, Any]]:
+    return [r.model_dump() for r in access.list()]
+
+
+@app.post("/api/admin/requests/{request_id}/approve")
+def admin_approve(
+    request_id: str, admin: AdminDep, access: AccessDep, accounts: AccountsDep
+) -> dict[str, Any]:
+    pending = access.get(request_id)
+    if pending is None or pending.status != "pending":
+        raise HTTPException(status_code=404, detail="No pending request with that id")
+    with contextlib.suppress(AccountExists):  # already has an account: approving just closes the request
+        accounts.invite(pending.email)
+    decided = access.decide(request_id, "approved", admin.email)
+    if decided is None:
+        raise HTTPException(status_code=409, detail="Someone already decided this request")
+    return decided.model_dump()
+
+
+@app.post("/api/admin/requests/{request_id}/reject")
+def admin_reject(request_id: str, admin: AdminDep, access: AccessDep) -> dict[str, Any]:
+    decided = access.decide(request_id, "rejected", admin.email)
+    if decided is None:
+        raise HTTPException(status_code=404, detail="No pending request with that id")
+    return decided.model_dump()
+
+
+class InviteIn(BaseModel):
+    email: str = Field(min_length=6, max_length=254)
+
+
+@app.get("/api/admin/users")
+def admin_users(admin: AdminDep, accounts: AccountsDep) -> list[dict[str, Any]]:
+    return [u.model_dump() for u in accounts.list()]
+
+
+@app.post("/api/admin/users", status_code=201)
+def admin_invite(body: InviteIn, admin: AdminDep, accounts: AccountsDep) -> dict[str, str]:
+    email = AccessRequestIn(email=body.email, reason="admin invite").email
+    try:
+        accounts.invite(email)
+    except AccountExists:
+        raise HTTPException(status_code=409, detail="That email already has an account") from None
+    return {"email": email, "status": "invited"}
+
+
+class UserAction(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+    enabled: bool
+
+
+@app.post("/api/admin/users/enabled")
+def admin_set_enabled(body: UserAction, admin: AdminDep, accounts: AccountsDep) -> dict[str, Any]:
+    target = next((u for u in accounts.list() if u.email == body.email.strip().lower()), None)
+    if target is None:
+        raise HTTPException(status_code=404, detail="No such account")
+    if target.admin and not body.enabled:
+        raise HTTPException(status_code=400, detail="Admin accounts can't be disabled here")
+    (accounts.enable if body.enabled else accounts.disable)(target.email)
+    return {"email": target.email, "enabled": body.enabled}
+
+
+@app.post("/api/admin/users/disable-all")
+def admin_disable_all(admin: AdminDep, accounts: AccountsDep) -> dict[str, int]:
+    """After grading: every reviewer account off; admin accounts stay on."""
+    n = 0
+    for u in accounts.list():
+        if u.enabled and not u.admin:
+            accounts.disable(u.email)
+            n += 1
+    return {"disabled": n}

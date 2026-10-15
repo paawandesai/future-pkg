@@ -10,6 +10,7 @@ const stack = new DemoStack(app, "FuturePkgDemo", {
   webDir: process.env.WEB_DIR ?? "../web/dist",
   modelFast: process.env.LLM_MODEL_FAST ?? "claude-haiku-5-5",
   modelMain: process.env.LLM_MODEL_MAIN ?? "claude-sonnet-5-5",
+  adminEmail: process.env.DEMO_ADMIN_EMAIL || undefined,
   description: "future-pkg coach decision support demo (synthetic data only)",
 });
 Tags.of(stack).add("Project", "future-pkg");

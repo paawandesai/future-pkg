@@ -13,8 +13,20 @@ Coach decision support for personal-training coaches. It does two things:
 
 It is not medical advice. It never decides that a workout is safe. The coach confirms every plan.
 
-**Deployed demo:** https://d1221xkl4z96di.cloudfront.net. It is invite-only (Cognito), and plans
-are purged daily. See [docs/deploy.md](docs/deploy.md).
+**Deployed demo:** https://d1221xkl4z96di.cloudfront.net. Accounts are invite-only (Cognito):
+anyone can request one from the sign-in page, and an admin approves each request on the Admin
+page before Cognito emails an invite. Plans are purged daily. See [docs/deploy.md](docs/deploy.md).
+
+The demo coach has six fictional members. Jordan comes from the assessment data; five more are
+generated (`scripts/generate_fixtures.py`) to show different cases:
+
+| Member | Case |
+|---|---|
+| Priya Nair | Active right-shoulder tendinopathy: shoulder work is excluded until the coach records a clearance |
+| Marcus Bell | Only a mat and a wall; low back pain restricts lumbar loading |
+| Elena Petrova | Adherence 100% to 25% over four weeks and logins falling: churn is high |
+| Theo Lindqvist | Ankle sprain already cleared: no restriction, the history still shows it |
+| Aisha Rahman | Two weeks in, bands only |
 
 ## Run it locally (one command)
 
@@ -135,8 +147,13 @@ deployed draft took 2.7 s, and a cold start adds about 2 s.
   interpret them.
 - **No cross-member caching** of safety decisions.
 - **Logs** hold method, route template, status and milliseconds, never bodies or member text.
-- **Deployed:** invite-only Cognito, mock auth refused on Lambda, a "Demo — synthetic data only"
-  banner, `noindex` everywhere, a daily purge, and the API key in Secrets Manager.
+- **Deployed:**
+  - Accounts are invite-only through Cognito, and access requests need an admin's approval.
+  - The admin group can only be granted from AWS.
+  - Mock auth is refused on Lambda.
+  - A "Demo — synthetic data only" banner and `noindex` appear on every page.
+  - Plans are purged daily and access requests expire after 7 days.
+  - The API key is kept in Secrets Manager.
 
 ## What it does NOT do
 
@@ -144,8 +161,9 @@ deployed draft took 2.7 s, and a cold start adds about 2 s.
 - It doesn't send anything to a member, and nothing goes to a member before the coach confirms it.
 - It doesn't interpret labs, DEXA or images. Image captions are treated as member-said text.
 - It doesn't learn from coach edits or progress loads over weeks. Longitudinal progression was cut.
-- It doesn't support more than one member per demo coach. A second, generated member exists
-  only to test scoping.
+- It doesn't give each reviewer their own data. Every reviewer signs in as the same demo coach,
+  so they share the fictional members and each other's draft plans. A member under a different
+  coach exists only to test scoping.
 
 ## How we used AI
 
@@ -190,6 +208,8 @@ BUSL or non-commercial licences.
   repo, which carries no licence.
 - **The SNOMED live check needs NCI EVS to be reachable.** It runs when alignments change and on a
   schedule, not on every push.
+- **Five of the six demo members are generated**, as is a seventh under another coach. Each
+  record says so in its `_note`, and the UI marks generated inputs.
 - **Login events are generated** (`fixtures/generated-login-events.json`) because the dataset has
   none. Churn says so in its reasons.
 - **`priority_tier` is the same for every exercise** in the dataset, so it doesn't rank anything.
@@ -206,6 +226,6 @@ BUSL or non-commercial licences.
 - **Cut for time:** the embedding pass of the resolver (exact and fuzzy cover the test cases), a
   graph visualization, Arize Phoenix tracing, a Neo4j adapter, and longitudinal progression.
 - **After grading:**
-  - Run `scripts/demo_users.py disable-all`.
+  - Turn off all reviewer accounts (Admin page, or `scripts/demo_users.py disable-all`).
   - Rotate the keys.
   - Run `scripts/cdk.sh destroy FuturePkgDemo`.

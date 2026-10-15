@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { type AuthConfig, loadConfig, setNewPassword, signIn } from "../auth";
+import { RequestAccess } from "./RequestAccess";
 
 /** Mock sign-in locally; invite-only Cognito accounts on the deployed demo. */
 export function Login({ onSignedIn }: { onSignedIn: () => void }) {
@@ -10,6 +11,7 @@ export function Login({ onSignedIn }: { onSignedIn: () => void }) {
   const [challenge, setChallenge] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [requesting, setRequesting] = useState(false);
 
   useEffect(() => {
     void loadConfig().then(setCfg);
@@ -42,6 +44,8 @@ export function Login({ onSignedIn }: { onSignedIn: () => void }) {
       setBusy(false);
     }
   };
+
+  if (requesting) return <RequestAccess onBack={() => setRequesting(false)} />;
 
   return (
     <main className="login">
@@ -116,6 +120,11 @@ export function Login({ onSignedIn }: { onSignedIn: () => void }) {
               : challenge
                 ? "Set password and sign in"
                 : "Sign in"}
+          </button>
+        )}
+        {cfg && !challenge && (
+          <button type="button" className="linkish" onClick={() => setRequesting(true)}>
+            Request a demo account
           </button>
         )}
         <p className="small muted" style={{ margin: 0 }}>

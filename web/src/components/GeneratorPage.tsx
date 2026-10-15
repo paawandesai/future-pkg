@@ -78,7 +78,7 @@ export function GeneratorPage({ member }: { member: MemberView }) {
             rows={4}
             maxLength={1000}
             value={prompt}
-            placeholder="Upper body today, her left knee is still bothering her. No deadlifts."
+            placeholder="Upper body today, left knee still a bit sore. No deadlifts."
             onChange={(e) => setPrompt(e.target.value)}
           />
         </div>
@@ -120,7 +120,7 @@ export function GeneratorPage({ member }: { member: MemberView }) {
                   <span className="small muted">
                     {i.id in cleared
                       ? `Entered by demo coach · ${cleared[i.id]}`
-                      : "Shallow knee work moves from excluded to down-ranked and flagged. Plyometrics and deep loaded knee flexion stay excluded. Chat messages never change this."}
+                      : "Low-impact exercises that load this region move from excluded to down-ranked and flagged. High-impact work and deep loaded knee bends stay excluded. Chat messages never change this."}
                   </span>
                 </span>
               </label>

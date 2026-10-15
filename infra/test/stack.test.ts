@@ -82,3 +82,17 @@ test("the site bucket is private", () => {
     },
   });
 });
+
+test("admin is a Cognito group, the API can manage reviewers only in its own pool", () => {
+  t.hasResourceProperties("AWS::Cognito::UserPoolGroup", { GroupName: "admin" });
+  const policies = JSON.stringify(t.findResources("AWS::IAM::Policy"));
+  assert.ok(policies.includes("cognito-idp:AdminCreateUser"));
+  assert.ok(!policies.includes("cognito-idp:AdminAddUserToGroup"), "the app must not be able to grant admin");
+  assert.ok(!policies.includes('"cognito-idp:*"'));
+});
+
+test("access requests expire", () => {
+  const tables = Object.values(t.findResources("AWS::DynamoDB::Table"));
+  assert.equal(tables.length, 2);
+  for (const tb of tables) assert.equal(tb.Properties.TimeToLiveSpecification.AttributeName, "expires_at");
+});

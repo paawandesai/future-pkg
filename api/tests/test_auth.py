@@ -52,7 +52,8 @@ def _members(client: TestClient, token: str | None) -> int:
 def test_valid_id_token_scopes_to_its_coach(cognito: TestClient) -> None:
     r = cognito.get("/api/members", headers={"Authorization": f"Bearer {_id_jwt()}"})
     assert r.status_code == 200
-    assert [m["id"] for m in r.json()] == ["mbr_01HX9JORDAN"]
+    ids = [m["id"] for m in r.json()]
+    assert "mbr_01HX9JORDAN" in ids and "mbr_01HXGEN0002" not in ids
     other = _id_jwt(**{"custom:coach_id": "coach_01HXOTHER"})
     r = cognito.get("/api/members", headers={"Authorization": f"Bearer {other}"})
     assert "mbr_01HX9JORDAN" not in [m["id"] for m in r.json()]
