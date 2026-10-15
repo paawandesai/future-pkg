@@ -30,7 +30,7 @@ conditions:
     regions: [lumbar_spine]
   - id: unspecified_pain
     label: Pain or injury, type not specified
-    alt_labels: [injury, sore, hurts, bothering, pain, tweaked]
+    alt_labels: []
     regions: []
 
 rules:
