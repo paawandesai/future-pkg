@@ -259,3 +259,28 @@ def test_time_field_wins_over_prompt_and_conflict_is_noted(world: World) -> None
     plan = _plan(_run(world, FakeLLM(_intent(minutes=20), _all_offered), "20 min upper body", minutes=45))
     assert plan["minutes_requested"] == 45
     assert any("mentions 20 minutes" in n for n in plan["trace"]["notes"])
+
+
+def test_falling_adherence_gives_a_lighter_main_block(world: World) -> None:
+    from datetime import date
+
+    from coachkg.generator.programming import journey_reason
+
+    prog = world.programming
+    assert journey_reason(prog, "2020-01-01", [100, 100, 75, 50], date(2026, 6, 8))
+    assert journey_reason(prog, "2020-01-01", [80, 85, 80, 75], date(2026, 6, 8)) is None
+    assert "joined 10 days ago" in (journey_reason(prog, "2026-05-29", [], date(2026, 6, 8)) or "")
+
+    plan = _plan(_run(world, FakeLLM(_intent(), _all_offered), "upper body", minutes=45))
+    jordan = next(iter(world.members.values()))
+    weekly = [w["pct"] for w in (jordan.adherence or {})["weekly_completion_pct"]]
+    assert weekly[0] - weekly[-1] >= 25  # Jordan's data: 100 -> 50
+    main = next(b for b in plan["blocks"] if b["name"] == "main")
+    assert main["items"] and all(i["sets"] <= 2 for i in main["items"])
+    assert any(n.startswith("Lighter main block") for n in plan["trace"]["notes"])
+
+
+def test_steady_member_keeps_default_sets(world: World) -> None:
+    llm = FakeLLM(_intent(focus=["upper body"]), _all_offered)
+    plan = _run_for(world, "mbr_01HXGEN0002", llm, "upper body", minutes=45)
+    assert not any(n.startswith("Lighter main block") for n in plan["trace"]["notes"])

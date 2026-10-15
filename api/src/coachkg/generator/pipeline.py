@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from coachkg.generator import alternatives as alt
 from coachkg.generator import assemble, intent, selection, trace
+from coachkg.generator.programming import journey_reason
 from coachkg.generator.scoring import Focus, Scored, score_candidates
 from coachkg.kg.graph import region_node
 from coachkg.llm import LLM, CallStats, LLMError
@@ -277,8 +278,18 @@ async def run(
         notes.append(
             f"The request mentions {it.minutes} minutes; the plan uses the {req.minutes} in the time field."
         )
-    budgets = assemble.block_budgets(minutes, world.programming)
-    pool = assemble.pools(scored, world.programming, POOL_SIZES)
+    prog = world.programming
+    weekly = [int(w["pct"]) for w in (member.adherence or {}).get("weekly_completion_pct", []) if "pct" in w]
+    lighter = journey_reason(prog, member.profile.get("member_since"), weekly, s.as_of_date)
+    if lighter and prog.journey:
+        notes.append(
+            f"Lighter main block ({prog.journey.main_sets} sets each): {lighter}. "
+            "Journey-stage rule in programming.yaml"
+            + ("." if world.programming.review.trusted else ", not yet signed.")
+        )
+        prog = prog.lighter()
+    budgets = assemble.block_budgets(minutes, prog)
+    pool = assemble.pools(scored, prog, POOL_SIZES)
     if focus and not any(x.focus_match for x in pool["main"]):
         notes.append(
             f"Nothing matching {', '.join(focus.labels)} passed the safety filter, "
@@ -288,7 +299,7 @@ async def run(
     # 6. Selection among safe candidates only.
     try:
         sel = await selection.select(
-            llm, s.llm_model_main, req.prompt, _member_summary(member), pool, budgets, world.programming
+            llm, s.llm_model_main, req.prompt, _member_summary(member), pool, budgets, prog
         )
     except LLMError:
         yield {"event": "error", "message": "Couldn't order the exercises. Try again."}
@@ -300,7 +311,7 @@ async def run(
     yield {"event": "stage", "stage": "selection", "ms": timer.mark("selection")}
 
     # Time budget is enforced after selection.
-    fitted = assemble.fit(sel.chosen, pool, budgets, world.programming)
+    fitted = assemble.fit(sel.chosen, pool, budgets, prog)
     by_id = {x.exercise.id: x for x in scored}
     blocks = []
     planned_s = 0

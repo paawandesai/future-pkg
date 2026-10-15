@@ -32,6 +32,16 @@ blocks:
     patterns: [mobility - static, yoga, regen, massage]
     dose: { sets: 1, reps: 6, work_s: 45, rest_s: 0 }
 
+# Journey stage: a lighter main block early in membership or while adherence is falling, so the
+# plan is easier to complete. Volume only (it never adds an exercise), so it applies while this
+# file is unsigned, and every plan it changes says so. Needs a reviewer's sign-off like the rest.
+journey:
+  new_member_days: 28         # member_since within this many days of the as-of date
+  falling_adherence:
+    weeks: 4                  # look at the most recent N weekly completion values
+    drop_points: 25           # latest week at least this many points below the first of them
+  main_sets: 2                # sets per main-block exercise when either applies
+
 # Movement patterns that count toward a training focus named in a request.
 focus_patterns:
   lower body: [lower push - squat, lower push - split squat, lower push - lunge, lower push - step-up,
