@@ -194,6 +194,31 @@ def build_movement_graph(catalog: list[Exercise], rules: RuleSet) -> NetworkXSto
                 )
             )
 
+    # Contraindications: contraindicated-for (exercise -> condition), materialised from the rules
+    # so the graph can answer "what is off-limits with this condition?" and the safety filter can
+    # cite the edge. Attribute-based hits carry the attributes' provenance too.
+    for n in store.nodes("exercise"):
+        d = store.node(n)
+        ex = d["exercise"]
+        for rule in rules.rules:
+            if not rule.hits(ex.movement_patterns, d.get("attributes")):
+                continue
+            by_pattern = bool(set(rule.when.patterns_any or []) & set(ex.movement_patterns))
+            store.add_edge(
+                Edge(
+                    n,
+                    f"condition:{rule.condition}",
+                    "contraindicated-for",
+                    contra_prov,
+                    "kg/rules/contraindications.yaml",
+                    {
+                        "rule": rule.id,
+                        "effect": rule.effect,
+                        "via": "movement pattern" if by_pattern else "exercise attributes",
+                    },
+                )
+            )
+
     # Equipment substitutes (ranking only).
     eq_prov = rules.equipment_review.attributed_to
     for s in rules.substitutes:

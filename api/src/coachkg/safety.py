@@ -280,18 +280,6 @@ class SafetyFilter:
         attrs = d.get("attributes")
         return attrs, attrs is not None and is_trusted(d.get("attributes_prov", "model"))
 
-    def _rule_hits(self, rule: ContraRule, ex: Exercise, attrs: Any) -> bool:
-        w = rule.when
-        if w.patterns_any and set(w.patterns_any) & set(ex.movement_patterns):
-            return True
-        if attrs is None:
-            return False
-        if w.loaded_knee_flexion and attrs.loaded_knee_flexion in w.loaded_knee_flexion:
-            return True
-        if w.impact and attrs.impact in w.impact:
-            return True
-        return bool(w.kneeling and attrs.kneeling)
-
     def _rule_usable(self, rule: ContraRule) -> bool:
         return self.rules.contra_review.trusted and rule.sourced
 
@@ -376,15 +364,15 @@ class SafetyFilter:
                         reasons.append(dec)
                 # Condition rules apply to every exercise (e.g. plyometrics with knee pain).
                 if r.condition:
-                    for rule in self.rules.rules:
-                        if f"condition:{rule.condition}" != r.condition or not self._rule_hits(
-                            rule, ex, attrs
-                        ):
+                    rules_by_id = {x.id: x for x in self.rules.rules}
+                    for ce in self.store.out_edges(node, "contraindicated-for"):
+                        if ce.dst != r.condition:
                             continue
+                        rule = rules_by_id[ce.attrs["rule"]]
                         outcome: Literal["excluded", "flagged"] = (
                             "excluded" if rule.effect == "exclude" else "flagged"
                         )
-                        dec = self._dec(ex, outcome, rule.paraphrase, rule.id, [])
+                        dec = self._dec(ex, outcome, rule.paraphrase, rule.id, [ce])
                         by_pattern = bool(set(rule.when.patterns_any or []) & set(ex.movement_patterns))
                         facts_trusted = (by_pattern and ex.origin == "dataset") or attrs_trusted
                         dec.trusted = self._rule_usable(rule) and facts_trusted

@@ -95,6 +95,19 @@ class ContraRule(BaseModel):
     def sourced(self) -> bool:
         return any(c.checked for c in self.citations)
 
+    def hits(self, patterns: list[str], attrs: Any) -> bool:
+        """Does an exercise with these movement patterns and attributes fall under this rule?"""
+        w = self.when
+        if w.patterns_any and set(w.patterns_any) & set(patterns):
+            return True
+        if attrs is None:
+            return False
+        if w.loaded_knee_flexion and attrs.loaded_knee_flexion in w.loaded_knee_flexion:
+            return True
+        if w.impact and attrs.impact in w.impact:
+            return True
+        return bool(w.kneeling and attrs.kneeling)
+
 
 class ExerciseAttributes(BaseModel):
     model_config = ConfigDict(extra="forbid")

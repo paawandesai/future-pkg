@@ -213,3 +213,18 @@ def test_trace_records_every_decision(catalog: list[Exercise], rules: RuleSet, j
     assert res.prov[0]["@type"] == "prov:Activity"
     assert kinds.count("decision") == len(res.decisions)
     assert kinds.count("restriction") == len(res.restrictions) == 1
+
+
+def test_condition_rules_are_graph_edges_and_cited_as_evidence(
+    catalog: list[Exercise], rules: RuleSet, jordan: Member
+) -> None:
+    f, _, store = _filter(catalog, rules)
+    edges = [e for e in store.all_edges() if e.kind == "contraindicated-for"]
+    assert edges
+    assert {e.attrs["rule"] for e in edges} <= {r.id for r in rules.rules}
+    assert all(e.dst.startswith("condition:") and e.src.startswith("ex:") for e in edges)
+    res = f.run(SafetyRequest(member=jordan))
+    by_rule = [d for d in res.decisions if d.rule]
+    assert by_rule, "Jordan's condition should trigger at least one rule"
+    for d in by_rule:
+        assert [ev["edge"] for ev in d.evidence] == ["contraindicated-for"]

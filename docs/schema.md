@@ -22,6 +22,7 @@
 | `variant-of` | exercise → family | is a variation of | `families.yaml` |
 | `is-a` | family → family | family hierarchy | `families.yaml` |
 | `affects` | condition → region | where a condition sits | `contraindications.yaml` |
+| `contraindicated-for` | exercise → condition (`rule`, `effect`, `via`) | excluded or flagged while the condition is active; materialised from each rule at build time, cited as the decision's evidence | `contraindications.yaml` |
 | `substitutes-for` | equipment → equipment (`patterns`) | can stand in for, for these patterns only | `equipment.yaml` |
 
 Every edge has `prov` (`dataset`, `model` or `human:<initials>`) and `source`. Readers that make
