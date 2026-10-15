@@ -37,7 +37,7 @@ export function dose(i: PlanItem): string {
 
 export function GeneratorPage({ member }: { member: MemberView }) {
   const [prompt, setPrompt] = useState("");
-  const [minutes, setMinutes] = useState<string>("");
+  const [minutes, setMinutes] = useState<string>(String(member.preferences.preferred_session_minutes ?? 45));
   const [cleared, setCleared] = useState<Record<string, string>>({});
   const [state, setState] = useState<State>({ kind: "idle" });
   const abort = useRef<AbortController | null>(null);
@@ -53,7 +53,7 @@ export function GeneratorPage({ member }: { member: MemberView }) {
         {
           member_id: member.id,
           prompt,
-          minutes: minutes ? Number(minutes) : null,
+          minutes: Number(minutes),
           cleared_low_impact: Object.keys(cleared),
           confirmed_regions: confirmedRegions,
         },
@@ -72,7 +72,7 @@ export function GeneratorPage({ member }: { member: MemberView }) {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (prompt.trim()) void run();
+    if (prompt.trim() && minutes) void run();
   };
 
   return (
@@ -92,7 +92,7 @@ export function GeneratorPage({ member }: { member: MemberView }) {
           />
         </div>
         <div className="field">
-          <label htmlFor="minutes">Time available (minutes, optional)</label>
+          <label htmlFor="minutes">Time available (minutes)</label>
           <input
             id="minutes"
             className="input"
@@ -100,10 +100,14 @@ export function GeneratorPage({ member }: { member: MemberView }) {
             type="number"
             min={10}
             max={120}
+            required
             value={minutes}
-            placeholder={`${member.preferences.preferred_session_minutes ?? 45} (preference)`}
+            aria-describedby="minutes-hint"
             onChange={(e) => setMinutes(e.target.value)}
           />
+          <div id="minutes-hint" className="xsmall muted">
+            Starts at the member&apos;s preferred session length. The plan fits inside it.
+          </div>
         </div>
         {activeInjuries.length > 0 && (
           <fieldset>

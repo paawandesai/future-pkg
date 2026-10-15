@@ -4,11 +4,13 @@ import type { ChartSpec, CongratsDraft, CopilotAnswer, MemberView } from "../typ
 import { Chart } from "./Chart";
 
 const QUICK: { label: string; chart?: string; question?: string }[] = [
-  { label: "Adherence, last 4 weeks", chart: "adherence" },
-  { label: "Sleep, last 7 nights", chart: "sleep" },
-  { label: "Message pattern", chart: "messages" },
-  { label: "Compare to the 4 weeks before", chart: "compare" },
-  { label: "What changed this week?", question: "What changed this week?" },
+  { label: "Show me the brief", question: "Show me the brief" },
+  { label: "How's adherence trending?", question: "How's adherence trending?" },
+  { label: "Sleep this week", question: "How has sleep been this week?" },
+  { label: "What changed since last week?", question: "What changed since last week?" },
+  { label: "Plot adherence trend", chart: "adherence" },
+  { label: "Show message pattern", chart: "messages" },
+  { label: "Compare last 4 weeks", chart: "compare" },
 ];
 
 const LAB_LABELS: Record<string, string> = {

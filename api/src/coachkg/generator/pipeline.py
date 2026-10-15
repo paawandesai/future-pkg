@@ -273,6 +273,10 @@ async def run(
     kept = {x.exercise.id for x in scored}
     alts = [a for a in alts if a.use.id in kept]
     minutes = req.minutes or it.minutes or int(member.preferences.get("preferred_session_minutes", 45))
+    if req.minutes and it.minutes and it.minutes != req.minutes:
+        notes.append(
+            f"The request mentions {it.minutes} minutes; the plan uses the {req.minutes} in the time field."
+        )
     budgets = assemble.block_budgets(minutes, world.programming)
     pool = assemble.pools(scored, world.programming, POOL_SIZES)
     if focus and not any(x.focus_match for x in pool["main"]):

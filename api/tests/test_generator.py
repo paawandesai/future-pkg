@@ -253,3 +253,9 @@ def test_items_split_reasons_and_carry_graph_path(world: World) -> None:
     for i in items:
         assert not any(w.startswith("member dislikes") for w in i["why"])
         assert all(isinstance(r, str) for r in i["counted_against"])
+
+
+def test_time_field_wins_over_prompt_and_conflict_is_noted(world: World) -> None:
+    plan = _plan(_run(world, FakeLLM(_intent(minutes=20), _all_offered), "20 min upper body", minutes=45))
+    assert plan["minutes_requested"] == 45
+    assert any("mentions 20 minutes" in n for n in plan["trace"]["notes"])
