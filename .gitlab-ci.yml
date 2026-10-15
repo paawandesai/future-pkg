@@ -1,0 +1,7 @@
+stages: [scan, test, audit]
+
+gitleaks:
+  stage: scan
+  image: { name: "zricethezav/gitleaks:v8.28.0", entrypoint: [""] }
+  script:
+    - gitleaks detect --source . --redact --verbose

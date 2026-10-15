@@ -1,0 +1,11 @@
+future-pkg: coach decision support prototype
+
+Third-party knowledge sources (referenced by identifier; see docs/alignment.md):
+
+- Uberon multi-species anatomy ontology, CC BY 3.0. http://uberon.org
+- NCI Thesaurus (NCIt), CC BY 4.0. National Cancer Institute.
+- SNOMED CT: identifiers only, no SNOMED content is distributed. See README.
+
+Input data (data/exercises.json, data/member-context.json) is fetched at build
+time from github.com/future-research/candidate-assessment and is not
+redistributed in this repository.

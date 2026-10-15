@@ -1,0 +1,13 @@
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.28.0
+    hooks:
+      - id: gitleaks
+  - repo: local
+    hooks:
+      - id: staged-secret-grep
+        name: staged diff secret grep
+        entry: scripts/check-staged-secrets.sh
+        language: script
+        pass_filenames: false
+        always_run: true
