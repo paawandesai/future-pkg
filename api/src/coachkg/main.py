@@ -126,7 +126,21 @@ def member_view(member_id: str, coach: Coach, world: WorldDep) -> dict[str, Any]
         "labs": data.get_labs(ctx),
         "chat": data.get_chat(ctx)["messages"],
         "churn": data.churn(ctx).model_dump(),
+        "review_mentions": _review_mentions(m, world),
     }
+
+
+def _review_mentions(m: Member, world: World) -> list[dict[str, Any]]:
+    """Member messages that mention a body region with an active injury. Shown to the coach as
+    something to review; they never change the restriction."""
+    g = world.member_graphs[m.id]
+    injured = {e.dst for i in m.injuries if i.active for e in g.out_edges(f"injury:{i.id}", "located-at")}
+    out = []
+    for e in g.all_edges():
+        if e.kind == "mentions" and e.prov == "member-said" and e.dst in injured:
+            msg = m.chat_history[int(e.src.split(":", 1)[1])]
+            out.append({"ts": msg.ts, "quote": msg.text, "region": g.node(e.dst).get("label")})
+    return out
 
 
 @app.get("/api/members/{member_id}/charts/{kind}")

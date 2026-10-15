@@ -333,7 +333,7 @@ def make_chart(ctx: MemberContext, metrics: list[str], chart_type: str = "line",
 
 
 def compare_4_weeks(ctx: MemberContext) -> ChartSpec:
-    metrics = ["sessions_completed", "minutes_trained", "logins", "member_messages"]
+    metrics = ["sessions_completed", "logins", "member_messages"]  # counts only, one scale
     rows = []
     for mt in metrics:
         vals = list(_weekly(ctx, mt, 8).values())
