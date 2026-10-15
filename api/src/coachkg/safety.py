@@ -154,6 +154,9 @@ class SafetyFilter:
             return m.resolution.concept if m.resolution.concept.startswith("region:") else None
         return None
 
+    def region_for_injury(self, joint: str | None, region_text: str) -> str | None:
+        return self._region_for_injury_record(joint, region_text)
+
     def _condition_regions(self, condition: str) -> list[str]:
         return [e.dst for e in self.store.out_edges(condition, "affects")]
 

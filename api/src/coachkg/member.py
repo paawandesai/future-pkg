@@ -48,6 +48,7 @@ class Member(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
+    note: str | None = Field(default=None, alias="_note")
     profile: dict[str, Any]
     goals: list[dict[str, Any]] = Field(default_factory=list)
     preferences: dict[str, Any] = Field(default_factory=dict)

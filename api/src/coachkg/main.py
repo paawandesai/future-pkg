@@ -11,11 +11,14 @@ from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 from coachkg.auth import current_coach
 from coachkg.config import REPO_ROOT
+from coachkg.copilot import agent, data
 from coachkg.generator.pipeline import GenerateRequest, run
-from coachkg.llm import LLM
+from coachkg.llm import LLM, LLMError
+from coachkg.member import Member
 from coachkg.plans import PlanStore, SqlitePlanStore
 from coachkg.world import World, get_world
 
@@ -89,3 +92,95 @@ def confirm_plan(plan_id: str, coach: Coach, plans: PlansDep) -> dict[str, Any]:
     if plan is None:
         raise HTTPException(status_code=404, detail="Plan not found")
     return {"id": plan["id"], "status": plan["status"], "confirmed_at": plan["confirmed_at"]}
+
+
+# ---------- member view and copilot (surface B) ----------
+
+
+def _member(member_id: str, coach: str, world: World) -> Member:
+    m = world.member_for_coach(member_id, coach)
+    if m is None:
+        raise HTTPException(status_code=404, detail="Member not found")
+    return m
+
+
+@app.get("/api/members/{member_id}")
+def member_view(member_id: str, coach: Coach, world: WorldDep) -> dict[str, Any]:
+    m = _member(member_id, coach, world)
+    ctx = world.context(m)
+    return {
+        "id": m.id,
+        "name": m.name,
+        "fictional": True,
+        "as_of": world.settings.as_of_date.isoformat(),
+        "generated_inputs": ctx.generated_inputs,
+        "profile": {k: m.profile.get(k) for k in ("age", "sex", "timezone", "member_since", "tier")},
+        "goals": m.goals,
+        "preferences": m.preferences,
+        "equipment_available": m.equipment_available,
+        "injuries": [i.model_dump() | {"active": i.active} for i in m.injuries],
+        "history": m.workout_history,
+        "brief": data.get_brief(ctx),
+        "adherence": data.get_adherence(ctx),
+        "sleep": data.get_sleep(ctx),
+        "labs": data.get_labs(ctx),
+        "chat": data.get_chat(ctx)["messages"],
+        "churn": data.churn(ctx).model_dump(),
+    }
+
+
+@app.get("/api/members/{member_id}/charts/{kind}")
+def quick_chart(member_id: str, kind: str, coach: Coach, world: WorldDep) -> dict[str, Any]:
+    """Quick-prompt charts: deterministic, no model call."""
+    m = _member(member_id, coach, world)
+    if kind not in data.QUICK_CHARTS:
+        raise HTTPException(status_code=404, detail="Unknown chart")
+    return data.QUICK_CHARTS[kind](world.context(m)).model_dump()
+
+
+class CopilotRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=1000)
+
+
+@app.post("/api/members/{member_id}/copilot")
+async def copilot(
+    member_id: str, req: CopilotRequest, coach: Coach, world: WorldDep, llm: LLMDep
+) -> dict[str, Any]:
+    m = _member(member_id, coach, world)
+    model = world.settings.llm_model_main
+    if not model:
+        raise HTTPException(status_code=503, detail="Model ids are not configured")
+    try:
+        ans = await agent.ask(llm, model, world.context(m), req.question)
+    except LLMError:
+        raise HTTPException(status_code=502, detail="The copilot couldn't answer. Try again.") from None
+    return {
+        "answer": ans.text,
+        "charts": [c.model_dump() for c in ans.charts],
+        "tools_used": ans.tools_used,
+        "disclosure": ans.disclosure,
+        "model_ms": ans.model_ms,
+    }
+
+
+@app.post("/api/members/{member_id}/congratulate")
+async def congratulate(member_id: str, coach: Coach, world: WorldDep, llm: LLMDep) -> dict[str, Any]:
+    """A draft for the coach. There is no endpoint or tool that sends it."""
+    m = _member(member_id, coach, world)
+    model = world.settings.llm_model_main
+    if not model:
+        raise HTTPException(status_code=503, detail="Model ids are not configured")
+    try:
+        return await agent.congratulation_draft(llm, model, world.context(m))
+    except LLMError:
+        raise HTTPException(status_code=502, detail="Couldn't draft the message. Try again.") from None
+
+
+@app.get("/api/members/{member_id}/graph")
+def member_graph(member_id: str, coach: Coach, world: WorldDep) -> dict[str, Any]:
+    m = _member(member_id, coach, world)
+    g = world.member_graphs[m.id]
+    return {
+        "nodes": [{"id": n, "kind": d.get("kind"), "label": d.get("label")} for n, d in g.g.nodes(data=True)],
+        "edges": [{"from": e.src, "to": e.dst, "kind": e.kind, "prov": e.prov} for e in g.all_edges()],
+    }

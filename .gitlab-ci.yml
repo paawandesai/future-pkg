@@ -34,7 +34,7 @@ default:
 # ---------- change sets ----------
 .py-changes: &py-changes
   changes:
-    paths: [api/**/*, kg/**/*, scripts/fetch_data.py, .gitlab-ci.yml]
+    paths: [api/**/*, kg/**/*, fixtures/**/*, scripts/fetch_data.py, .gitlab-ci.yml]
     compare_to: refs/heads/main
 .web-changes: &web-changes
   changes:

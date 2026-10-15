@@ -6,13 +6,17 @@ the filter runs on every request, per member.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+from dataclasses import dataclass, field
+from datetime import datetime
 from functools import lru_cache
 
 from coachkg.config import Settings, load_settings
+from coachkg.copilot.data import MemberContext
 from coachkg.data import Exercise, load_exercises
 from coachkg.generator.programming import Programming, load_programming
 from coachkg.kg.graph import NetworkXStore, build_movement_graph
+from coachkg.kg.member_graph import build_member_graph
 from coachkg.kg.rules import RuleSet, authored_alt_labels, load_rules
 from coachkg.member import Member, load_member
 from coachkg.resolver import Resolver
@@ -29,6 +33,9 @@ class World:
     safety: SafetyFilter
     programming: Programming
     members: dict[str, Member]
+    logins: dict[str, list[datetime]] = field(default_factory=dict)
+    member_graphs: dict[str, NetworkXStore] = field(default_factory=dict)
+    generated: dict[str, list[str]] = field(default_factory=dict)  # member id -> generated inputs
 
     def member_for_coach(self, member_id: str, coach_id: str) -> Member | None:
         """Scoping: a coach sees only their own members. Unknown and not-yours look the same."""
@@ -36,6 +43,14 @@ class World:
         if m is None or m.profile.get("coach_id") != coach_id:
             return None
         return m
+
+    def context(self, member: Member) -> MemberContext:
+        return MemberContext(
+            member,
+            self.logins.get(member.id, []),
+            self.settings.as_of_date,
+            self.generated.get(member.id, []),
+        )
 
 
 def build_world(settings: Settings) -> World:
@@ -49,16 +64,18 @@ def build_world(settings: Settings) -> World:
     ]:
         m = load_member(path, name)
         members[m.id] = m
-    return World(
-        settings,
-        catalog,
-        rules,
-        store,
-        resolver,
-        SafetyFilter(store, rules, resolver),
-        load_programming(settings.kg_dir),
-        members,
-    )
+    safety = SafetyFilter(store, rules, resolver)
+    w = World(settings, catalog, rules, store, resolver, safety, load_programming(settings.kg_dir), members)
+    login_file = settings.fixtures_dir / "generated-login-events.json"
+    if login_file.exists():
+        for ev in json.loads(login_file.read_text())["events"]:
+            w.logins.setdefault(ev["member_id"], []).append(datetime.fromisoformat(ev["ts"]))
+            w.generated.setdefault(ev["member_id"], ["login events"])
+    for mid, m in members.items():
+        w.member_graphs[mid] = build_member_graph(m, store, resolver, safety)
+        if m.note and "generated" in m.note.lower():
+            w.generated.setdefault(mid, []).insert(0, "the whole member record")
+    return w
 
 
 @lru_cache(maxsize=1)
