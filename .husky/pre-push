@@ -1,0 +1,6 @@
+# Typecheck + tests; target under 60 s. The full suites fit the budget today (measured in the MR).
+set -e
+base=$(git merge-base HEAD origin/main 2>/dev/null || echo "")
+pnpm --filter web -s typecheck
+if [ -n "$base" ]; then pnpm --filter web exec vitest run --changed "$base" --passWithNoTests; else pnpm --filter web -s test; fi
+(cd api && uv run --frozen -q mypy src tests && uv run --frozen -q pytest -n 2)

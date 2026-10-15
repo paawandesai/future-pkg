@@ -1,0 +1,13 @@
+{
+  "name": "future-pkg",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "9.1.7",
+    "license-checker-rseidelsohn": "5.0.1",
+    "lint-staged": "17.6.0"
+  }
+}
