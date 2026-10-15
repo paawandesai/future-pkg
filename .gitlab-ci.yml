@@ -1,7 +1,176 @@
-stages: [scan, test, audit]
+# Lean pipeline for a small shared runner (per job: 2 vCPU / 2 GB). Decisions and measurements: docs/ci.md.
 
+workflow:
+  auto_cancel:
+    on_new_commit: interruptible
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+stages: [check, build]
+
+variables:
+  GIT_DEPTH: "20"
+  HUSKY: "0"
+  FF_USE_FASTZIP: "true"
+  CACHE_COMPRESSION_LEVEL: "fast"
+  ARTIFACT_COMPRESSION_LEVEL: "fast"
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
+  UV_LINK_MODE: "copy"
+  UV_PYTHON_DOWNLOADS: "never"
+  PNPM_STORE_DIR: "$CI_PROJECT_DIR/.cache/pnpm"
+  NODE_OPTIONS: "--max-old-space-size=1536"
+
+default:
+  timeout: 15m
+  interruptible: true
+
+# Last line of every script: the job container's peak memory (cgroup v2), so the 2 GB budget is measured.
+.peak: &peak 'if [ -r /sys/fs/cgroup/memory.peak ]; then echo "peak_memory_mb=$(( $(cat /sys/fs/cgroup/memory.peak) / 1048576 ))"; fi'
+
+# ---------- change sets ----------
+.py-changes: &py-changes
+  changes:
+    paths: [api/**/*, kg/**/*, .gitlab-ci.yml]
+    compare_to: refs/heads/main
+.web-changes: &web-changes
+  changes:
+    paths: [web/**/*, package.json, pnpm-lock.yaml, pnpm-workspace.yaml, .gitlab-ci.yml]
+    compare_to: refs/heads/main
+
+# ---------- templates ----------
+# Dependencies: each job re-syncs from a lockfile-keyed cache instead of passing node_modules/.venv
+# as artifacts (measured: .venv 167 MB / node_modules 239 MB vs. warm re-sync 0.1 s / ~2 s).
+.py:
+  image: ghcr.io/astral-sh/uv:0.11.32-python3.12-trixie-slim
+  needs: []
+  cache:
+    key: { files: [api/uv.lock], prefix: uv }
+    paths: [.cache/uv]
+    policy: pull
+  before_script:
+    - cd api && uv sync --frozen -q
+  rules:
+    - *py-changes
+
+.web:
+  image: node:22.22.0-bookworm-slim
+  needs: []
+  cache:
+    key: { files: [pnpm-lock.yaml], prefix: pnpm }
+    paths: [.cache/pnpm]
+    policy: pull
+  before_script:
+    - corepack enable
+    - pnpm config set store-dir "$PNPM_STORE_DIR"
+    - pnpm install --frozen-lockfile --prefer-offline --reporter=silent
+  rules:
+    - *web-changes
+
+# ---------- always ----------
 gitleaks:
-  stage: scan
+  stage: check
   image: { name: "zricethezav/gitleaks:v8.28.0", entrypoint: [""] }
+  needs: []
   script:
-    - gitleaks detect --source . --redact --verbose
+    - gitleaks git . --redact --no-banner -v
+    - *peak
+
+# ---------- Python ----------
+py:lint:
+  extends: .py
+  stage: check
+  script:
+    - uv run --frozen ruff check .
+    - uv run --frozen ruff format --check .
+    - *peak
+
+py:typecheck:
+  extends: .py
+  stage: check
+  script:
+    - uv run --frozen mypy src tests
+    - *peak
+
+py:test:
+  extends: .py
+  stage: check
+  cache:
+    key: { files: [api/uv.lock], prefix: uv }
+    paths: [.cache/uv]
+    policy: pull-push
+  script:
+    - uv run --frozen pytest -n 2 --junitxml=report.xml
+    - *peak
+  artifacts:
+    when: always
+    reports: { junit: api/report.xml }
+    expire_in: 1 week
+
+py:licenses:
+  extends: .py
+  stage: check
+  rules:
+    - changes:
+        paths: [api/uv.lock, api/pyproject.toml, LICENSES.md, scripts/license_audit.py]
+        compare_to: refs/heads/main
+  script:
+    - cd .. && uv run --project api --frozen python scripts/license_audit.py --check python
+    - *peak
+
+# ---------- Web ----------
+web:lint:
+  extends: .web
+  stage: check
+  script:
+    - pnpm --filter web lint
+    - pnpm --filter web format:check
+    - *peak
+
+web:typecheck:
+  extends: .web
+  stage: check
+  script:
+    - pnpm --filter web typecheck
+    - *peak
+
+web:test:
+  extends: .web
+  stage: check
+  cache:
+    key: { files: [pnpm-lock.yaml], prefix: pnpm }
+    paths: [.cache/pnpm]
+    policy: pull-push
+  script:
+    - pnpm --filter web exec vitest run --maxWorkers=2 --reporter=default --reporter=junit --outputFile=report.xml
+    - *peak
+  artifacts:
+    when: always
+    reports: { junit: web/report.xml }
+    expire_in: 1 week
+
+web:build:
+  extends: .web
+  stage: build
+  needs: [web:typecheck]
+  script:
+    - pnpm --filter web build
+    - *peak
+  artifacts:
+    paths: [web/dist]
+    expire_in: 1 day
+
+web:licenses:
+  extends: .web
+  image: node:22.22.0-bookworm
+  stage: check
+  rules:
+    - changes:
+        paths: [pnpm-lock.yaml, package.json, web/package.json, LICENSES.md, scripts/license_audit.py]
+        compare_to: refs/heads/main
+  script:
+    - python3 scripts/license_audit.py --check node
+    - *peak
