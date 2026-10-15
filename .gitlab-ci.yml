@@ -122,6 +122,20 @@ py:licenses:
     - cd .. && uv run --project api --frozen python scripts/license_audit.py --check python
     - *peak
 
+# Live ontology checks: every SCTID resolves at NCI EVS with its pinned name, every Uberon IRI at
+# EBI OLS. Runs when alignments change and on the scheduled pipeline (EVS can change under us).
+kg:live:
+  extends: .py
+  stage: check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - changes:
+        paths: [kg/alignment/**/*, api/src/coachkg/alignment.py, api/tests/test_*_live.py]
+        compare_to: refs/heads/main
+  script:
+    - uv run --frozen pytest -m live -n 2 -p no:cacheprovider
+    - *peak
+
 # ---------- Web ----------
 web:lint:
   extends: .web
