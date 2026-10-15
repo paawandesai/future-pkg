@@ -1,0 +1,83 @@
+# Exercise families (variant-of) and family hierarchy (is-a), so "exclude deadlifts" removes every
+# deadlift variant. Members are exercise names from the catalog or kg/authored. Names from the
+# member's workout history that are not in the catalog are listed as alt_labels for resolution.
+review:
+  status: draft
+  drafted_by: model
+  reviewer: null
+  signed_on: null
+  basis: Movement-pattern groupings in common strength-and-conditioning usage (our taxonomy).
+
+families:
+  - id: hinge
+    label: Hip hinge
+    alt_labels: [hinge, hinges]
+  - id: deadlift
+    label: Deadlift
+    alt_labels: [deadlifts, dead lift, RDL, RDLs, romanian deadlift]
+    is_a: hinge
+    members: [Dumbbell Romanian Deadlift, Kettlebell Romanian Deadlift]
+  - id: hip_lift
+    label: Hip lift
+    alt_labels: [bridge, bridges, hip thrust, hip thrusts]
+    is_a: hinge
+    members: [Glute Bridge, Dumbbell Hip Thrust]
+  - id: hamstring_walkout
+    label: Hamstring walkout
+    is_a: hip_lift
+    members: [One-Kettlebell Hamstring Walkout, Med Ball Hamstring Walkout]
+  - id: squat_pattern
+    label: Squat pattern (knee-dominant)
+    alt_labels: [leg day lifts, knee dominant]
+  - id: squat
+    label: Squat
+    alt_labels: [squats, goblet squat]
+    is_a: squat_pattern
+    members: [Kettlebell Goblet Cyclist Squat, High-Box Goblet Squat (partial range)]
+  - id: split_squat
+    label: Split squat
+    alt_labels: [split squats, bulgarian split squat]
+    is_a: squat_pattern
+    members: [RNT Split Squat, Med Ball Split Squat, Dumbbell Goblet Split Squat]
+  - id: lunge
+    label: Lunge
+    alt_labels: [lunges]
+    is_a: squat_pattern
+    members: [Alternating Dumbbell Racked Crossback Lunge, Barbell Racked Forward Lunge]
+  - id: step_up
+    label: Step-up
+    alt_labels: [step ups, step-ups, step up]
+    is_a: squat_pattern
+    members: [Barbell Step Up to Knee-Drive]
+  - id: jump
+    label: Jumps and plyometrics
+    alt_labels: [jumping, jumps, plyos, plyometrics, burpees, burpee]
+    members: [Static Jump, Vertical Jump to Broad Jump, Jumping Jack, Jump Rope - Single-Leg, BOSU Step Over, Med Ball Scoop Toss]
+  - id: horizontal_press
+    label: Horizontal press
+    alt_labels: [bench press, bench, chest press, floor press]
+    members: [Barbell Decline Bench Press, Alternating Dumbbell Decline Bench Press, Dumbbell Neutral-Grip Bench Press]
+  - id: vertical_press
+    label: Overhead press
+    alt_labels: [overhead press, shoulder press, OHP]
+    members: [Alternating Dumbbell Overhead Press]
+  - id: vertical_pull
+    label: Vertical pull
+    alt_labels: [pull-ups, pull ups, chin-ups, pulldown]
+    members: [Isometric Pull-Up, Band-Assisted Chin-Up (From Foot), Machine - Single-Arm Lat Pull-Down]
+  - id: row
+    label: Row
+    alt_labels: [rows, rowing]
+    members: [Single-Arm Chest-Supported Incline Row, Machine - Chest-Supported Row]
+  - id: curl
+    label: Biceps curl
+    alt_labels: [curls, bicep curls]
+    members: [Wide-Grip Preacher Curl with EZ Bar, Resistance Band Reverse Curl, Single-Arm Dumbbell Preacher Curl]
+  - id: triceps_extension
+    label: Triceps extension
+    alt_labels: [tricep extensions, skull crushers]
+    members: [Bench-Lying Single-Arm Dumbbell Tricep Extension, Single-Arm Cable Tricep Extension, Suspension Tricep Press]
+  - id: plank
+    label: Plank
+    alt_labels: [planks]
+    members: [Alternating Low Plank To Low Side Plank, High Plank Bird Dog, Low Copenhagen Plank]

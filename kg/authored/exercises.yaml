@@ -1,0 +1,89 @@
+# Exercises we wrote ourselves, as structured fields only (no descriptions), so the deadlift,
+# hip-dominant and shallow-knee scenarios have real candidates. They are counted separately from
+# the 50 catalog rows and are never described as provided data. Joints and muscles follow the
+# catalog's own vocabulary. Same review rules as kg/rules: model-attributed until signed.
+review:
+  status: draft
+  drafted_by: model
+  reviewer: null
+  signed_on: null
+
+exercises:
+  - id: authored-db-romanian-deadlift
+    name: Dumbbell Romanian Deadlift
+    alt_labels: [DB RDL, dumbbell RDL]
+    muscle_groups: [hamstrings, glutes, lower back]
+    joints_loaded: [hip, lumbar spine]
+    movement_patterns: [lower pull - hip hinge]
+    equipment_required: [Dumbbell]
+    is_bilateral: false
+    side: null
+    is_reps: true
+    is_duration: false
+    supports_weight: true
+    estimated_rep_duration: 4.0
+  - id: authored-kb-romanian-deadlift
+    name: Kettlebell Romanian Deadlift
+    alt_labels: [KB RDL, KB Romanian Deadlift, kettlebell RDL]
+    muscle_groups: [hamstrings, glutes, lower back]
+    joints_loaded: [hip, lumbar spine]
+    movement_patterns: [lower pull - hip hinge]
+    equipment_required: [Kettlebell]
+    is_bilateral: false
+    side: null
+    is_reps: true
+    is_duration: false
+    supports_weight: true
+    estimated_rep_duration: 4.0
+  - id: authored-glute-bridge
+    name: Glute Bridge
+    alt_labels: [bridge, hip bridge]
+    muscle_groups: [glutes, hamstrings]
+    joints_loaded: [hip]
+    movement_patterns: [lower pull - hip lift]
+    equipment_required: [Yoga Mat]
+    is_bilateral: false
+    side: null
+    is_reps: true
+    is_duration: false
+    supports_weight: false
+    estimated_rep_duration: 3.0
+  - id: authored-db-hip-thrust
+    name: Dumbbell Hip Thrust
+    alt_labels: [hip thrust, DB hip thrust]
+    muscle_groups: [glutes, hamstrings]
+    joints_loaded: [hip]
+    movement_patterns: [lower pull - hip lift]
+    equipment_required: [Dumbbell, Flat Bench]
+    is_bilateral: false
+    side: null
+    is_reps: true
+    is_duration: false
+    supports_weight: true
+    estimated_rep_duration: 3.0
+  - id: authored-banded-lateral-walk
+    name: Banded Lateral Walk
+    alt_labels: [lateral band walk, monster walk]
+    muscle_groups: [glutes]
+    joints_loaded: [hip, knee]
+    movement_patterns: [lower - abduction]
+    equipment_required: [Resistance Band - Loop]
+    is_bilateral: false
+    side: null
+    is_reps: true
+    is_duration: true
+    supports_weight: false
+    estimated_rep_duration: 1.5
+  - id: authored-high-box-goblet-squat
+    name: High-Box Goblet Squat (partial range)
+    alt_labels: [box squat, goblet box squat, Goblet Squat (box-supported)]
+    muscle_groups: [quads, glutes]
+    joints_loaded: [hip, knee, ankle]
+    movement_patterns: [lower push - squat]
+    equipment_required: [Dumbbell, Flat Bench]
+    is_bilateral: false
+    side: null
+    is_reps: true
+    is_duration: false
+    supports_weight: true
+    estimated_rep_duration: 3.5

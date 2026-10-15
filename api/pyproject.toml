@@ -51,5 +51,6 @@ dev = [
     "pytest>=9.1.1",
     "pytest-xdist>=3.8.0",
     "ruff>=0.17.0",
+    "types-networkx>=3.6.1.20261006",
     "types-pyyaml>=6.0.12.20260906",
 ]

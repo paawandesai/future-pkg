@@ -1,3 +1,3 @@
 .PHONY: data
 data:
-	scripts/fetch_data.sh data
+	python3 scripts/fetch_data.py data

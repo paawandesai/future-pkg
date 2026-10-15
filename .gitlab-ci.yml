@@ -34,7 +34,7 @@ default:
 # ---------- change sets ----------
 .py-changes: &py-changes
   changes:
-    paths: [api/**/*, kg/**/*, .gitlab-ci.yml]
+    paths: [api/**/*, kg/**/*, scripts/fetch_data.py, .gitlab-ci.yml]
     compare_to: refs/heads/main
 .web-changes: &web-changes
   changes:
@@ -52,6 +52,7 @@ default:
     paths: [.cache/uv]
     policy: pull
   before_script:
+    - python scripts/fetch_data.py data
     - cd api && uv sync --frozen -q
   rules:
     - *py-changes

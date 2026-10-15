@@ -1,0 +1,31 @@
+# Body regions and their part-of tree. Laterality is carried separately (sided: true means the
+# region exists on the left and right). dataset_joint links a region to a value of
+# exercises.json `joints_loaded`. External IRIs live in kg/alignment/, not here.
+review:
+  status: draft            # draft | signed
+  drafted_by: model        # model-attributed until a human signs (see docs/rules.md)
+  reviewer: null           # initials of the signer, e.g. PD
+  signed_on: null
+  basis: >-
+    Standard gross anatomy (part-of only). Each region is aligned to Uberon in
+    kg/alignment/anatomy.yaml so the tree can be checked against an open ontology.
+
+regions:
+  - { id: body, label: Body }
+  - { id: lower_limb, label: Lower limb, alt_labels: [leg, legs, lower body], part_of: body, sided: true }
+  - { id: hip, label: Hip, alt_labels: [hip joint, hips], part_of: lower_limb, sided: true, dataset_joint: hip }
+  - { id: knee, label: Knee, alt_labels: [knee joint, knees], part_of: lower_limb, sided: true, dataset_joint: knee }
+  - { id: patellofemoral_joint, label: Patellofemoral joint, alt_labels: [kneecap joint, PFJ, front of the knee], part_of: knee, sided: true }
+  - { id: tibiofemoral_joint, label: Tibiofemoral joint, part_of: knee, sided: true }
+  - { id: patella, label: Patella, alt_labels: [kneecap], part_of: knee, sided: true }
+  - { id: meniscus, label: Meniscus, alt_labels: [menisci], part_of: knee, sided: true }
+  - { id: ankle, label: Ankle, alt_labels: [ankle joint, ankles], part_of: lower_limb, sided: true, dataset_joint: ankle }
+  - { id: upper_limb, label: Upper limb, alt_labels: [arm, arms, upper body], part_of: body, sided: true }
+  - { id: shoulder, label: Shoulder, alt_labels: [shoulder joint, shoulders], part_of: upper_limb, sided: true, dataset_joint: shoulder }
+  - { id: glenohumeral_joint, label: Glenohumeral joint, part_of: shoulder, sided: true }
+  - { id: elbow, label: Elbow, alt_labels: [elbow joint, elbows], part_of: upper_limb, sided: true, dataset_joint: elbow }
+  - { id: wrist, label: Wrist, alt_labels: [wrist joint, wrists], part_of: upper_limb, sided: true, dataset_joint: wrist }
+  - { id: spine, label: Spine, alt_labels: [back, vertebral column], part_of: body }
+  - { id: cervical_spine, label: Cervical spine, alt_labels: [neck], part_of: spine, dataset_joint: cervical spine }
+  - { id: thoracic_spine, label: Thoracic spine, alt_labels: [upper back, mid back], part_of: spine, dataset_joint: thoracic spine }
+  - { id: lumbar_spine, label: Lumbar spine, alt_labels: [lower back, low back, lumbar region], part_of: spine, dataset_joint: lumbar spine }

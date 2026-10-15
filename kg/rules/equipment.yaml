@@ -1,0 +1,19 @@
+# Equipment substitutions. A substitute is offered only for the listed patterns, because a
+# swap that works for a goblet hold may not work for a throw or a press.
+# Used for ranking and suggestions only, never for safety decisions.
+review:
+  status: draft
+  drafted_by: model
+  reviewer: null
+  signed_on: null
+  basis: Our judgment of load-holding equivalence; no external source.
+
+substitutes:
+  - { missing: Kettlebell, use: Dumbbell, patterns: [lower push - squat, lower push - split squat, lower pull - hip hinge, lower pull - hip lift, core - carry] }
+  - { missing: Dumbbell, use: Kettlebell, patterns: [lower push - squat, lower push - split squat, lower pull - hip hinge, core - carry] }
+  - { missing: Medicine Ball, use: Dumbbell, patterns: [lower push - split squat, lower pull - hip lift] }
+  - { missing: Sandbag, use: Kettlebell, patterns: [core - carry] }
+  - { missing: Miniband, use: Resistance Band - Loop, patterns: [lower - abduction, car] }
+  - { missing: Resistance Band - Loop, use: Miniband, patterns: [lower - abduction] }
+  - { missing: Box, use: Flat Bench, patterns: [lower push - step-up] }
+  - { missing: Adjustable Bench - Incline, use: Flat Bench, patterns: [upper pull - horizontal], caveat: changes the torso angle }

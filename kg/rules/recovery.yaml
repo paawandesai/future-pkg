@@ -1,0 +1,29 @@
+# Self-administered recovery a coach may program, and referral roles for licensed care.
+# Referral nodes carry no technique content and no "treats" edges.
+review:
+  status: draft
+  drafted_by: model
+  reviewer: null
+  signed_on: null
+
+modalities:
+  - id: foam_rolling
+    label: Foam rolling
+    note: Small short-term flexibility and soreness benefits; suited to warm-ups.
+    citations: [{ doi: 10.3389/fphys.2019.00376, short: Wiewelhove et al. 2019, Front Physiol 10, doi_checked: 2026-10-15 }]
+  - id: ball_smr
+    label: Ball self-myofascial release
+    alt_labels: [lacrosse ball, massage ball, self-massage]
+    note: The catalog tags one exercise "massage"; we treat it as self-myofascial release, not licensed massage.
+  - id: static_stretching
+    label: Static stretching
+    note: Long holds right before strength or power work can reduce performance; follow with a dynamic warm-up.
+    citations: [{ doi: 10.1139/apnm-2015-0235, short: Behm et al. 2016, Appl Physiol Nutr Metab 41(1):1-11, doi_checked: 2026-10-15 }]
+  - id: dynamic_stretching
+    label: Dynamic stretching
+
+referrals:
+  - { id: physical_therapist, label: Physical therapist }
+  - { id: physician, label: Physician }
+  - { id: massage_therapist, label: Licensed massage therapist }
+  - { id: chiropractor, label: Chiropractor }

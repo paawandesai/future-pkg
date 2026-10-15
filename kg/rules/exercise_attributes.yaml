@@ -1,0 +1,76 @@
+# Per-exercise attributes the dataset does not carry, used by the knee rules.
+#   loaded_knee_flexion: deepest knee bend while the knee bears body weight or external load
+#     none     knee not bearing load in flexion (or extended)
+#     shallow  up to about 45 degrees
+#     deep     beyond about 45 degrees
+#   impact: none | low (walking, stepping) | high (jumps, landings, bounding)
+#   extra_stresses: regions the dataset's joints_loaded omits (documented gaps)
+# Keyed by exercise name; the loader fails if a name is not in the catalog or kg/authored.
+review:
+  status: draft
+  drafted_by: model
+  reviewer: null
+  signed_on: null
+  basis: >-
+    Knee-angle bands follow the 0-45 degree range used in patellofemoral pain guidance
+    (Powers et al. 2014; Escamilla et al. 2022, see contraindications.yaml). Classification of
+    each exercise is a judgment from its name and movement pattern and needs a coach's review.
+
+exercises:
+  Barbell Decline Bench Press: { loaded_knee_flexion: none, impact: none }
+  Push-Up to Knee-Drive: { loaded_knee_flexion: none, impact: low }
+  Alternating Dumbbell Decline Bench Press: { loaded_knee_flexion: none, impact: none }
+  Dumbbell Incline Chest Fly: { loaded_knee_flexion: none, impact: none }
+  Dumbbell Neutral-Grip Bench Press: { loaded_knee_flexion: none, impact: none }
+  Isometric Pull-Up: { loaded_knee_flexion: none, impact: none }
+  Band-Assisted Chin-Up (From Foot): { loaded_knee_flexion: none, impact: none }
+  Machine - Single-Arm Lat Pull-Down: { loaded_knee_flexion: none, impact: none }
+  Kneeling Stability Ball Lat Stretch: { loaded_knee_flexion: none, impact: none, kneeling: true }
+  Med Ball Scoop Toss: { loaded_knee_flexion: deep, impact: high }
+  Alternating Dumbbell Overhead Press: { loaded_knee_flexion: none, impact: none }
+  Bodyweight Pike: { loaded_knee_flexion: none, impact: none }
+  Bench-Supported Incline YTI: { loaded_knee_flexion: none, impact: none }
+  Wide-Grip Preacher Curl with EZ Bar: { loaded_knee_flexion: none, impact: none }
+  Resistance Band Reverse Curl: { loaded_knee_flexion: none, impact: none }
+  Single-Arm Dumbbell Preacher Curl: { loaded_knee_flexion: none, impact: none }
+  Bench-Lying Single-Arm Dumbbell Tricep Extension: { loaded_knee_flexion: none, impact: none }
+  Single-Arm Cable Tricep Extension: { loaded_knee_flexion: none, impact: none }
+  Suspension Tricep Press: { loaded_knee_flexion: none, impact: none }
+  Kettlebell Goblet Cyclist Squat: { loaded_knee_flexion: deep, impact: none }
+  RNT Split Squat: { loaded_knee_flexion: deep, impact: none }
+  Static Jump: { loaded_knee_flexion: shallow, impact: high }
+  Med Ball Split Squat: { loaded_knee_flexion: deep, impact: none }
+  Dumbbell Goblet Split Squat: { loaded_knee_flexion: deep, impact: none }
+  One-Kettlebell Hamstring Walkout: { loaded_knee_flexion: shallow, impact: none }
+  World's Greatest Stretch: { loaded_knee_flexion: deep, impact: none }
+  Walking Toe Touches: { loaded_knee_flexion: none, impact: low, extra_stresses: [knee, ankle] }
+  Med Ball Hamstring Walkout: { loaded_knee_flexion: shallow, impact: none }
+  Alternating Dumbbell Racked Crossback Lunge: { loaded_knee_flexion: deep, impact: low }
+  Stair Climber: { loaded_knee_flexion: deep, impact: low }
+  Barbell Racked Forward Lunge: { loaded_knee_flexion: deep, impact: low }
+  Barbell Step Up to Knee-Drive: { loaded_knee_flexion: deep, impact: low }
+  Vertical Jump to Broad Jump: { loaded_knee_flexion: shallow, impact: high }
+  Alternating Low Plank To Low Side Plank: { loaded_knee_flexion: none, impact: none }
+  High Plank Bird Dog: { loaded_knee_flexion: none, impact: none }
+  Sandbag Zercher Carry: { loaded_knee_flexion: shallow, impact: low }
+  BOSU Step Over: { loaded_knee_flexion: shallow, impact: high }
+  Jumping Jack: { loaded_knee_flexion: shallow, impact: high, extra_stresses: [knee] }
+  Horizontal Leg Press Calf Raises: { loaded_knee_flexion: none, impact: none }
+  Jump Rope - Single-Leg: { loaded_knee_flexion: shallow, impact: high, extra_stresses: [knee] }
+  Lacrosse Ball Upper Back against Wall: { loaded_knee_flexion: none, impact: none }
+  Single-Arm Chest-Supported Incline Row: { loaded_knee_flexion: none, impact: none }
+  Machine - Chest-Supported Row: { loaded_knee_flexion: none, impact: none }
+  Low Copenhagen Plank: { loaded_knee_flexion: none, impact: none }
+  Anchored Band Rotational Lift: { loaded_knee_flexion: none, impact: none }
+  Cow Pose: { loaded_knee_flexion: none, impact: none, kneeling: true }
+  SkiErg: { loaded_knee_flexion: shallow, impact: low }
+  Ground Upper Trap Stretch: { loaded_knee_flexion: none, impact: none }
+  Standing Neck Circles: { loaded_knee_flexion: none, impact: none }
+  Standing Miniband Hip Flexion: { loaded_knee_flexion: shallow, impact: none }
+  # Authored exercises (kg/authored/exercises.yaml)
+  Dumbbell Romanian Deadlift: { loaded_knee_flexion: shallow, impact: none }
+  Kettlebell Romanian Deadlift: { loaded_knee_flexion: shallow, impact: none }
+  Glute Bridge: { loaded_knee_flexion: none, impact: none }
+  Dumbbell Hip Thrust: { loaded_knee_flexion: none, impact: none }
+  Banded Lateral Walk: { loaded_knee_flexion: shallow, impact: low }
+  High-Box Goblet Squat (partial range): { loaded_knee_flexion: shallow, impact: none }

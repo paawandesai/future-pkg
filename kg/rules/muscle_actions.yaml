@@ -1,0 +1,29 @@
+# Which joints each catalog muscle group acts on (primary actions only). Informational: used to
+# explain choices and balance a session, never to decide what is safe.
+review:
+  status: draft
+  drafted_by: model
+  reviewer: null
+  signed_on: null
+  basis: Standard functional anatomy, written by us (no open muscle-action dataset exists).
+
+muscles:
+  quads: { joints: [knee, hip], actions: [knee extension, hip flexion (rectus femoris)] }
+  hamstrings: { joints: [knee, hip], actions: [knee flexion, hip extension] }
+  glutes: { joints: [hip], actions: [hip extension, hip abduction, hip external rotation] }
+  hip adductors: { joints: [hip], actions: [hip adduction] }
+  hip flexors: { joints: [hip, lumbar spine], actions: [hip flexion] }
+  calves: { joints: [ankle, knee], actions: [ankle plantarflexion] }
+  chest: { joints: [shoulder], actions: [shoulder horizontal adduction, shoulder flexion] }
+  deltoids: { joints: [shoulder], actions: [shoulder abduction, shoulder flexion, shoulder extension] }
+  rotator cuff: { joints: [shoulder], actions: [shoulder rotation, humeral head stabilisation] }
+  lats: { joints: [shoulder], actions: [shoulder extension, shoulder adduction] }
+  traps: { joints: [shoulder, cervical spine], actions: [scapular elevation, retraction, depression] }
+  upper back: { joints: [shoulder, thoracic spine], actions: [scapular retraction] }
+  middle back: { joints: [shoulder, thoracic spine], actions: [scapular retraction] }
+  lower back: { joints: [lumbar spine], actions: [spinal extension] }
+  biceps: { joints: [elbow, shoulder], actions: [elbow flexion, forearm supination] }
+  triceps: { joints: [elbow, shoulder], actions: [elbow extension] }
+  forearms: { joints: [wrist, elbow], actions: [wrist flexion, wrist extension, grip] }
+  core: { joints: [lumbar spine, thoracic spine], actions: [trunk flexion, anti-extension] }
+  obliques: { joints: [lumbar spine, thoracic spine], actions: [trunk rotation, lateral flexion] }
