@@ -1,0 +1,19 @@
+# Generator scenarios. Checks are deterministic and run against the plan the API returns.
+- id: deadlift
+  prompt: Full body 40 min, no deadlifts.
+  expect: { plan: true, no_family: [family:deadlift] }
+- id: left-knee
+  prompt: 45 minutes, lower body. Her left knee is still a bit sore.
+  expect: { plan: true, no_region: [region:knee], no_pattern: [cardio - plyometric] }
+- id: no-barbell
+  prompt: 30 min upper body. She has no barbell and no bench this week.
+  expect: { plan: true, no_equipment: [Barbell, Flat Bench] }
+- id: no-dumbbells
+  prompt: Upper body, 30 minutes, she left her dumbbells at the office.
+  expect: { plan: true, no_equipment: [Dumbbell] }
+- id: no-match-focus
+  prompt: Explosive plyometric jump training, 30 minutes.
+  expect: { plan: true, no_pattern: [cardio - plyometric], note_contains: Nothing matching }
+- id: no-match-injury
+  prompt: Upper body today, her thingy is acting up again.
+  expect: { blocked: true }

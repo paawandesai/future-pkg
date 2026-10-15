@@ -45,4 +45,7 @@ focus_patterns:
   core: [core - anti-extension, core - anti-lateral flexion, core - anti-rotation, core - carry,
          core - extension, core - flexion, core - rotation]
   cardio: [cardio, cardio - locomotion, cardio - plyometric]
+  plyometric: [cardio - plyometric]
+  jump: [cardio - plyometric]
+  mobility: [mobility - dynamic, mobility - static, yoga, car]
   full body: []        # no constraint: the scorer balances patterns

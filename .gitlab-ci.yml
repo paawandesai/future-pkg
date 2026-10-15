@@ -136,6 +136,30 @@ kg:live:
     - uv run --frozen pytest -m live -n 2 -p no:cacheprovider
     - *peak
 
+# Live model evaluation (eval/): heavy lane, manual on MRs, every scheduled run.
+# Needs the masked CI variable ANTHROPIC_FUTURE_API_KEY; without it the job fails and says so.
+eval:live:
+  extends: .py
+  stage: check
+  tags: [heavy]
+  timeout: 15m
+  variables:
+    LLM_MODEL_FAST: claude-haiku-5-5
+    LLM_MODEL_MAIN: claude-opus-5-5
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+  script:
+    - test -n "$ANTHROPIC_FUTURE_API_KEY" || { echo "ANTHROPIC_FUTURE_API_KEY CI variable is not set"; exit 1; }
+    - uv run --frozen python ../eval/run_eval.py
+    - *peak
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths: [eval/results/]
+
 # ---------- Web ----------
 web:lint:
   extends: .web

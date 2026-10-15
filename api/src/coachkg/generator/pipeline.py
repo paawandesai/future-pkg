@@ -198,6 +198,9 @@ async def run(
         elif not hits:
             notes.append(f'Couldn\'t match "{r.text}" to equipment in the catalog.')
     focus, focus_rows = _focus(world, list(it.focus or []), hints)
+    for said, understood in focus_rows:
+        if understood is None:
+            notes.append(f"Couldn't match \"{said}\" to a training focus, so it didn't shape the plan.")
     read = trace.read_rows(mentions, excl, equip, focus_rows)
     yield {"event": "read", "rows": read}
 
