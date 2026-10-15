@@ -27,6 +27,9 @@ variables:
 default:
   timeout: 15m
   interruptible: true
+  # Report the job container's peak memory (cgroup v2) so the 2 GB budget is measured, not guessed.
+  after_script:
+    - 'if [ -r /sys/fs/cgroup/memory.peak ]; then echo "peak_memory_mb=$(( $(cat /sys/fs/cgroup/memory.peak) / 1048576 ))"; fi'
 
 # ---------- change sets ----------
 .py-changes: &py-changes
