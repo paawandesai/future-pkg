@@ -10,7 +10,7 @@ workflow:
     - if: $CI_COMMIT_BRANCH
     - if: $CI_PIPELINE_SOURCE == "schedule"
 
-stages: [check, build]
+stages: [check, build, deploy]
 
 variables:
   GIT_DEPTH: "20"
@@ -40,6 +40,10 @@ default:
   changes:
     paths: [web/**/*, package.json, pnpm-lock.yaml, pnpm-workspace.yaml, .gitlab-ci.yml]
     compare_to: refs/heads/main
+.infra-changes: &infra-changes
+  changes:
+    paths: [infra/**/*, pnpm-lock.yaml, scripts/package_lambda.sh, scripts/cdk.sh, .gitlab-ci.yml]
+    compare_to: refs/heads/main
 
 # ---------- templates ----------
 # Dependencies: each job re-syncs from a lockfile-keyed cache instead of passing node_modules/.venv
@@ -64,10 +68,12 @@ default:
     key: { files: [pnpm-lock.yaml], prefix: pnpm }
     paths: [.cache/pnpm]
     policy: pull
+  variables:
+    PNPM_FILTER: "--filter web..."
   before_script:
     - corepack enable
     - pnpm config set store-dir "$PNPM_STORE_DIR"
-    - pnpm install --frozen-lockfile --prefer-offline --reporter=silent
+    - pnpm install --frozen-lockfile --prefer-offline --reporter=silent $PNPM_FILTER
   rules:
     - *web-changes
 
@@ -206,10 +212,80 @@ web:licenses:
   extends: .web
   image: node:22.22.0-bookworm
   stage: check
+  variables:
+    PNPM_FILTER: ""
   rules:
     - changes:
-        paths: [pnpm-lock.yaml, package.json, web/package.json, LICENSES.md, scripts/license_audit.py]
+        paths: [pnpm-lock.yaml, package.json, web/package.json, infra/package.json, LICENSES.md, scripts/license_audit.py]
         compare_to: refs/heads/main
   script:
     - python3 scripts/license_audit.py --check node
+    - *peak
+
+# ---------- Infra (CDK) ----------
+# Guardrail tests on the synthesized template (Cognito auth, noindex, TTL + purge, no secrets).
+infra:check:
+  extends: .web
+  stage: check
+  variables:
+    PNPM_FILTER: "--filter infra"
+  rules:
+    - *infra-changes
+  script:
+    - pnpm --filter infra typecheck
+    - pnpm --filter infra test
+    - *peak
+
+# ---------- Deploy (main only; manual; protected variables) ----------
+# The AWS keys and ANTHROPIC_FUTURE_API_KEY are masked + protected CI variables, so they exist only
+# on the protected main branch. Account ids are masked in all CDK output (scripts/cdk.sh).
+deploy:package:
+  extends: .py
+  stage: build
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "schedule"
+  before_script:
+    - python scripts/fetch_data.py data
+  script:
+    - scripts/package_lambda.sh
+    - *peak
+  artifacts:
+    paths: [infra/build/lambda]
+    expire_in: 1 day
+
+deploy:production:
+  extends: .web
+  stage: deploy
+  tags: [heavy]
+  needs: [deploy:package]
+  resource_group: production
+  environment: { name: production }
+  interruptible: false
+  timeout: 30m
+  variables:
+    PNPM_FILTER: "--filter web... --filter infra"
+    LLM_MODEL_FAST: claude-haiku-5-5
+    LLM_MODEL_MAIN: claude-sonnet-5-5
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "schedule"
+      when: manual
+  script:
+    - test -n "$AWS_ACCESS_KEY_ID" || { echo "AWS CI variables are not set"; exit 1; }
+    - pnpm --filter web build
+    - scripts/cdk.sh deploy FuturePkgDemo --require-approval never
+    - *peak
+
+# Puts the API key into the stack's secret after each deploy (boto3 is fetched for this job only).
+deploy:secret:
+  extends: .py
+  stage: deploy
+  needs: [deploy:production]
+  resource_group: production
+  interruptible: false
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "schedule"
+  before_script: []
+  script:
+    - test -n "$ANTHROPIC_FUTURE_API_KEY" || { echo "ANTHROPIC_FUTURE_API_KEY CI variable is not set"; exit 1; }
+    - uv run --no-project -q --with boto3==1.43.105 python scripts/put_secret.py
     - *peak
