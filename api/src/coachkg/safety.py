@@ -257,7 +257,19 @@ class SafetyFilter:
                         ],
                     )
                 )
-        return out
+        # A request that repeats an injury already restricted adds nothing; keep one restriction.
+        kept: list[Restriction] = []
+        for r in out:
+            if r.origin == "request" and any(self._covers(k, r) for k in kept):
+                continue
+            kept.append(r)
+        return kept
+
+    @staticmethod
+    def _covers(a: Restriction, b: Restriction) -> bool:
+        side_ok = a.side in (None, "both") or a.side == b.side
+        cond_ok = b.condition is None or b.condition == a.condition
+        return b.regions <= a.regions and side_ok and cond_ok and a.confidence >= b.confidence
 
     # ---------- rule evaluation ----------
     def _attributes(self, ex_id: str) -> tuple[Any, bool]:

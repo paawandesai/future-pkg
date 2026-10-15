@@ -13,6 +13,7 @@ Everything Claude drafted starts as `model`-attributed and is ignored by the fil
 | `kg/rules/equipment.yaml` | Equipment substitutes | No, ranking only |
 | `kg/rules/muscle_actions.yaml` | Muscle group to joint actions | No, explanations only |
 | `kg/rules/recovery.yaml` | Self-administered recovery and referral roles | No |
+| `kg/rules/programming.yaml` | Default sets, reps, rest, tempo and warm-up/cool-down patterns | No, plan assembly only |
 
 ## Signing a file
 
@@ -39,8 +40,15 @@ without a checked source is skipped and the plan is marked "unverified".
 
 ## What happens while files are unsigned
 
-- Exercises whose joint loads come only from unsigned files (the authored exercises) are not
-  offered as candidates.
-- Injury regions that cannot be linked to a dataset joint through signed edges block drafting and
+Unsigned facts may make the filter stricter, never looser:
+
+- A fact from an unsigned file can exclude or flag an exercise (for example the extra knee load
+  on Jumping Jack). Each such use is listed under "unverified" in the plan, with the reason.
+- Allowing an exercise needs dataset facts or signed facts. Exercises whose joint loads come only
+  from unsigned files (the authored exercises) are not offered as candidates.
+- A coach's low-impact clearance relaxes knee loading only for exercises whose attributes come
+  from a signed file. Deep loaded knee flexion and high impact stay excluded even then.
+- Injury regions that cannot be linked to a dataset joint through trusted edges block drafting and
   ask the coach to confirm the region (fail closed).
-- Plans list every unsigned rule they would have used under "unverified".
+- Programming defaults (`programming.yaml`) are not safety facts. While unsigned, every plan says
+  its sets, reps and rest are model-drafted defaults for the coach to adjust.
