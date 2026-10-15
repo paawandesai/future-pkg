@@ -1,10 +1,10 @@
 # Self-administered recovery a coach may program, and referral roles for licensed care.
 # Referral nodes carry no technique content and no "treats" edges.
 review:
-  status: draft
+  status: signed
   drafted_by: model
-  reviewer: null
-  signed_on: null
+  reviewer: PD
+  signed_on: 2026-10-15
 
 modalities:
   - id: foam_rolling

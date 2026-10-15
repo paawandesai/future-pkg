@@ -3,10 +3,10 @@
 # the 50 catalog rows and are never described as provided data. Joints and muscles follow the
 # catalog's own vocabulary. Same review rules as kg/rules: model-attributed until signed.
 review:
-  status: draft
+  status: signed
   drafted_by: model
-  reviewer: null
-  signed_on: null
+  reviewer: PD
+  signed_on: 2026-10-15
 
 exercises:
   - id: authored-db-romanian-deadlift

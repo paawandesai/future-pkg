@@ -1,7 +1,8 @@
 """Safety filter (critical path 2).
 
-Several tests sign the rule files in memory (reviewer "TEST") to exercise the signed code path.
-That is a test double for Paawan's sign-off, not a signature: the files on disk are untouched.
+The rule files on disk are signed (PD, 2026-10-15). Tests that cover the unsigned path set the
+review blocks back to draft in memory, and some sign in memory (reviewer "TEST") so they hold
+whatever the files say; the files on disk are untouched.
 """
 
 from __future__ import annotations
@@ -22,8 +23,15 @@ from coachkg.safety import SafetyFilter, SafetyRequest
 SIGNED = Review(status="signed", drafted_by="model", reviewer="TEST", signed_on=date(2026, 10, 15))
 
 
+DRAFT = Review(status="draft", drafted_by="model")
+
+
 def _sign(rules: RuleSet, *fields: str) -> RuleSet:
     return rules.model_copy(update={f: SIGNED for f in fields})
+
+
+def _unsign(rules: RuleSet, *fields: str) -> RuleSet:
+    return rules.model_copy(update={f: DRAFT for f in fields})
 
 
 ALL = ("anatomy_review", "attributes_review", "contra_review", "families_review", "authored_review")
@@ -69,7 +77,7 @@ def test_candidates_need_only_owned_equipment(
 def test_unsigned_extra_stress_still_excludes_but_is_unverified(
     catalog: list[Exercise], rules: RuleSet, jordan: Member
 ) -> None:
-    f, _, _ = _filter(catalog, rules)
+    f, _, _ = _filter(catalog, _unsign(rules, *ALL))
     res = f.run(SafetyRequest(member=jordan))
     jj = [d for d in res.decisions if d.name == "Jumping Jack" and "knee" in d.reason]
     assert jj and jj[0].outcome == "excluded" and jj[0].trusted is False
@@ -79,7 +87,7 @@ def test_unsigned_extra_stress_still_excludes_but_is_unverified(
 def test_unsigned_authored_exercises_are_not_candidates(
     catalog: list[Exercise], rules: RuleSet, jordan: Member
 ) -> None:
-    f, _, _ = _filter(catalog, rules)
+    f, _, _ = _filter(catalog, _unsign(rules, *ALL))
     assert all(e.origin == "dataset" for e in f.run(SafetyRequest(member=jordan)).candidates)
 
 
@@ -106,7 +114,7 @@ def test_request_mention_fails_closed_when_unresolved(
 
 def test_region_without_signed_link_blocks(catalog: list[Exercise], rules: RuleSet, jordan: Member) -> None:
     # "leg" is not a dataset joint; with anatomy unsigned the filter can't tie it to knee/hip/ankle.
-    f, resolver, _ = _filter(catalog, rules)
+    f, resolver, _ = _filter(catalog, _unsign(rules, *ALL))
     res = f.run(SafetyRequest(member=jordan, injury_mentions=[resolver.parse_body_mention("her leg")]))
     assert res.blocked
 
@@ -137,7 +145,7 @@ def test_ambiguous_mention_restricts_every_candidate(
 
 def test_clearance_needs_signed_attributes(catalog: list[Exercise], rules: RuleSet, jordan: Member) -> None:
     clear = Clearance(injury_id="inj_knee_left", cleared_low_impact=True, by="coach", at="2026-06-04")
-    f, _, store = _filter(catalog, rules)
+    f, _, store = _filter(catalog, _unsign(rules, *ALL))
     res = f.run(SafetyRequest(member=jordan, clearances=[clear]))
     assert not [e.name for e in res.candidates if _knee_loading(store, e)]
     assert any("clearance needs signed" in d.reason for d in res.decisions)

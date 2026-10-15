@@ -1,10 +1,10 @@
 # Which joints each catalog muscle group acts on (primary actions only). Informational: used to
 # explain choices and balance a session, never to decide what is safe.
 review:
-  status: draft
+  status: signed
   drafted_by: model
-  reviewer: null
-  signed_on: null
+  reviewer: PD
+  signed_on: 2026-10-15
   basis: Standard functional anatomy, written by us (no open muscle-action dataset exists).
 
 muscles:

@@ -2,10 +2,10 @@
 # region exists on the left and right). dataset_joint links a region to a value of
 # exercises.json `joints_loaded`. External IRIs live in kg/alignment/, not here.
 review:
-  status: draft            # draft | signed
+  status: signed           # draft | signed
   drafted_by: model        # model-attributed until a human signs (see docs/rules.md)
-  reviewer: null           # initials of the signer, e.g. PD
-  signed_on: null
+  reviewer: PD             # initials of the signer
+  signed_on: 2026-10-15
   basis: >-
     Standard gross anatomy (part-of only). Each region is aligned to Uberon in
     kg/alignment/anatomy.yaml so the tree can be checked against an open ontology.

@@ -7,10 +7,10 @@
 #   extra_stresses: regions the dataset's joints_loaded omits (documented gaps)
 # Keyed by exercise name; the loader fails if a name is not in the catalog or kg/authored.
 review:
-  status: draft
+  status: signed
   drafted_by: model
-  reviewer: null
-  signed_on: null
+  reviewer: PD
+  signed_on: 2026-10-15
   basis: >-
     Knee-angle bands follow the 0-45 degree range used in patellofemoral pain guidance
     (Powers et al. 2014; Escamilla et al. 2022, see contraindications.yaml). Classification of

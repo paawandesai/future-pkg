@@ -6,10 +6,10 @@
 # checked (citation.doi_checked and citation.claim_checked, or a dataset field). Otherwise the
 # rule is ignored and plans are marked "unverified" (docs/rules.md).
 review:
-  status: draft
+  status: signed
   drafted_by: model
-  reviewer: null
-  signed_on: null
+  reviewer: PD
+  signed_on: 2026-10-15
 
 conditions:
   - id: patellofemoral_pain
