@@ -271,13 +271,26 @@ def test_falling_adherence_gives_a_lighter_main_block(world: World) -> None:
     assert journey_reason(prog, "2020-01-01", [80, 85, 80, 75], date(2026, 6, 8)) is None
     assert "joined 10 days ago" in (journey_reason(prog, "2026-05-29", [], date(2026, 6, 8)) or "")
 
-    plan = _plan(_run(world, FakeLLM(_intent(), _all_offered), "upper body", minutes=45))
     jordan = next(iter(world.members.values()))
     weekly = [w["pct"] for w in (jordan.adherence or {})["weekly_completion_pct"]]
     assert weekly[0] - weekly[-1] >= 25  # Jordan's data: 100 -> 50
+
+    plan = _plan(_run(world, FakeLLM(_intent(), _all_offered), "upper body", minutes=20))
     main = next(b for b in plan["blocks"] if b["name"] == "main")
     assert main["items"] and all(i["sets"] <= 2 for i in main["items"])
     assert any(n.startswith("Lighter main block") for n in plan["trace"]["notes"])
+
+
+def test_journey_rule_never_leaves_the_time_window_half_empty(world: World) -> None:
+    # Jordan's knee restriction leaves too few safe exercises to fill 45 minutes at 2 sets.
+    plan = _plan(_run(world, FakeLLM(_intent(), _all_offered), "upper body", minutes=45))
+    notes = plan["trace"]["notes"]
+    lighter = any(n.startswith("Lighter main block") for n in notes)
+    kept = any("Kept the default sets" in n for n in notes)
+    assert lighter != kept
+    if kept:
+        main = next(b for b in plan["blocks"] if b["name"] == "main")
+        assert any(i["sets"] == 3 for i in main["items"])
 
 
 def test_steady_member_keeps_default_sets(world: World) -> None:

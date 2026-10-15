@@ -95,6 +95,30 @@ def plan_checks(world: World, plan: dict[str, Any] | None, blocked: bool, exp: d
     return fails
 
 
+def trace_summary(plan: dict[str, Any]) -> dict[str, Any]:
+    """The parts of the provenance trace a reader checks: what was read, what was filtered and why,
+    the alternatives offered, the notes, and each item's reasons."""
+    t = plan["trace"]
+    return {
+        "read": [f"{r['said']} -> {r['understood_as']} ({r['status']}, {r['method']})" for r in t["read"]],
+        "restrictions": [
+            f"{', '.join(r['regions'])}{' (' + r['side'] + ')' if r['side'] else ''} from {r['from']}"
+            for r in t["restrictions"]
+        ],
+        "excluded": [
+            {"reason": g["reason"], "rule": g["rule"], "count": len(g["exercises"]), "trusted": g["trusted"]}
+            for g in t["excluded"]
+        ],
+        "alternatives": [f"{a['use']} instead of {a['instead_of']}" for a in t.get("alternatives", [])],
+        "notes": t["notes"],
+        "items": [
+            {"name": i["name"], "sets": i["sets"], "why": i["why"], "counted_against": i["counted_against"]}
+            for b in plan["blocks"]
+            for i in b["items"]
+        ],
+    }
+
+
 async def run_case(world: World, llm: RecordingLLM, case: dict[str, Any]) -> dict[str, Any]:
     exp = case["expect"]
     member = member_for(world, case)
@@ -116,6 +140,7 @@ async def run_case(world: World, llm: RecordingLLM, case: dict[str, Any]) -> dic
                 "minutes": plan["minutes_planned"],
                 "items": [i["name"] for b in plan["blocks"] for i in b["items"]],
                 "ms": plan["timings_ms"]["total"],
+                "trace": trace_summary(plan),
             }
             if plan
             else ("blocked" if blocked else None)
@@ -181,8 +206,49 @@ async def main() -> int:
     lines.append(f"\n{total - failed} of {total} passed. Full answers and plans: `eval/results/latest.json`.")
     (EVAL / "results" / "latest.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
+    render_traces()
     return 1 if failed else 0
 
 
+def render_traces() -> None:
+    """eval/results/traces.md: each drafted plan with its provenance and filtering trace."""
+    data = json.loads((EVAL / "results" / "latest.json").read_text())
+    prompts = {c["id"]: c["prompt"] for c in yaml.safe_load((EVAL / "scenarios" / "cases.yaml").read_text())}
+    out = [
+        "# Plans and their traces\n",
+        f"From the eval run of {data['run_at']} (`latest.json`). Member: the fictional Jordan.\n",
+    ]
+    for r in data["scenarios"]:
+        plan = r.get("plan")
+        out.append(f"## {r['id']}\n\n> {prompts.get(r['id'], '')}\n")
+        if not isinstance(plan, dict):
+            out.append("Blocked: the injury mention couldn't be resolved, so the coach was asked.\n")
+            continue
+        t = plan["trace"]
+        out.append(f"{len(plan['items'])} exercises, {plan['minutes']} min, {plan['ms']} ms.\n")
+        out.append("| Exercise | Sets | Chosen because | Counted against |\n|---|---|---|---|")
+        for i in t["items"]:
+            out.append(
+                f"| {i['name']} | {i['sets']} | {'; '.join(i['why']) or '-'} | "
+                f"{'; '.join(i['counted_against']) or '-'} |"
+            )
+        out.append("\n**Request read:** " + ("; ".join(t["read"]) or "nothing specific") + "\n")
+        out.append("**Restrictions:** " + ("; ".join(t["restrictions"]) or "none") + "\n")
+        out.append("**Filtered out before drafting:**\n")
+        for g in t["excluded"]:
+            rule = f" (rule `{g['rule']}`)" if g["rule"] else ""
+            flag = "" if g["trusted"] else " - unverified"
+            out.append(f"- {g['reason']}{rule}: {g['count']} exercises{flag}")
+        if t["alternatives"]:
+            out.append("\n**Equivalent alternatives:** " + "; ".join(t["alternatives"]))
+        if t["notes"]:
+            out.append("\n**Notes:**\n" + "\n".join(f"- {n}" for n in t["notes"]))
+        out.append("")
+    (EVAL / "results" / "traces.md").write_text("\n".join(out) + "\n")
+
+
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--render"]:
+        render_traces()
+        sys.exit(0)
     sys.exit(asyncio.run(main()))

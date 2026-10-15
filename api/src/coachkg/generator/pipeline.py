@@ -281,12 +281,7 @@ async def run(
     prog = world.programming
     weekly = [int(w["pct"]) for w in (member.adherence or {}).get("weekly_completion_pct", []) if "pct" in w]
     lighter = journey_reason(prog, member.profile.get("member_since"), weekly, s.as_of_date)
-    if lighter and prog.journey:
-        notes.append(
-            f"Lighter main block ({prog.journey.main_sets} sets each): {lighter}. "
-            "Journey-stage rule in programming.yaml"
-            + ("." if world.programming.review.trusted else ", not yet signed.")
-        )
+    if lighter:
         prog = prog.lighter()
     budgets = assemble.block_budgets(minutes, prog)
     pool = assemble.pools(scored, prog, POOL_SIZES)
@@ -312,6 +307,25 @@ async def run(
 
     # Time budget is enforced after selection.
     fitted = assemble.fit(sel.chosen, pool, budgets, prog)
+    if lighter and world.programming.journey:
+        # Fewer sets must not leave the coach's time window half empty: when the safe pool is too
+        # small to fill it at the lighter dose, keep the default sets instead and say so.
+        unsigned = "" if world.programming.review.trusted else ", not yet signed"
+        light_s = sum(i.seconds for b in fitted.values() for i in b)
+        full = assemble.fit(sel.chosen, pool, budgets, world.programming)
+        full_s = sum(i.seconds for b in full.values() for i in b)
+        if light_s < (minutes - 3) * 60 and full_s > light_s + 60:
+            fitted = full
+            notes.append(
+                f"Journey-stage rule (programming.yaml{unsigned}) suggests a lighter main block: "
+                f"{lighter}. Kept the default sets because the safe exercises available can't "
+                f"fill {minutes} minutes at {world.programming.journey.main_sets} sets."
+            )
+        else:
+            notes.append(
+                f"Lighter main block ({world.programming.journey.main_sets} sets each): {lighter}. "
+                f"Journey-stage rule in programming.yaml{unsigned}."
+            )
     by_id = {x.exercise.id: x for x in scored}
     blocks = []
     planned_s = 0

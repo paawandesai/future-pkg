@@ -40,67 +40,112 @@ make test               # API, web and infra test suites
 Sign-in is mocked locally ("Continue as demo coach"). Without an API key, everything except
 drafting and the copilot still works: the member view, charts, churn and the graph-backed filters.
 
-## Architecture
+## Architecture: one staged agentic workflow
+
+Drafting a plan is a fixed pipeline of agents and deterministic stages. Each agent has one job,
+a typed output and no way to touch the graph; every hand-off goes through code that checks it.
 
 ```mermaid
 flowchart LR
-  coach([Coach]) --> web[React SPA<br/>text-only rendering]
-  web -->|ID token| api[FastAPI]
-  subgraph api_box [API process]
-    api --> gen[Generator pipeline]
-    api --> cop[Copilot loop<br/>read-only tools]
-    gen --> res[Concept resolver<br/>exact + fuzzy]
-    gen --> safe[Safety filter<br/>deterministic, PROV trace]
-    safe --> kg1[(KG1 movement graph<br/>NetworkX)]
-    res --> kg1
-    gen --> kg2[(KG2 member graph)]
-    cop --> kg2
-    rules[[Signed rule files<br/>kg/rules]] --> kg1
+  coach([Coach request<br/>+ time window]) --> A1
+  subgraph wf [Generator workflow]
+    A1[Intent agent<br/>fast model, structured output] --> S1[Deterministic scan<br/>adds missed injuries and equipment]
+    S1 --> S2[Resolver<br/>exact SKOS labels, then fuzzy]
+    S2 --> S3[Safety filter<br/>graph walk over signed rules, PROV]
+    S3 --> S4[Scorer + alternatives<br/>focus, goals, journey stage, dislikes]
+    S4 -->|safe ids only| A2[Selection agent<br/>main model picks and orders ids]
+    A2 --> S5[Validator + assembler<br/>drops unknown ids, fits the time window]
   end
-  gen -->|intent, then pick ids| llm[Claude API]
-  cop --> llm
-  api --> store[(Plans: SQLite locally,<br/>DynamoDB with TTL on AWS)]
+  S5 --> plan([Draft plan + trace<br/>coach confirms])
+  kg1[(KG1 movement graph)] --- S2 & S3 & S4
+  kg2[(KG2 member graph)] --- S3 & S4
+  subgraph cp [Copilot]
+    A3[Copilot agent<br/>read-only tools, member fixed by server]
+  end
+  kg2 --- A3
 ```
 
-The generator runs these steps in order:
-1. A fast model extracts intent: focus, exclusions, injury mentions, missing equipment and minutes.
-2. A deterministic scan merges in anything the model missed.
-3. Each term resolves to a graph concept.
-4. The safety filter removes every exercise that loads a restricted region or uses missing
-   equipment, and keeps a PROV record of why.
-5. The safe candidates are scored. The main model only picks ids from the offered list, and any
-   other id is dropped.
-6. The plan is assembled to the time budget from `kg/rules/programming.yaml`.
+| Stage | Who | Can it change what is allowed? |
+|---|---|---|
+| Intent | Fast model | No. Its output is unioned with a deterministic scan, so it can only add restrictions. |
+| Resolve, safety filter | Code over the graph | Yes, and only from dataset facts and signed rule files. An unresolved injury blocks the draft. |
+| Score, alternatives | Code over the graph | No. Ranking only: focus, goals, journey stage, dislikes, equivalent alternatives for missing equipment. |
+| Selection | Main model | No. It sees only safe ids; any other id is dropped. |
+| Assemble | Code | No. Fits sets, reps and rest to the time window. |
+| Copilot | Main model with tools | No writes at all. Tools are read-only and scoped to the member on screen; there is no send tool. |
 
-An unresolved injury mention blocks the draft and asks the coach. The filter never falls back to
-"probably fine".
+**Why not more autonomous agents.** Agents that plan for themselves, call each other or write to
+the graph would each be another place where member text (chat, captions, notes) could steer a
+safety decision. The two model roles that remain are boxed in by code before and after them, which
+is what lets the trace say exactly why every exercise is in or out.
 
 ### Stack and why
 
 | Layer | Choice | Why |
 |---|---|---|
 | API | Python 3.12, FastAPI, Pydantic v2 | Typed contracts, and schema-validated model output |
-| Graph | NetworkX `MultiDiGraph` in-process, rdflib for JSON-LD/PROV export | About 50 exercises and 150 concepts fit in memory, and traversal takes microseconds. That keeps the latency budget without caching safety decisions. It is also one less server to run. |
+| Graph | NetworkX `MultiDiGraph` in-process; rdflib for the SKOS export (`kg/export/`) | About 50 exercises and 150 concepts fit in memory, and traversal takes microseconds. That keeps the latency budget without caching safety decisions. It is also one less server to run. |
 | Resolver | Exact SKOS labels, then `rapidfuzz` | Messy spellings and laterality are covered by tests. Low-confidence injury terms fail closed. |
 | LLM | Claude through the paid API. Model ids are configuration (`LLM_MODEL_FAST`, `LLM_MODEL_MAIN`). | Structured outputs only. Haiku 5.5 extracts intent and Sonnet 5.5 selects exercises (measured below). |
-| Orchestration | One hand-written loop per surface, two tool sets | Multi-agent was declined: there is no task here that a second agent makes safer. Each extra agent is another place untrusted member text can steer. |
+| Orchestration | The staged workflow above, hand-written; a tool loop for the copilot | See "Why not more autonomous agents". No agent framework: each stage is a typed function, which keeps the trace exact. |
 | Web | React 19, Vite, TanStack Query, Recharts | Auth and scoping stay in the API. Model output is rendered as text, never as HTML. |
 | Deploy | CDK: Cognito, Lambda (with the Web Adapter), CloudFront + S3, DynamoDB, Secrets Manager | About $1 a month at demo traffic. [docs/deploy.md](docs/deploy.md) explains why this replaced App Runner or Fargate. |
 | CI | GitLab CI with Husky hooks | [docs/ci.md](docs/ci.md) |
 
-## Example runs (real, from `eval/results/latest.json`)
+## Example runs (real, from `eval/results/`)
 
-These ran against the live API with Haiku 5.5 and Sonnet 5.5. The member is the fictional Jordan.
+These ran against the live API with Haiku 5.5 and Sonnet 5.5. The member is the fictional Jordan
+(left knee injury, patellofemoral pain, dislikes deadlifts, completion down from 100% to 50%).
+Every plan with its full trace, item by item, is in
+[eval/results/traces.md](eval/results/traces.md).
 
 | Coach request | Result |
 |---|---|
-| "45 minutes, lower body. Her left knee is still a bit sore." | 9 exercises, 35.0 min, 3.1 s. Lower-body work is Dumbbell Hip Thrust, Dumbbell Romanian Deadlift and Glute Bridge. No exercise loads the knee. The trace names the restriction and the plan notes why it is under 45 min. |
-| "30 min upper body. She has no barbell and no bench this week." | 7 exercises, 24.4 min, 2.0 s. Nothing needs a barbell or flat bench. |
-| "Full body 40 min, no deadlifts." | 8 exercises, 30.7 min, 2.4 s. Nothing from the deadlift family or its variants. |
+| "45 minutes, lower body. Her left knee is still a bit sore." | 9 exercises, 35.0 min, 3.5 s. Lower-body work is Dumbbell Hip Thrust and Glute Bridge. No exercise loads the knee, and both Romanian deadlifts are left out because Jordan dislikes them. |
+| "30 min upper body. She has no barbell and no bench this week." | 7 exercises, 24.4 min, 2.1 s. Nothing needs a barbell or a bench, and the trace offers six equivalent alternatives, such as Push-Up to Knee-Drive instead of Dumbbell Neutral-Grip Bench Press. |
+| "Full body 40 min, no deadlifts." | 8 exercises, 30.7 min, 5.0 s. Nothing from the deadlift family or its variants. |
 | "Upper body today, her thingy is acting up again." | Blocked. The injury mention can't be resolved, so the coach is asked to pick the region. |
 
+<details>
+<summary>Trace for "45 minutes, lower body. Her left knee is still a bit sore."</summary>
+
+> 45 minutes, lower body. Her left knee is still a bit sore.
+
+9 exercises, 35.0 min, 3474 ms.
+
+| Exercise | Sets | Chosen because | Counted against |
+|---|---|---|---|
+| Standing Neck Circles | 1 | - | - |
+| Dumbbell Hip Thrust | 3 | matches the requested focus; fits a priority-1 goal; uses equipment the member prefers | same pattern trained in the last two days |
+| Glute Bridge | 3 | matches the requested focus; fits a priority-1 goal | same pattern trained in the last two days |
+| Alternating Low Plank To Low Side Plank | 3 | - | - |
+| Alternating Dumbbell Overhead Press | 3 | uses equipment the member prefers | - |
+| Dumbbell Neutral-Grip Bench Press | 3 | uses equipment the member prefers | - |
+| Bodyweight Pike | 3 | - | - |
+| Bench-Lying Single-Arm Dumbbell Tricep Extension | 3 | uses equipment the member prefers | - |
+| Ground Upper Trap Stretch | 1 | - | - |
+
+**Request read:** knee -> Knee (left) (accepted, exact); lower body -> lower body (accepted, exact)
+
+**Restrictions:** region:knee (left) from member-record:inj_knee_left
+
+**Filtered out before drafting:**
+
+- Loads the left knee (member record): 26 exercises
+- Patellofemoral joint stress rises with knee flexion under load; keep loaded knee bends within roughly 0-45 degrees while symptoms are active. (rule `pfp-no-deep-loaded-knee-flexion`): 9 exercises
+- Exercises the catalog tags as plyometric are excluded while patellofemoral pain is active. (rule `pfp-no-plyometric-pattern`): 6 exercises
+- Needs equipment the member does not have: 29 exercises
+
+**Notes:**
+- Left out 2 exercise(s) the member says they dislike: Dumbbell Romanian Deadlift, Kettlebell Romanian Deadlift. Name one in the request to include it.
+- Journey-stage rule (programming.yaml, not yet signed) suggests a lighter main block: weekly completion fell from 100% to 50% over the last 4 weeks. Kept the default sets because the safe exercises available can't fill 45 minutes at 2 sets.
+- Planned 35 of 45 minutes: not enough safe exercises to fill the time.
+</details>
+
 Plans come in under the requested time because the warm-up and cool-down pools that pass the
-filter are small. The plan says so in its notes and does not pad with unsafe work.
+filter are small. The plan says so in its notes and does not pad with unsafe work. For the same
+reason the journey-stage rule keeps 3 sets for Jordan: at 2 sets the safe exercises can't fill the
+time, and the plan says that too.
 
 ## Evaluation
 
@@ -114,9 +159,11 @@ and regular expressions, never a model grading a model. Latest run: **11 of 11 p
 - a SNOMED code planted in a data field.
 
 The test suites hold the deterministic guarantees:
-- 99 API tests: resolver, safety filter, ingest, assembly, auth and scoping.
-- 9 web tests.
-- 6 infra tests on the synthesized template (Cognito auth, noindex, TTL and purge, no secrets).
+- 120 API tests: resolver, safety filter, graph edges, alternatives, ingest, assembly, auth,
+  access requests and scoping.
+- 58 live tests that check every SNOMED, Uberon and Wikidata identifier against its source.
+- 11 web tests.
+- 8 infra tests on the synthesized template (Cognito auth, noindex, TTL and purge, no secrets).
 
 **Production evaluation plan.**
 - Replay de-identified coach requests weekly through the scenarios harness.
@@ -160,7 +207,9 @@ deployed draft took 2.7 s, and a cold start adds about 2 s.
 - It doesn't diagnose, give medical advice, or say a workout is "safe".
 - It doesn't send anything to a member, and nothing goes to a member before the coach confirms it.
 - It doesn't interpret labs, DEXA or images. Image captions are treated as member-said text.
-- It doesn't learn from coach edits or progress loads over weeks. Longitudinal progression was cut.
+- It doesn't learn from coach edits or progress loads over weeks. The only longitudinal input is
+  the journey-stage rule: new members and members whose completion is falling get a lighter main
+  block, and the plan says why.
 - It doesn't give each reviewer their own data. Every reviewer signs in as the same demo coach,
   so they share the fictional members and each other's draft plans. A member under a different
   coach exists only to test scoping.
@@ -178,8 +227,8 @@ deployed draft took 2.7 s, and a cold start adds about 2 s.
   ([docs/design.md](docs/design.md)).
 - **At runtime**, Claude extracts intent, picks exercise ids from a pre-filtered list, and answers
   copilot questions with read-only tools. It writes no graph edges and makes no safety decisions.
-- **Verified by hand or by code:** the safety filter and its tests, the SNOMED and Uberon
-  identifiers (live-checked against NCI EVS and EBI OLS in CI), the eval checks, and the
+- **Verified by hand or by code:** the safety filter and its tests, the SNOMED, Uberon and
+  Wikidata identifiers (live-checked against NCI EVS, EBI OLS and Wikidata in CI), the eval checks, and the
   deployed guardrails. [AI_USAGE.md](AI_USAGE.md) lists every model-generated artifact and its
   review state.
 
@@ -219,12 +268,17 @@ BUSL or non-commercial licences.
   `programming.yaml`.
 - **Three rules are still unsourced** and show as "unverified" when they apply:
   `pfp-kneeling-flag`, `ankle-sprain-no-high-impact` and `rc-overhead-flag`.
-- **Single orchestrator per surface** (see Stack).
+- **Two model roles in a fixed workflow, not autonomous agents** (see Architecture).
 - **Mock auth locally, Cognito when deployed.** Mock auth is refused on Lambda.
 - **Lambda instead of App Runner or Fargate.** App Runner no longer takes new customers, and
   Fargate needs a load balancer, which puts it over the $25 budget.
 - **Cut for time:** the embedding pass of the resolver (exact and fuzzy cover the test cases), a
-  graph visualization, Arize Phoenix tracing, a Neo4j adapter, and longitudinal progression.
+  graph visualization, Arize Phoenix tracing, a Neo4j adapter, and load progression over weeks.
+- **Movement patterns have no external ontology match.** Muscles map to Uberon and equipment to
+  Wikidata ([docs/alignment.md](docs/alignment.md)); no openly licensed ontology covers training
+  movement patterns.
+- **`programming.yaml` is unsigned**, including the journey-stage rule. It sets volume, never
+  which exercises are allowed, and every plan says it is unsigned.
 - **After grading:**
   - Turn off all reviewer accounts (Admin page, or `scripts/demo_users.py disable-all`).
   - Rotate the keys.
