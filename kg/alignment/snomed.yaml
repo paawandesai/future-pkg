@@ -2,7 +2,7 @@
 # hierarchy are stored here. `evs_name_sha256` is a SHA-256 of the lower-cased, whitespace-
 # normalised concept name EVS returned when the code was pinned, so the live test can confirm
 # the code still means what we think without this repo carrying the description itself.
-# Re-pin with: python scripts/evs_pin.py   (tests/test_snomed_live.py checks every entry)
+# Re-pin with: cd api && uv run python -m coachkg.alignment pin   (tests/test_snomed_live.py checks every entry)
 system: http://snomed.info/sct
 iri_prefix: http://snomed.info/id/
 alignments:
