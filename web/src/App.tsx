@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "./api";
+import { onSessionExpired, setToken } from "./auth";
 import { CopilotPage } from "./components/CopilotPage";
 import { GeneratorPage } from "./components/GeneratorPage";
 import { Login } from "./components/Login";
@@ -34,7 +35,7 @@ function Workspace({ onSignOut }: { onSignOut: () => void }) {
           <span className="tag">Coach decision support</span>
         </div>
         <div className="row small muted">
-          <span>Signed in as demo coach</span>
+          <span>Signed in</span>
           <button type="button" className="linkish" onClick={onSignOut}>
             Sign out
           </button>
@@ -62,14 +63,22 @@ const queryClient = new QueryClient({
 
 export function App() {
   const [signedIn, setSignedIn] = useState(false);
+  useEffect(() => {
+    onSessionExpired(() => {
+      queryClient.clear();
+      setSignedIn(false);
+    });
+    return () => onSessionExpired(null);
+  }, []);
+  const signOut = () => {
+    setToken(null);
+    queryClient.clear();
+    setSignedIn(false);
+  };
   return (
     <QueryClientProvider client={queryClient}>
       <DemoBanner />
-      {signedIn ? (
-        <Workspace onSignOut={() => setSignedIn(false)} />
-      ) : (
-        <Login onSignedIn={() => setSignedIn(true)} />
-      )}
+      {signedIn ? <Workspace onSignOut={signOut} /> : <Login onSignedIn={() => setSignedIn(true)} />}
     </QueryClientProvider>
   );
 }

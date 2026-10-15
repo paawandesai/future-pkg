@@ -1,5 +1,5 @@
 import type { ChartSpec, CongratsDraft, CopilotAnswer, GenerateEvent, MemberView } from "./types";
-import { authHeaders } from "./auth";
+import { authHeaders, sessionExpired } from "./auth";
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -7,6 +7,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json", ...(await authHeaders()), ...(init?.headers ?? {}) },
   });
   if (!res.ok) {
+    if (res.status === 401) sessionExpired();
     let detail = `Request failed (${res.status})`;
     try {
       const body = (await res.json()) as { detail?: unknown };
@@ -56,6 +57,7 @@ export async function* generate(body: GenerateBody, signal?: AbortSignal): Async
     body: JSON.stringify(body),
     signal,
   });
+  if (res.status === 401) sessionExpired();
   if (!res.ok || !res.body) throw new Error(`Request failed (${res.status})`);
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
