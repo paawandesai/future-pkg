@@ -10,6 +10,7 @@ python3 that ships in the node:bookworm image).
 
 from __future__ import annotations
 
+import difflib
 import json
 import re
 import subprocess
@@ -83,6 +84,8 @@ def main() -> int:
         bad = [r for r in rows if FORBIDDEN.search(r[2]) and r[0] not in REVIEWED]
         if current != expected:
             print(f"LICENSES.md {which} section is stale: run python scripts/license_audit.py", file=sys.stderr)
+            diff = difflib.unified_diff(current.splitlines(), expected.splitlines(), "committed", "generated", lineterm="")
+            print("\n".join(list(diff)[:60]), file=sys.stderr)
         for n, v, lic in bad:
             print(f"forbidden license: {n} {v} ({lic})", file=sys.stderr)
         return 1 if current != expected or bad else 0
