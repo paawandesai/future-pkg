@@ -9,6 +9,7 @@ dependencies = [
     "httpx>=0.28.1",
     "networkx>=3.7",
     "pydantic>=2.14.1",
+    "pyjwt[crypto]>=2.10",
     "pyyaml>=6.0.3",
     "rapidfuzz>=3.14.6",
     "rdflib>=7.6.0",

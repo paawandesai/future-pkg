@@ -21,7 +21,7 @@ from coachkg.generator.selection import Selection, validate
 from coachkg.llm import CallStats
 from coachkg.main import app, get_llm, get_plans
 from coachkg.plans import SqlitePlanStore
-from coachkg.world import World, build_world
+from coachkg.world import World, build_world, get_world
 
 
 class FakeLLM:
@@ -175,6 +175,7 @@ def test_api_scopes_members_and_confirms_plans(world: World, tmp_path: Path) -> 
     store = SqlitePlanStore(tmp_path / "plans.sqlite3")
     app.dependency_overrides[get_plans] = lambda: store
     app.dependency_overrides[get_llm] = lambda: FakeLLM(_intent(), _all_offered)
+    app.dependency_overrides[get_world] = lambda: world
     try:
         client = TestClient(app)
         assert client.post("/api/generate", json={"member_id": "mbr_other", "prompt": "x"}).status_code == 404

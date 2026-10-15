@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
-from collections.abc import AsyncIterator
+import time
+from collections.abc import AsyncIterator, Awaitable, Callable
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -19,16 +21,39 @@ from coachkg.copilot import agent, data
 from coachkg.generator.pipeline import GenerateRequest, run
 from coachkg.llm import LLM, LLMError
 from coachkg.member import Member
-from coachkg.plans import PlanStore, SqlitePlanStore
+from coachkg.plans import DynamoPlanStore, PlanStore, SqlitePlanStore
 from coachkg.world import World, get_world
 
 app = FastAPI(title="coachkg", docs_url=None, redoc_url=None, openapi_url=None)
+access_log = logging.getLogger("coachkg.access")
+if not access_log.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(message)s"))
+    access_log.addHandler(_handler)
+    access_log.setLevel(logging.INFO)
+    access_log.propagate = False
+
+
+@app.middleware("http")
+async def log_and_tag(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+    """One line per request: method, route template, status, milliseconds. No bodies, no query strings."""
+    t0 = time.perf_counter()
+    response = await call_next(request)
+    route = request.scope.get("route")
+    path = getattr(route, "path", "unmatched")
+    ms = round((time.perf_counter() - t0) * 1000)
+    access_log.info("%s %s %s %dms", request.method, path, response.status_code, ms)
+    response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
+
 
 Coach = Annotated[str, Depends(current_coach)]
 
 
 @lru_cache(maxsize=1)
 def get_plans() -> PlanStore:
+    if table := os.environ.get("PLAN_TABLE"):
+        return DynamoPlanStore.from_env(table)
     return SqlitePlanStore(Path(os.environ.get("PLAN_DB", REPO_ROOT / ".cache" / "plans.sqlite3")))
 
 

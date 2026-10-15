@@ -1,18 +1,19 @@
 """Thin wrapper over the Anthropic SDK: structured output only, no free text reaches the UI.
 
-The key is read from ANTHROPIC_FUTURE_API_KEY and never logged. Prompts and outputs are never
+The key comes from config.anthropic_api_key() and is never logged. Prompts and outputs are never
 logged either; only model id, latency and token counts are kept for the trace.
 """
 
 from __future__ import annotations
 
-import os
 import time
 from dataclasses import dataclass
 from typing import Any, Literal, TypeVar
 
 import anthropic
 from pydantic import BaseModel
+
+from coachkg.config import anthropic_api_key
 
 T = TypeVar("T", bound=BaseModel)
 Effort = Literal["low", "medium", "high"]
@@ -39,7 +40,7 @@ class CallStats:
 class LLM:
     def __init__(self, client: anthropic.AsyncAnthropic | None = None, timeout_s: float = 30.0) -> None:
         if client is None:
-            key = os.environ.get("ANTHROPIC_FUTURE_API_KEY")
+            key = anthropic_api_key()
             if not key:
                 raise LLMError("ANTHROPIC_FUTURE_API_KEY is not set")
             client = anthropic.AsyncAnthropic(api_key=key, timeout=timeout_s, max_retries=1)

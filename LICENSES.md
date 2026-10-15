@@ -14,6 +14,7 @@ CI fails if this file is stale or if a GPL/AGPL/SSPL/BUSL/non-commercial license
 
 | Package | Version | License |
 |---|---|---|
+| PyJWT | 2.15.1 | MIT |
 | PyYAML | 6.0.3 | MIT License |
 | Pygments | 2.21.0 | BSD-2-Clause |
 | RapidFuzz | 3.14.6 | MIT |
@@ -23,7 +24,9 @@ CI fails if this file is stale or if a GPL/AGPL/SSPL/BUSL/non-commercial license
 | anyio | 4.15.1 | MIT |
 | ast_serialize | 0.13.0 | MIT |
 | certifi | 2026.7.22 | Mozilla Public License 2.0 (MPL 2.0) |
+| cffi | 2.1.1 | MIT-0 |
 | click | 8.5.0 | BSD-3-Clause |
+| cryptography | 50.0.2 | Apache-2.0 OR BSD-3-Clause |
 | docstring_parser | 0.18.0 | MIT License |
 | execnet | 2.1.2 | MIT |
 | fastapi | 0.143.0 | MIT |
@@ -44,6 +47,7 @@ CI fails if this file is stale or if a GPL/AGPL/SSPL/BUSL/non-commercial license
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause |
 | pathspec | 1.1.1 | Mozilla Public License 2.0 (MPL 2.0) |
 | pluggy | 1.6.0 | MIT License |
+| pycparser | 3.11 | BSD-3-Clause |
 | pydantic | 2.14.1 | MIT |
 | pydantic_core | 2.50.1 | MIT |
 | pyparsing | 3.3.3 | MIT |

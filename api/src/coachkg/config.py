@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from datetime import date
+from functools import lru_cache
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -22,7 +23,8 @@ class Settings:
 
     @property
     def llm_configured(self) -> bool:
-        return bool(os.environ.get("ANTHROPIC_FUTURE_API_KEY")) and bool(self.llm_model_main)
+        has_key = os.environ.get("ANTHROPIC_FUTURE_API_KEY") or os.environ.get("ANTHROPIC_SECRET_ID")
+        return bool(has_key) and bool(self.llm_model_main)
 
 
 def load_settings() -> Settings:
@@ -35,3 +37,24 @@ def load_settings() -> Settings:
         llm_model_fast=os.environ.get("LLM_MODEL_FAST") or None,
         llm_model_main=os.environ.get("LLM_MODEL_MAIN") or None,
     )
+
+
+def anthropic_api_key() -> str | None:
+    """The key from the environment locally, or from Secrets Manager when deployed.
+
+    The deployed function gets only the secret's id (ANTHROPIC_SECRET_ID); the value never
+    appears in IaC, stack outputs or the function's configuration.
+    """
+    key = os.environ.get("ANTHROPIC_FUTURE_API_KEY")
+    if key:
+        return key
+    secret_id = os.environ.get("ANTHROPIC_SECRET_ID")
+    return _secret_value(secret_id) if secret_id else None
+
+
+@lru_cache(maxsize=4)
+def _secret_value(secret_id: str) -> str:
+    import boto3  # type: ignore[import-not-found]  # provided by the Lambda runtime; not a local dependency
+
+    value: str = boto3.client("secretsmanager").get_secret_value(SecretId=secret_id)["SecretString"]
+    return value
