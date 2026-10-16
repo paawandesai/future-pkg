@@ -4,6 +4,7 @@ import type {
   Alternative,
   Blocker,
   ExcludedGroup,
+  GraphEdge,
   MemberView,
   Plan,
   PlanBlock,
@@ -423,8 +424,35 @@ function node(id: string): string {
   return id.replace(/^ex:.*/, "this exercise").replace(/^[a-z]+:/, "");
 }
 
+const PATH_GROUPS: [string, string[]][] = [
+  ["Focus", ["focus"]],
+  ["Equipment", ["equipment", "member-owns"]],
+  ["Regions", ["region-clear", "region-cleared"]],
+  ["Block", ["block"]],
+];
+
+function edgeText(e: GraphEdge): string {
+  const src = e.src.startsWith("member:") ? "member" : node(e.src);
+  const note =
+    e.role === "region-clear" ? " (not restricted)" : e.role === "region-cleared" ? " (coach-cleared)" : "";
+  return `${src} ${e.kind} ${node(e.dst)}${note}`;
+}
+
+function pathGroups(path: GraphEdge[]): [string, string][] {
+  const out: [string, string][] = [];
+  const seen = new Set<GraphEdge>();
+  for (const [label, roles] of PATH_GROUPS) {
+    const edges = path.filter((e) => e.role && roles.includes(e.role));
+    edges.forEach((e) => seen.add(e));
+    if (edges.length) out.push([label, edges.map(edgeText).join(" · ")]);
+  }
+  const rest = path.filter((e) => !seen.has(e));
+  if (rest.length) out.push(["Graph", rest.map(edgeText).join(" · ")]);
+  return out;
+}
+
 function ItemReasons({ item }: { item: PlanItem }) {
-  if (!item.why.length && !item.counted_against.length) return null;
+  if (!item.why.length && !item.counted_against.length && !item.path.length) return null;
   return (
     <details className="reasons">
       <summary className="xsmall">Why</summary>
@@ -441,8 +469,12 @@ function ItemReasons({ item }: { item: PlanItem }) {
         </div>
       )}
       {item.path.length > 0 && (
-        <div className="xsmall muted">
-          Graph: {item.path.map((e) => `${node(e.src)} ${e.kind} ${node(e.dst)}`).join(" · ")}
+        <div className="xsmall muted" aria-label="Graph path">
+          {pathGroups(item.path).map(([label, text]) => (
+            <div key={label}>
+              {label}: {text}
+            </div>
+          ))}
         </div>
       )}
     </details>
@@ -544,7 +576,9 @@ function TraceCard({ plan }: { plan: Plan }) {
   const excludedCount = new Set(t.excluded.flatMap((g) => g.exercises)).size;
   const picked = plan.blocks.reduce((n, b) => n + b.items.length, 0);
   const download = () => {
-    const doc = { "@context": { prov: "http://www.w3.org/ns/prov#" }, "@graph": t.prov };
+    // The server builds the full JSON-LD (context, @ids, one activity per stage). Older stored
+    // plans only have the safety filter's records, wrapped here as before.
+    const doc = t.jsonld ?? { "@context": { prov: "http://www.w3.org/ns/prov#" }, "@graph": t.prov ?? [] };
     const url = URL.createObjectURL(
       new Blob([JSON.stringify(doc, null, 2)], { type: "application/ld+json" }),
     );

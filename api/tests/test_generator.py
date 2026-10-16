@@ -268,7 +268,9 @@ def test_items_split_reasons_and_carry_graph_path(world: World) -> None:
     focused = [i for i in items if "matches the requested focus" in i["why"]]
     assert focused
     for i in focused:
-        assert i["path"] and all(e["src"] == f"ex:{i['exercise_id']}" for e in i["path"])
+        member = next(iter(world.members.values()))
+        assert any(e["role"] == "focus" for e in i["path"])
+        assert all(e["src"] in (f"ex:{i['exercise_id']}", f"member:{member.id}") for e in i["path"])
     for i in items:
         assert not any(w.startswith("member dislikes") for w in i["why"])
         assert all(isinstance(r, str) for r in i["counted_against"])

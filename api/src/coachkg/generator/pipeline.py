@@ -18,8 +18,8 @@ from pydantic import BaseModel, Field
 
 from coachkg.generator import alternatives as alt
 from coachkg.generator import assemble, intent, selection, trace
-from coachkg.generator.programming import journey_reason
-from coachkg.generator.scoring import Focus, Scored, score_candidates
+from coachkg.generator.programming import Programming, journey_reason
+from coachkg.generator.scoring import Focus, Scored, block_path, score_candidates
 from coachkg.kg.graph import region_node
 from coachkg.llm import LLM, CallStats, LLMError, failure_message
 from coachkg.member import Clearance, Member
@@ -131,8 +131,9 @@ def _member_summary(m: Member) -> dict[str, Any]:
     }
 
 
-def _item_json(it: assemble.Item, flags: list[str], sc: Scored) -> dict[str, Any]:
+def _item_json(it: assemble.Item, flags: list[str], sc: Scored, prog: Programming) -> dict[str, Any]:
     ex = it.exercise
+    placed, block_edges = block_path(sc, it.block, prog, it.picked_by)
     return {
         "exercise_id": ex.id,
         "name": ex.name,
@@ -149,9 +150,9 @@ def _item_json(it: assemble.Item, flags: list[str], sc: Scored) -> dict[str, Any
         "patterns": ex.movement_patterns,
         "picked_by": it.picked_by,
         "flags": flags,
-        "why": sc.why,
+        "why": [*sc.why, placed],
         "counted_against": sc.against,
-        "path": sc.path,
+        "path": [*sc.path, *block_edges],
     }
 
 
@@ -367,6 +368,7 @@ async def run(
                         i,
                         [d.reason for d in safety.flags_for(i.exercise.id)],
                         by_id[i.exercise.id],
+                        prog,
                     )
                     for i in items
                 ],
@@ -408,8 +410,8 @@ async def run(
                 }
                 for c in calls
             ],
-            "prov": safety.prov,
         },
         "timings_ms": {**timer.marks, "total": timer.mark("total")},
     }
+    plan["trace"]["jsonld"] = trace.prov_document(plan, safety, world.rules, calls)
     yield {"event": "plan", "plan": plan}

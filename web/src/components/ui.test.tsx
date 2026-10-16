@@ -66,9 +66,17 @@ const plan: Plan = {
           equipment: ["Dumbbell"],
           picked_by: "selection",
           flags: [],
-          why: [],
+          why: [
+            "uses only equipment the member has (Dumbbell)",
+            "picked for the main block by the selection step",
+          ],
           counted_against: [],
-          path: [],
+          path: [
+            { src: "ex:E1", kind: "requires", dst: "equipment:dumbbell", role: "equipment" },
+            { src: "member:mbr_1", kind: "has-equipment", dst: "equipment:dumbbell", role: "member-owns" },
+            { src: "ex:E1", kind: "stresses", dst: "region:shoulder", role: "region-clear" },
+            { src: "ex:E1", kind: "has-pattern", dst: "pattern:upper push - horizontal", role: "block" },
+          ],
         },
       ],
     },
@@ -83,7 +91,7 @@ const plan: Plan = {
     unverified: ["Kneeling flag has no checked source"],
     notes: [],
     model_calls: [{ purpose: "selection", model: "claude-test", ms: 1 }],
-    prov: [],
+    jsonld: { "@context": { prov: "http://www.w3.org/ns/prov#" }, "@graph": [] },
   },
   timings_ms: { total: 2500 },
 };
@@ -130,6 +138,15 @@ describe("GeneratorPage", () => {
     expect(await screen.findByText("Dumbbell Neutral-Grip Bench Press")).toBeTruthy();
     expect(screen.getByText("Draft")).toBeTruthy();
     expect(screen.getByText(/Unverified:/)).toBeTruthy();
+    expect(screen.getByText("Chosen because:", { exact: false }).parentElement?.textContent).toContain(
+      "uses only equipment the member has (Dumbbell)",
+    );
+    const path = screen.getByLabelText("Graph path");
+    expect(path.textContent).toContain(
+      "Equipment: this exercise requires dumbbell · member has-equipment dumbbell",
+    );
+    expect(path.textContent).toContain("Regions: this exercise stresses shoulder (not restricted)");
+    expect(path.textContent).toContain("Block: this exercise has-pattern upper push - horizontal");
     fireEvent.click(screen.getByRole("button", { name: "Confirm plan" }));
     await waitFor(() => expect(screen.getByText("Confirmed by demo coach")).toBeTruthy());
     expect(fetchMock).toHaveBeenLastCalledWith(

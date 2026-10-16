@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from coachkg.data import Exercise
+from coachkg.generator.programming import Programming
 from coachkg.kg.graph import NetworkXStore, ex_node
 from coachkg.member import Member
 from coachkg.resolver import Resolver, normalise
@@ -30,7 +31,10 @@ class Scored:
     why: list[str]  # reasons it ranked up
     focus_match: bool
     against: list[str] = field(default_factory=list)  # reasons it ranked down
-    path: list[dict[str, str]] = field(default_factory=list)  # graph edges behind `why`
+    # Graph edges behind `why`. Each edge has src, kind, dst and a `role`: focus, equipment,
+    # member-owns, region-clear, region-cleared or block. Every candidate gets the equipment and
+    # region edges; focus edges only on a focus match; block edges once the plan places it.
+    path: list[dict[str, str]] = field(default_factory=list)
     disliked: str | None = None  # the member's dislike it matches, unless the coach asked for it
 
 
@@ -47,6 +51,84 @@ def _families(store: NetworkXStore, ex: Exercise) -> set[str]:
 
 def _muscles(store: NetworkXStore, ex: Exercise) -> set[str]:
     return {e.dst for e in store.out_edges(ex_node(ex.id), "targets")}
+
+
+def _edge(src: str, kind: str, dst: str, role: str) -> dict[str, str]:
+    return {"src": src, "kind": kind, "dst": dst, "role": role}
+
+
+def _pattern_node(p: str) -> str:
+    return f"pattern:{p.strip().lower()}"
+
+
+def eligibility_path(
+    store: NetworkXStore, member: Member, ex: Exercise, safety: SafetyResult
+) -> tuple[list[str], list[dict[str, str]]]:
+    """Why a candidate was eligible at all, as positive graph paths: what it requires and that the
+    member has it, and which regions it stresses and why none of them stopped it. These restate
+    what the safety filter already decided; they never add or remove a safety decision."""
+    node = ex_node(ex.id)
+    member_node = f"member:{member.id}"
+    why: list[str] = []
+    path: list[dict[str, str]] = []
+    needs = store.out_edges(node, "requires")
+    for e in needs:
+        path.append(_edge(node, "requires", e.dst, "equipment"))
+        path.append(_edge(member_node, "has-equipment", e.dst, "member-owns"))
+    if needs:
+        labels = ", ".join(sorted(str(store.node(e.dst)["label"]) for e in needs))
+        why.append(f"uses only equipment the member has ({labels})")
+    else:
+        why.append("needs no equipment")
+    cleared = {
+        (ev["from"], ev["to"])
+        for d in safety.flags_for(ex.id)
+        if d.outcome == "downranked"
+        for ev in d.evidence
+        if ev["edge"] == "stresses"
+    }
+    stressed: list[str] = []
+    for e in store.out_edges(node, "stresses"):
+        role = "region-cleared" if (e.src, e.dst) in cleared else "region-clear"
+        path.append(_edge(node, "stresses", e.dst, role))
+        if role == "region-clear":
+            stressed.append(str(store.node(e.dst)["label"]).lower())
+    if cleared:
+        why.append("loads a restricted region only within the coach's low-impact clearance")
+    if stressed:
+        names = sorted(set(stressed))
+        regions = ", ".join(names)
+        if not safety.restrictions:
+            why.append(f"loads {regions}; no restriction applies")
+        elif len(names) == 1:
+            why.append(f"loads {regions}, which is not restricted")
+        else:
+            why.append(f"loads {regions}, none of them restricted")
+    return why, path
+
+
+def block_path(sc: Scored, block: str, prog: Programming, picked_by: str) -> tuple[str, list[dict[str, str]]]:
+    """Which plan stage placed the exercise, with the movement-pattern edges it was placed by.
+    Warm-up and cool-down come from the block patterns in kg/rules/programming.yaml."""
+    node = ex_node(sc.exercise.id)
+    pats = list(sc.exercise.movement_patterns)
+    if block in ("warmup", "cooldown"):
+        listed = set(getattr(prog.blocks, block).patterns)
+        hit = [p for p in pats if p in listed] or pats
+        name = "warm-up" if block == "warmup" else "cool-down"
+        line = (
+            f"{hit[0]} is a {name} pattern in programming.yaml"
+            if len(hit) == 1
+            else f"{', '.join(hit)} are {name} patterns in programming.yaml"
+        )
+    else:
+        hit = pats
+        line = (
+            "picked for the main block by the selection step"
+            if picked_by == "selection"
+            else "added to the main block to fill the time window"
+        )
+    return line, [_edge(node, "has-pattern", _pattern_node(p), "block") for p in hit]
 
 
 def _goal_patterns(member: Member, focus_patterns: dict[str, list[str]]) -> set[str]:
@@ -111,11 +193,11 @@ def score_candidates(
         match = False
         if focus:
             for p in sorted(pats & focus.patterns):
-                path.append({"src": node, "kind": "has-pattern", "dst": f"pattern:{p.strip().lower()}"})
+                path.append(_edge(node, "has-pattern", _pattern_node(p), "focus"))
             for m in sorted(muscles & focus.muscles):
-                path.append({"src": node, "kind": "targets", "dst": m})
+                path.append(_edge(node, "targets", m, "focus"))
             for f in sorted(fams & focus.families):
-                path.append({"src": node, "kind": "variant-of", "dst": f})
+                path.append(_edge(node, "variant-of", f, "focus"))
             match = bool(path)
         if match:
             s += 3
@@ -139,6 +221,9 @@ def score_candidates(
         for d in safety.flags_for(ex.id):
             s -= 2 if d.outcome == "downranked" else 0.5
             against.append(d.reason)
+        fit_why, fit_path = eligibility_path(store, member, ex, safety)
+        why += fit_why
+        path += fit_path
         out.append(Scored(ex, s, why, match, against, path, hit if hit and not asked_for else None))
     out.sort(key=lambda x: (-x.score, x.exercise.name))
     return out

@@ -73,6 +73,8 @@ export interface GraphEdge {
   src: string;
   kind: string;
   dst: string;
+  /** focus | equipment | member-owns | region-clear | region-cleared | block (absent on older plans) */
+  role?: string;
 }
 
 export interface Alternative {
@@ -137,7 +139,10 @@ export interface Plan {
     unverified: string[];
     notes: string[];
     model_calls: { purpose: string; model: string; ms: number }[];
-    prov: Record<string, unknown>[];
+    /** PROV-O JSON-LD for the whole run, built server-side (docs/provenance.md). */
+    jsonld?: Record<string, unknown>;
+    /** Older plans: the safety filter's PROV records only. */
+    prov?: Record<string, unknown>[];
   };
   timings_ms: Record<string, number>;
 }
