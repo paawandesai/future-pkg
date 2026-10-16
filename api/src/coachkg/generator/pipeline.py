@@ -6,6 +6,7 @@ deterministic and runs per request. A plan is always a draft until the coach con
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -25,6 +26,8 @@ from coachkg.member import Clearance, Member
 from coachkg.resolver import Resolution, normalise
 from coachkg.safety import SafetyRequest, Side
 from coachkg.world import World
+
+log = logging.getLogger("coachkg.llm")
 
 POOL_SIZES: dict[assemble.BlockName, int] = {"warmup": 5, "main": 14, "cooldown": 5}
 
@@ -166,7 +169,9 @@ async def run(
     # 1. Read the request.
     try:
         it, stats = await intent.extract_intent(llm, s.llm_model_fast, req.prompt)
-    except LLMError:
+    except LLMError as exc:
+        # The message is the call's purpose and the API error class only, never request text.
+        log.warning("llm call failed: %s", exc)
         yield {"event": "error", "message": "Couldn't read the request. Try again."}
         return
     calls.append(stats)

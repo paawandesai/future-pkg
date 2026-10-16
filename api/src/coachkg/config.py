@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 from datetime import date
@@ -56,5 +57,18 @@ def anthropic_api_key() -> str | None:
 def _secret_value(secret_id: str) -> str:
     import boto3  # type: ignore[import-not-found]  # provided by the Lambda runtime; not a local dependency
 
-    value: str = boto3.client("secretsmanager").get_secret_value(SecretId=secret_id)["SecretString"]
-    return value
+    return clean_secret(boto3.client("secretsmanager").get_secret_value(SecretId=secret_id)["SecretString"])
+
+
+def clean_secret(raw: str) -> str:
+    """The bare key, whether the secret was saved as plain text (maybe with a stray newline or
+    quotes) or in the console's key/value form, which stores a one-entry JSON object."""
+    value = raw.strip()
+    if value.startswith("{"):
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            return value
+        if isinstance(parsed, dict) and len(parsed) == 1:
+            value = str(next(iter(parsed.values()))).strip()
+    return value.strip("\"'")
