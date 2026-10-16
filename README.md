@@ -344,8 +344,10 @@ file a person signs, and only the last one changes what the safety filter exclud
   compare them. Images in chat are captions only; the model never sees image content.
 - **`estimated_rep_duration` has no documented unit**, so plan timing uses the tempo in
   `programming.yaml`.
-- **Three rules are still unsourced** and show as "unverified" when they apply:
-  `pfp-kneeling-flag`, `ankle-sprain-no-high-impact` and `rc-overhead-flag`.
+- **Every contraindication rule now has a checked source.** The last three
+  (`pfp-kneeling-flag`, `ankle-sprain-no-high-impact`, `rc-overhead-flag`) were sourced on
+  2026-10-16 from open-access papers. The two JOSPT guidelines they also cite are paywalled, so
+  their DOIs are checked but their claims are not.
 - **Two model roles in a fixed workflow, not autonomous agents** (see Architecture).
 - **Mock auth locally, Cognito when deployed.** Mock auth is refused on Lambda.
 - **Lambda instead of App Runner or Fargate.** App Runner no longer takes new customers, and

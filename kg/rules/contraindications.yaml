@@ -9,7 +9,7 @@ review:
   status: signed
   drafted_by: model
   reviewer: PD
-  signed_on: 2026-10-15
+  signed_on: 2026-10-16
 
 conditions:
   - id: patellofemoral_pain
@@ -69,16 +69,25 @@ rules:
     when: { kneeling: true }
     effect: flag
     paraphrase: Kneeling puts direct pressure on the front of the knee; ask the member how it feels.
-    citations: []
+    citations:
+      - doi: 10.1371/journal.pone.0190892
+        short: Smith et al. 2018, PLOS ONE 13(1):e0190892
+        doi_checked: 2026-10-16
+        claim_checked: full text (kneeling is among the aggravating activities in several included studies' PFP case definitions)
   - id: ankle-sprain-no-high-impact
     condition: ankle_sprain
     when: { impact: [high] }
     effect: exclude
     paraphrase: No jumping, hopping or cutting until a clinician clears return to impact.
     citations:
-      - short: Martin et al. 2021, J Orthop Sports Phys Ther 51(4), ankle stability CPG
-        doi_checked: null
+      - doi: 10.2519/jospt.2021.0302
+        short: Martin et al. 2021, J Orthop Sports Phys Ther 51(4):CPG1-CPG80
+        doi_checked: 2026-10-16
         claim_checked: null
+      - doi: 10.5312/wjo.v11.i12.534
+        short: Halabchi & Hassabi 2020, World J Orthop 11(12):534-558
+        doi_checked: 2026-10-16
+        claim_checked: full text (jumping, cutting and plyometrics come only in the last rehab phases; the treating physician decides return to play)
   - id: rc-overhead-flag
     condition: rotator_cuff_tendinopathy
     when: { patterns_any: [upper push - vertical] }
@@ -89,3 +98,7 @@ rules:
         short: Desmeules et al. 2025, J Orthop Sports Phys Ther 55(4):235-274
         doi_checked: 2026-10-15
         claim_checked: null
+      - doi: 10.4081/or.2012.e18
+        short: Umer et al. 2012, Orthop Rev 4(2):e18
+        doi_checked: 2026-10-16
+        claim_checked: full text (pain with the arm overhead and reaching up is typical of subacromial pain)
