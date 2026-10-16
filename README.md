@@ -142,6 +142,9 @@ Every plan with its full trace, item by item, is in
 - Planned 35 of 45 minutes: not enough safe exercises to fill the time.
 </details>
 
+This run was recorded before `programming.yaml` was signed (2026-10-16), so its journey note
+still says "not yet signed". Plans drafted now leave that out.
+
 Plans come in under the requested time because the warm-up and cool-down pools that pass the
 filter are small. The plan says so in its notes and does not pad with unsafe work. For the same
 reason the journey-stage rule keeps 3 sets for Jordan: at 2 sets the safe exercises can't fill the
@@ -221,8 +224,8 @@ deployed draft took 2.7 s, and a cold start adds about 2 s.
   [docs/ci.md](docs/ci.md).
 - **Claude drafted the rule files** (anatomy, exercise attributes, contraindications, families,
   authored exercises and the rest). A human reviewer (PD) read and signed each one. The filter
-  ignores a rule file until it is signed, and `programming.yaml` is still unsigned (assembly
-  only, not safety).
+  ignores a rule file until it is signed. `programming.yaml` (assembly only, not safety) was
+  signed on 2026-10-16.
 - **Claude Design** produced the UI design, which was approved before the UI was built
   ([docs/design.md](docs/design.md)).
 - **At runtime**, Claude extracts intent, picks exercise ids from a pre-filtered list, and answers
@@ -259,7 +262,8 @@ file a person signs, and only the last one changes what the safety filter exclud
 
 ## Known constraints and trade-offs
 
-- **GitLab, not GitHub.** The brief asked for GitHub, and this repository is hosted on GitLab.
+- **GitLab, not GitHub.** The brief asked for GitHub. This repository is hosted on GitLab by
+  choice.
 - **`data/` is not committed.** It is fetched at build time from a pinned commit of the assessment
   repo, which carries no licence.
 - **The SNOMED live check needs NCI EVS to be reachable.** It runs when alignments change and on a
@@ -284,8 +288,8 @@ file a person signs, and only the last one changes what the safety filter exclud
 - **Movement patterns have no external ontology match.** Muscles map to Uberon and equipment to
   Wikidata ([docs/alignment.md](docs/alignment.md)); no openly licensed ontology covers training
   movement patterns.
-- **`programming.yaml` is unsigned**, including the journey-stage rule. It sets volume, never
-  which exercises are allowed, and every plan says it is unsigned.
+- **The journey-stage rule is new.** It is in `programming.yaml`, signed by PD on 2026-10-16. It
+  sets volume, never which exercises are allowed, and every plan it changes says so.
 - **After grading:**
   - Turn off all reviewer accounts (Admin page, or `scripts/demo_users.py disable-all`).
   - Rotate the keys.

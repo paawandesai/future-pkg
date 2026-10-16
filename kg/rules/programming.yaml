@@ -1,14 +1,14 @@
 # Default programming used to turn a list of exercises into a timed session.
-# Not safety facts: the safety filter never reads this file. While unsigned, every plan says its
-# sets, reps and rest are model-drafted defaults the coach adjusts.
+# Not safety facts: the safety filter never reads this file. Signed by PD on 2026-10-16. If it is
+# changed and set back to draft, every plan says its sets, reps and rest are model-drafted defaults.
 #
 # Units: seconds unless a key says otherwise. The dataset's estimated_rep_duration has no
 # documented unit (values 0-1.9 do not fit seconds or minutes per rep), so timing uses tempo_s.
 review:
-  status: draft
+  status: signed
   drafted_by: model
-  reviewer: null
-  signed_on: null
+  reviewer: PD
+  signed_on: 2026-10-16
 
 tempo_s: 4              # one controlled repetition, both phases
 transition_s: 20        # moving to the next exercise
@@ -33,8 +33,8 @@ blocks:
     dose: { sets: 1, reps: 6, work_s: 45, rest_s: 0 }
 
 # Journey stage: a lighter main block early in membership or while adherence is falling, so the
-# plan is easier to complete. Volume only (it never adds an exercise), so it applies while this
-# file is unsigned, and every plan it changes says so. Needs a reviewer's sign-off like the rest.
+# plan is easier to complete. Volume only (it never adds an exercise), and every plan it changes
+# says so.
 journey:
   new_member_days: 28         # member_since within this many days of the as-of date
   falling_adherence:

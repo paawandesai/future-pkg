@@ -50,5 +50,6 @@ Unsigned facts may make the filter stricter, never looser:
   from a signed file. Deep loaded knee flexion and high impact stay excluded even then.
 - Injury regions that cannot be linked to a dataset joint through trusted edges block drafting and
   ask the coach to confirm the region (fail closed).
-- Programming defaults (`programming.yaml`) are not safety facts. While unsigned, every plan says
-  its sets, reps and rest are model-drafted defaults for the coach to adjust.
+- Programming defaults (`programming.yaml`) are not safety facts. The file is signed (PD,
+  2026-10-16). If it is set back to draft, every plan says its sets, reps and rest are
+  model-drafted defaults for the coach to adjust.

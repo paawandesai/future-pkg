@@ -18,6 +18,7 @@ from coachkg.generator.assemble import BLOCKS
 from coachkg.generator.intent import Intent
 from coachkg.generator.pipeline import GenerateRequest, run
 from coachkg.generator.selection import Selection, validate
+from coachkg.kg.rules import Review
 from coachkg.llm import CallStats
 from coachkg.main import app, get_llm, get_plans
 from coachkg.plans import SqlitePlanStore
@@ -168,6 +169,16 @@ def test_plan_is_a_draft_and_unsigned_programming_is_disclosed(world: World) -> 
     plan = _plan(_run(world, FakeLLM(_intent(), _all_offered), "upper body"))
     assert plan["status"] == "draft"
     assert "Coach decision support" in plan["label"]
+    # programming.yaml is signed on disk (PD, 2026-10-16), so the plan doesn't flag it.
+    assert not any("programming.yaml" in line for line in plan["trace"]["unverified"])
+
+    # Back to draft in memory: the plan must disclose the model-drafted defaults again.
+    signed = world.programming
+    world.programming = signed.model_copy(update={"review": Review()})
+    try:
+        plan = _plan(_run(world, FakeLLM(_intent(), _all_offered), "upper body"))
+    finally:
+        world.programming = signed
     assert any("programming.yaml" in line for line in plan["trace"]["unverified"])
 
 
