@@ -23,7 +23,7 @@ from typing import Any, Literal
 from coachkg.data import Exercise
 from coachkg.kg.graph import Edge, NetworkXStore, ex_node, is_trusted, region_node
 from coachkg.kg.rules import ContraRule, RuleSet
-from coachkg.member import Clearance, Member
+from coachkg.member import Clearance, Injury, Member
 from coachkg.resolver import BodyMention, Resolver
 
 Side = Literal["left", "right", "both"]
@@ -34,6 +34,7 @@ _BEND = {
 }
 # Regions too broad to count as "the same place" as an injury (every limb exercise would match).
 _TOO_BROAD = {region_node("body")}
+KNEE = region_node("knee")
 
 
 @dataclass(frozen=True)
@@ -156,6 +157,22 @@ class SafetyFilter:
 
     def region_for_injury(self, joint: str | None, region_text: str) -> str | None:
         return self._region_for_injury_record(joint, region_text)
+
+    def _is_knee(self, region: str) -> bool:
+        """The knee or one of its sub-structures (walking part-of upward only)."""
+        n: str | None = region
+        while n:
+            if n == KNEE:
+                return True
+            ups = self.store.out_edges(n, "part-of")
+            n = ups[0].dst if ups else None
+        return False
+
+    def clearable(self, inj: Injury) -> bool:
+        """The clearance relaxes only the knee rule (loaded knee bend and impact), so only knee
+        injuries can be cleared. A shoulder or back injury stays fully restricted."""
+        region = self._region_for_injury_record(inj.joint, inj.region)
+        return region is not None and self._is_knee(region)
 
     def _condition_regions(self, condition: str) -> list[str]:
         return [e.dst for e in self.store.out_edges(condition, "affects")]
@@ -285,9 +302,11 @@ class SafetyFilter:
 
     @staticmethod
     def _side_conflicts(restriction_side: Side | None, exercise_side: str) -> bool:
-        if restriction_side is None or restriction_side == "both" or exercise_side == "both":
-            return True
-        return restriction_side == exercise_side
+        """Always true. The catalog's one-sided rows are all left-side twins, and plans dose them on
+        each side, so a left-only row loads a right-side injury too. Kept as a function so the
+        decision stays in one place if right-side rows and one-side dosing are ever added."""
+        del restriction_side, exercise_side
+        return True
 
     # ---------- main ----------
     def run(self, req: SafetyRequest) -> SafetyResult:
@@ -335,7 +354,11 @@ class SafetyFilter:
                             stress_hits.append((e, untrusted_anatomy))
                 if stress_hits:
                     e, untrusted_anatomy = stress_hits[0]
-                    cleared = r.injury_id is not None and r.injury_id in clear_by_injury
+                    cleared = (
+                        r.injury_id is not None
+                        and r.injury_id in clear_by_injury
+                        and all(self._is_knee(reg) for reg in r.regions)
+                    )
                     region_label = self.store.node(e.dst)["label"]
                     where = f"{r.side + ' ' if r.side and r.side != 'both' else ''}{region_label.lower()}"
                     if (

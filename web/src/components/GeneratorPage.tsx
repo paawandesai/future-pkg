@@ -41,7 +41,7 @@ export function GeneratorPage({ member }: { member: MemberView }) {
   const [cleared, setCleared] = useState<Record<string, string>>({});
   const [state, setState] = useState<State>({ kind: "idle" });
   const abort = useRef<AbortController | null>(null);
-  const activeInjuries = member.injuries.filter((i) => i.active);
+  const activeInjuries = member.injuries.filter((i) => i.active && i.clearable);
 
   async function run(confirmedRegions: { region: string; side: string | null }[] = []) {
     abort.current?.abort();

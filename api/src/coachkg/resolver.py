@@ -94,6 +94,28 @@ PAIN_CUES = {
     "careful",
     "avoid",
     "protect",
+    "aggravate",
+    "aggravating",
+    "aggravated",
+    "spare",
+}
+# Cues that point at what follows them ("avoid aggravating a knee injury", "careful with her knee").
+_FORWARD_CUES = {"avoid", "careful", "protect", "aggravate", "aggravating", "spare"}
+_COORDINATION = {
+    "and",
+    "or",
+    "&",
+    "plus",
+    "her",
+    "his",
+    "their",
+    "the",
+    "my",
+    "both",
+    "left",
+    "right",
+    "l",
+    "r",
 }
 
 
@@ -221,14 +243,17 @@ class Resolver:
     def find_body_mentions(self, text: str) -> list[BodyMention]:
         """Deterministic scan for region or condition names (n-grams up to 4 words) in text.
 
-        A region counts as an injury mention when its clause carries a pain cue ("sore",
-        "bothering", ...); a condition name always does. Regions without a cue are returned with
-        injury=False (they are probably a training focus, e.g. "upper body today").
+        A pain cue ("sore", "bothering", ...) marks the body mention it belongs to as an injury: a
+        forward cue ("avoid", "careful with", "protect") marks the next mention after it, any other
+        cue marks the nearest one. Mentions joined by "and"/"or" share the mark ("her right knee
+        and left shoulder hurt"). A condition name always counts. Other regions are returned with
+        injury=False: they are probably a training focus ("lower-body exercises that avoid
+        aggravating a knee injury" restricts the knee, not the lower body).
         """
         found: list[BodyMention] = []
-        for clause in re.split(r"[.;,!?]|\bbut\b|\band\b", text.lower()):
+        for clause in re.split(r"[.;,!?]|\bbut\b", text.lower()):
             words = normalise(clause).split()
-            cue = any(w in PAIN_CUES for w in words)
+            spans: list[tuple[int, int, str, bool]] = []  # start, end (exclusive), phrase, condition
             taken: set[int] = set()
             for n in (4, 3, 2, 1):
                 for i in range(len(words) - n + 1):
@@ -240,11 +265,28 @@ class Resolver:
                     conditions = self._exact["condition"].get(_squash(phrase), set())
                     if not regions and not conditions:
                         continue
-                    side: Side | None = None
-                    for j in range(max(0, i - 2), i):
-                        if words[j] in _SIDE_WORDS:
-                            side = _SIDE_WORDS[words[j]]  # type: ignore[assignment]
                     taken |= span
-                    res = self.resolve(phrase, ["region", "condition"])
-                    found.append(BodyMention(phrase, side, res, injury=bool(conditions) or cue))
+                    spans.append((i, i + n, phrase, bool(conditions)))
+            spans.sort()
+            marked = {k for k, sp in enumerate(spans) if sp[3]}
+            for p, w in enumerate(words):
+                if w not in PAIN_CUES or p in taken or not spans:
+                    continue
+                after = [k for k, sp in enumerate(spans) if sp[0] > p]
+                if w in _FORWARD_CUES and after:
+                    marked.add(after[0])
+                    continue
+                dist = [max(sp[0] - p, p - sp[1] + 1) for sp in spans]
+                marked.add(min(range(len(spans)), key=lambda k: (dist[k], spans[k][0])))
+            for k in range(len(spans) - 1):  # coordination: "knee and shoulder", "hip or back"
+                between = set(words[spans[k][1] : spans[k + 1][0]])
+                if between and between <= _COORDINATION and ({k, k + 1} & marked):
+                    marked |= {k, k + 1}
+            for k, (i, _end, phrase, _cond) in enumerate(spans):
+                side: Side | None = None
+                for j in range(max(0, i - 2), i):
+                    if words[j] in _SIDE_WORDS:
+                        side = _SIDE_WORDS[words[j]]  # type: ignore[assignment]
+                res = self.resolve(phrase, ["region", "condition"])
+                found.append(BodyMention(phrase, side, res, injury=k in marked))
         return found

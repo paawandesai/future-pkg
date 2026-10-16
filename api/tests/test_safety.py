@@ -191,7 +191,7 @@ def test_exclude_parent_family_removes_children(
     assert not names & {"Dumbbell Romanian Deadlift", "Glute Bridge", "Dumbbell Hip Thrust"}
 
 
-def test_right_knee_injury_spares_left_only_rows(
+def test_right_knee_injury_also_excludes_left_only_rows(
     catalog: list[Exercise], rules: RuleSet, jordan: Member
 ) -> None:
     right = jordan.model_copy(deep=True)
@@ -201,8 +201,9 @@ def test_right_knee_injury_spares_left_only_rows(
     )
     f, _, store = _filter(catalog, rules)
     res = f.run(SafetyRequest(member=right))
+    # Plans dose one-sided rows on each side, so a left-leg row still loads the right knee.
     left_only = [e for e in res.candidates if e.laterality == "left" and _knee_loading(store, e)]
-    assert left_only, "left-leg rows should survive a right-knee injury"
+    assert not left_only
     assert not [e for e in res.candidates if e.laterality == "both" and _knee_loading(store, e)]
 
 
@@ -228,3 +229,18 @@ def test_condition_rules_are_graph_edges_and_cited_as_evidence(
     assert by_rule, "Jordan's condition should trigger at least one rule"
     for d in by_rule:
         assert [ev["edge"] for ev in d.evidence] == ["contraindicated-for"]
+
+
+def test_clearance_only_relaxes_knee_injuries(
+    catalog: list[Exercise], rules: RuleSet, jordan: Member
+) -> None:
+    shoulder = jordan.model_copy(deep=True)
+    shoulder.injuries[0] = shoulder.injuries[0].model_copy(
+        update={"region": "right shoulder", "joint": "shoulder", "id": "inj_sh"}
+    )
+    f, _, _ = _filter(catalog, _sign(rules, *ALL))
+    assert f.clearable(jordan.injuries[0]) and not f.clearable(shoulder.injuries[0])
+    base = f.run(SafetyRequest(member=shoulder))
+    clear = Clearance(injury_id="inj_sh", cleared_low_impact=True, by="coach", at="2026-06-04")
+    cleared = f.run(SafetyRequest(member=shoulder, clearances=[clear]))
+    assert {e.id for e in cleared.candidates} == {e.id for e in base.candidates}

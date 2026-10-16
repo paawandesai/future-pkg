@@ -173,7 +173,9 @@ def member_view(member_id: str, coach: Coach, world: WorldDep) -> dict[str, Any]
         "goals": m.goals,
         "preferences": m.preferences,
         "equipment_available": m.equipment_available,
-        "injuries": [i.model_dump() | {"active": i.active} for i in m.injuries],
+        "injuries": [
+            i.model_dump() | {"active": i.active, "clearable": world.safety.clearable(i)} for i in m.injuries
+        ],
         "history": m.workout_history,
         "brief": data.get_brief(ctx),
         "adherence": data.get_adherence(ctx),

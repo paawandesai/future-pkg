@@ -7,10 +7,12 @@
 #   extra_stresses: regions the dataset's joints_loaded omits (documented gaps)
 # Keyed by exercise name; the loader fails if a name is not in the catalog or kg/authored.
 review:
-  status: signed
+  status: draft
   drafted_by: model
-  reviewer: PD
-  signed_on: 2026-10-15
+  reviewer: null
+  signed_on: null
+  # Previously signed by PD on 2026-10-15. Reset to draft on 2026-10-16 after adding joint
+  # loads for the two catalog rows that list none (decline press, lacrosse-ball upper back).
   basis: >-
     Knee-angle bands follow the 0-45 degree range used in patellofemoral pain guidance
     (Powers et al. 2014; Escamilla et al. 2022, see contraindications.yaml). Classification of
@@ -19,7 +21,7 @@ review:
 exercises:
   Barbell Decline Bench Press: { loaded_knee_flexion: none, impact: none }
   Push-Up to Knee-Drive: { loaded_knee_flexion: none, impact: low }
-  Alternating Dumbbell Decline Bench Press: { loaded_knee_flexion: none, impact: none }
+  Alternating Dumbbell Decline Bench Press: { loaded_knee_flexion: none, impact: none, extra_stresses: [shoulder, elbow] }
   Dumbbell Incline Chest Fly: { loaded_knee_flexion: none, impact: none }
   Dumbbell Neutral-Grip Bench Press: { loaded_knee_flexion: none, impact: none }
   Isometric Pull-Up: { loaded_knee_flexion: none, impact: none }
@@ -57,7 +59,7 @@ exercises:
   Jumping Jack: { loaded_knee_flexion: shallow, impact: high, extra_stresses: [knee] }
   Horizontal Leg Press Calf Raises: { loaded_knee_flexion: none, impact: none }
   Jump Rope - Single-Leg: { loaded_knee_flexion: shallow, impact: high, extra_stresses: [knee] }
-  Lacrosse Ball Upper Back against Wall: { loaded_knee_flexion: none, impact: none }
+  Lacrosse Ball Upper Back against Wall: { loaded_knee_flexion: none, impact: none, extra_stresses: [thoracic_spine] }
   Single-Arm Chest-Supported Incline Row: { loaded_knee_flexion: none, impact: none }
   Machine - Chest-Supported Row: { loaded_knee_flexion: none, impact: none }
   Low Copenhagen Plank: { loaded_knee_flexion: none, impact: none }

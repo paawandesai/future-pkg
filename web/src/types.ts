@@ -5,6 +5,8 @@ export interface Injury {
   region: string;
   status: string;
   active: boolean;
+  /** Only knee injuries can be cleared for low-impact loading. */
+  clearable?: boolean;
   notes?: string | null;
 }
 

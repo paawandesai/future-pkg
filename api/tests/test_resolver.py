@@ -62,3 +62,20 @@ def test_find_mentions_keeps_multiple(resolver: Resolver) -> None:
         ("region:ankle", "right"),
         ("condition:low_back_pain", None),
     }
+
+
+@pytest.mark.parametrize(
+    ("text", "injured"),
+    [
+        # The brief's own example: the knee is the injury, "lower-body" is the focus.
+        ("lower-body exercises that avoid aggravating a knee injury", {"region:knee"}),
+        ("lower body work and her knee is bothering her", {"region:knee"}),
+        ("careful with her knee, lower body", {"region:knee"}),
+        ("knee feels great, shoulder is sore", {"region:shoulder"}),
+        # Coordinated mentions share the cue.
+        ("her right knee and left shoulder hurt", {"region:knee", "region:shoulder"}),
+    ],
+)
+def test_pain_cues_attach_to_the_right_mention(resolver: Resolver, text: str, injured: set[str]) -> None:
+    found = resolver.find_body_mentions(text)
+    assert {m.resolution.concept for m in found if m.injury} == injured
