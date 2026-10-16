@@ -1,5 +1,15 @@
-import type { ChartSpec, CongratsDraft, CopilotAnswer, GenerateEvent, MemberView } from "./types";
+import type {
+  ChartSpec,
+  CongratsDraft,
+  CopilotAnswer,
+  CopilotTurn,
+  GenerateEvent,
+  MemberView,
+} from "./types";
 import { authHeaders, sessionExpired } from "./auth";
+
+/** Earlier turns sent with a follow-up question; the API refuses more (api agent.MAX_HISTORY). */
+export const MAX_HISTORY = 6;
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -64,10 +74,10 @@ export const api = {
   member: (id: string) => call<MemberView>(`/api/members/${encodeURIComponent(id)}`),
   chart: (id: string, kind: string) =>
     call<ChartSpec>(`/api/members/${encodeURIComponent(id)}/charts/${kind}`),
-  copilot: (id: string, question: string) =>
+  copilot: (id: string, question: string, history: CopilotTurn[] = []) =>
     call<CopilotAnswer>(`/api/members/${encodeURIComponent(id)}/copilot`, {
       method: "POST",
-      body: JSON.stringify({ question }),
+      body: JSON.stringify({ question, history: history.slice(-MAX_HISTORY) }),
     }),
   congratulate: (id: string) =>
     call<CongratsDraft>(`/api/members/${encodeURIComponent(id)}/congratulate`, { method: "POST" }),

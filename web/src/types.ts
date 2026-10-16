@@ -32,6 +32,19 @@ export interface Churn {
   brief_text: { level?: string; reasons?: string[] } | null;
 }
 
+export interface BiomarkerValue {
+  value: number;
+  unit: string;
+  date: string | null;
+}
+
+export interface Biomarkers {
+  resting_hr_bpm: BiomarkerValue | null;
+  hrv_ms: BiomarkerValue | null;
+  weight_kg: { date: string; kg: number }[];
+  note: string;
+}
+
 export interface MemberView {
   id: string;
   name: string;
@@ -46,6 +59,7 @@ export interface MemberView {
   brief: { generated_for: string | null; morning_tasks: string[] };
   sleep: { average: number | null };
   labs: { labs: Record<string, Record<string, string | number>>; note: string };
+  biomarkers?: Biomarkers;
   chat: ChatMessage[];
   churn: Churn;
   review_mentions: { ts: string | null; quote: string; region: string }[];
@@ -164,8 +178,9 @@ export interface ChartSpec {
   type: "line" | "bar";
   title: string;
   x_key: string;
-  series: { key: string; label: string }[];
-  data: Record<string, string | number>[];
+  series: { key: string; label: string; axis?: "left" | "right" }[];
+  // null marks a week before the record starts: no data, not zero.
+  data: Record<string, string | number | null>[];
   notes: string[];
 }
 
@@ -180,4 +195,12 @@ export interface CongratsDraft {
   draft: string | null;
   disclosure?: string;
   reason?: string;
+  session_date?: string;
+  is_yesterday?: boolean;
+  note?: string | null;
+}
+
+export interface CopilotTurn {
+  role: "coach" | "copilot";
+  text: string;
 }

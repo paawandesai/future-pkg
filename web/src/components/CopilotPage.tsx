@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { api } from "../api";
-import type { ChartSpec, CongratsDraft, CopilotAnswer, MemberView } from "../types";
+import { api, MAX_HISTORY } from "../api";
+import type { ChartSpec, CongratsDraft, CopilotAnswer, CopilotTurn, MemberView } from "../types";
 import { Chart } from "./Chart";
 
 const QUICK: { label: string; chart?: string; question?: string }[] = [
@@ -28,11 +28,25 @@ const LAB_LABELS: Record<string, string> = {
   visceral_fat_cm2: "Visceral fat (cm²)",
 };
 
+interface Exchange {
+  question: string;
+  answer: CopilotAnswer;
+}
+
+/** The last turns of the thread, oldest first, as the API expects them. */
+export function recentTurns(thread: Exchange[], max = MAX_HISTORY): CopilotTurn[] {
+  const turns: CopilotTurn[] = thread.flatMap((x) => [
+    { role: "coach" as const, text: x.question },
+    { role: "copilot" as const, text: x.answer.answer },
+  ]);
+  return turns.slice(-max);
+}
+
 export function CopilotPage({ member }: { member: MemberView }) {
   const first = member.name.split(" ")[0];
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const [answer, setAnswer] = useState<CopilotAnswer | null>(null);
+  const [thread, setThread] = useState<Exchange[]>([]);
   const [charts, setCharts] = useState<ChartSpec[]>([]);
   const [draft, setDraft] = useState<CongratsDraft | null>(null);
   const [draftText, setDraftText] = useState("");
@@ -52,8 +66,9 @@ export function CopilotPage({ member }: { member: MemberView }) {
 
   const ask = (q: string) =>
     guarded("ask", async () => {
-      const a = await api.copilot(member.id, q);
-      setAnswer(a);
+      const a = await api.copilot(member.id, q, recentTurns(thread));
+      setThread((t) => [...t, { question: q, answer: a }]);
+      setQuestion("");
       if (a.charts.length) setCharts(a.charts);
     });
 
@@ -128,13 +143,38 @@ export function CopilotPage({ member }: { member: MemberView }) {
               {error}
             </p>
           )}
-          {answer && (
-            <div style={{ marginTop: 16 }} aria-live="polite">
-              <div className="answer">{answer.answer}</div>
-              <p className="xsmall muted" style={{ margin: "8px 0 0" }}>
-                {answer.disclosure}{" "}
-                {answer.tools_used.length ? `Read: ${[...new Set(answer.tools_used)].join(", ")}.` : ""}
-              </p>
+          {thread.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <ol className="thread" aria-label="Conversation" aria-live="polite">
+                {thread.map((x, i) => (
+                  <li key={i} style={{ marginBottom: 14 }}>
+                    <div className="xsmall muted">You asked</div>
+                    <div className="small" style={{ marginBottom: 6 }}>
+                      {x.question}
+                    </div>
+                    <div className="answer">{x.answer.answer}</div>
+                    <p className="xsmall muted" style={{ margin: "8px 0 0" }}>
+                      {x.answer.disclosure}{" "}
+                      {x.answer.tools_used.length
+                        ? `Read: ${[...new Set(x.answer.tools_used)].join(", ")}.`
+                        : ""}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+              <div className="row" style={{ justifyContent: "space-between" }}>
+                <span className="xsmall muted">
+                  Follow-ups include the last {MAX_HISTORY} turns of this conversation.
+                </span>
+                <button
+                  type="button"
+                  className="btn small"
+                  disabled={busy !== null}
+                  onClick={() => setThread([])}
+                >
+                  New conversation
+                </button>
+              </div>
             </div>
           )}
         </section>
@@ -150,6 +190,11 @@ export function CopilotPage({ member }: { member: MemberView }) {
         {draft && (
           <section className="card" aria-labelledby="draft-h">
             <h2 id="draft-h">Congratulations draft, for you to edit and send</h2>
+            {draft.note && (
+              <p role="status" className="notice">
+                {draft.note}
+              </p>
+            )}
             {draft.draft ? (
               <>
                 <label htmlFor="draft" className="label">
@@ -221,6 +266,7 @@ export function CopilotPage({ member }: { member: MemberView }) {
             )}
           </div>
         </section>
+        {member.biomarkers && <BiomarkerCard b={member.biomarkers} sleepAvg={member.sleep.average} />}
         <section className="card" aria-labelledby="labs-h">
           <h2 id="labs-h">Labs and body composition</h2>
           <p className="small muted" style={{ marginTop: 0 }}>
@@ -248,6 +294,43 @@ export function CopilotPage({ member }: { member: MemberView }) {
         </section>
       </aside>
     </div>
+  );
+}
+
+function BiomarkerCard({
+  b,
+  sleepAvg,
+}: {
+  b: NonNullable<MemberView["biomarkers"]>;
+  sleepAvg: number | null;
+}) {
+  const latest = b.weight_kg.length ? b.weight_kg[b.weight_kg.length - 1] : null;
+  const rows: [string, string][] = [
+    [
+      "Resting heart rate",
+      b.resting_hr_bpm ? `${b.resting_hr_bpm.value} ${b.resting_hr_bpm.unit}` : "Not recorded",
+    ],
+    ["HRV", b.hrv_ms ? `${b.hrv_ms.value} ${b.hrv_ms.unit}` : "Not recorded"],
+    ["Sleep, 7-night average", sleepAvg !== null ? `${sleepAvg} h` : "Not recorded"],
+    ["Weight", latest ? `${latest.kg} kg · ${latest.date}` : "Not recorded"],
+  ];
+  return (
+    <section className="card" aria-labelledby="bio-h">
+      <h2 id="bio-h">Biomarkers</h2>
+      <table className="kv">
+        <tbody>
+          {rows.map(([k, v]) => (
+            <tr key={k}>
+              <td>{k}</td>
+              <td>{v}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="xsmall muted" style={{ margin: "6px 0 0" }}>
+        {b.note}
+      </p>
+    </section>
   );
 }
 

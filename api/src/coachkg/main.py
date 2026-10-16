@@ -10,7 +10,7 @@ import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -189,6 +189,7 @@ def member_view(member_id: str, coach: Coach, world: WorldDep) -> dict[str, Any]
         "adherence": data.get_adherence(ctx),
         "sleep": data.get_sleep(ctx),
         "labs": data.get_labs(ctx),
+        "biomarkers": data.get_biomarkers(ctx),
         "chat": data.get_chat(ctx)["messages"],
         "churn": data.churn(ctx).model_dump(),
         "review_mentions": _review_mentions(m, world),
@@ -217,8 +218,16 @@ def quick_chart(member_id: str, kind: str, coach: Coach, world: WorldDep) -> dic
     return data.QUICK_CHARTS[kind](world.context(m)).model_dump()
 
 
+class CopilotTurn(BaseModel):
+    """An earlier turn of this conversation, sent back by the client. Quoted to the model as data."""
+
+    role: Literal["coach", "copilot"]
+    text: str = Field(max_length=4000)
+
+
 class CopilotRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000)
+    history: list[CopilotTurn] = Field(default_factory=list, max_length=agent.MAX_HISTORY)
 
 
 @app.post("/api/members/{member_id}/copilot")
@@ -230,7 +239,8 @@ async def copilot(
     if not model:
         raise HTTPException(status_code=503, detail="Model ids are not configured")
     try:
-        ans = await agent.ask(llm, model, world.context(m), req.question)
+        history = [agent.Turn(t.role, t.text) for t in req.history]
+        ans = await agent.ask(llm, model, world.context(m), req.question, history)
     except LLMError as exc:
         detail = failure_message(exc, "The copilot couldn't answer. Try again.")
         raise HTTPException(status_code=502, detail=detail) from None

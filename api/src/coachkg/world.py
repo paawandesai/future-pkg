@@ -45,11 +45,19 @@ class World:
         return m
 
     def context(self, member: Member) -> MemberContext:
+        """The copilot's view of one member. Tools read the member graph (KG 2); a record that is
+        not the loaded one (a test's modified copy) gets its own freshly built graph."""
+        graph = self.member_graphs.get(member.id)
+        if graph is None or self.members.get(member.id) is not member:
+            graph = build_member_graph(
+                member, self.store, self.resolver, self.safety, self.settings.as_of_date
+            )
         return MemberContext(
             member,
             self.logins.get(member.id, []),
             self.settings.as_of_date,
             self.generated.get(member.id, []),
+            graph,
         )
 
 
@@ -59,11 +67,13 @@ def build_world(settings: Settings) -> World:
     store = build_movement_graph(catalog, rules)
     resolver = Resolver(store, authored_alt_labels(settings.kg_dir))
     members = {}
+    sources: dict[str, str] = {}
     for path, name in [(settings.data_dir, "member-context.json")] + [
         (settings.fixtures_dir, p.name) for p in sorted(settings.fixtures_dir.glob("generated-member-*.json"))
     ]:
         m = load_member(path, name)
         members[m.id] = m
+        sources[m.id] = name
     safety = SafetyFilter(store, rules, resolver)
     w = World(settings, catalog, rules, store, resolver, safety, load_programming(settings.kg_dir), members)
     login_file = settings.fixtures_dir / "generated-login-events.json"
@@ -72,7 +82,9 @@ def build_world(settings: Settings) -> World:
             w.logins.setdefault(ev["member_id"], []).append(datetime.fromisoformat(ev["ts"]))
             w.generated.setdefault(ev["member_id"], ["login events"])
     for mid, m in members.items():
-        w.member_graphs[mid] = build_member_graph(m, store, resolver, safety)
+        w.member_graphs[mid] = build_member_graph(
+            m, store, resolver, safety, settings.as_of_date, sources[mid]
+        )
         if m.note and "generated" in m.note.lower():
             w.generated.setdefault(mid, []).insert(0, "the whole member record")
     return w
