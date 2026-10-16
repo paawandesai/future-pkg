@@ -1,0 +1,7 @@
+{
+  "app": "node --import tsx bin/app.ts",
+  "output": "cdk.out",
+  "context": {
+    "@aws-cdk/core:newStyleStackSynthesis": true
+  }
+}

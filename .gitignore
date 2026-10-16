@@ -31,9 +31,11 @@ web/dist/
 
 # CDK
 infra/cdk.out/
+infra/build/
 cdk.context.json
 
 # Local state
 *.sqlite3
 *.db
 .DS_Store
+*.tsbuildinfo

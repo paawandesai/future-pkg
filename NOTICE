@@ -3,6 +3,7 @@ future-pkg: coach decision support prototype
 Third-party knowledge sources (referenced by identifier; see docs/alignment.md):
 
 - Uberon multi-species anatomy ontology, CC BY 3.0. http://uberon.org
+- Wikidata item identifiers and labels for equipment, CC0. https://www.wikidata.org
 - NCI Thesaurus (NCIt), CC BY 4.0. National Cancer Institute.
 - SNOMED CT: identifiers only, no SNOMED content is distributed. See README.
 

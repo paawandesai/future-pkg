@@ -1,0 +1,34 @@
+# Wikidata alignments for equipment (Wikidata data is CC0). Labels are Wikidata's English labels,
+# kept so tests/test_wikidata_live.py can check each item still carries that label. Found by
+# searching Wikidata on 2026-10-15; none came from memory or a model.
+#
+# Left unmapped because no item fits, or the only hits are another sense of the word:
+# Adjustable Bench (incline/decline: broadMatch to bench below), Chest Supported Row Machine,
+# EZ Bar, Handle Attachment, Jump Rope (search was rate-limited; add when it can be checked),
+# Sandbag (the hit is the flood-control sandbag), Slant Board, SkiErg, Stair Climber (the hit is
+# a hand truck), Wall.
+iri_prefix: http://www.wikidata.org/entity/
+alignments:
+  - { concept: equipment:barbell, wikidata: Q1043897, match: exactMatch, wikidata_label: barbell }
+  - { concept: equipment:dumbbell, wikidata: Q465453, match: exactMatch, wikidata_label: dumbbell }
+  - { concept: equipment:kettlebell, wikidata: Q376762, match: exactMatch, wikidata_label: kettlebell }
+  - { concept: equipment:medicine ball, wikidata: Q1304461, match: exactMatch, wikidata_label: medicine ball }
+  - { concept: equipment:yoga mat, wikidata: Q2600531, match: exactMatch, wikidata_label: yoga mat }
+  - { concept: equipment:stability ball, wikidata: Q1463093, match: exactMatch, wikidata_label: exercise ball }
+  - { concept: equipment:bosu, wikidata: Q4836234, match: exactMatch, wikidata_label: BOSU }
+  - { concept: equipment:pull-up bar, wikidata: Q1060174, match: exactMatch, wikidata_label: chin-up bar }
+  - { concept: equipment:lacrosse ball, wikidata: Q6468880, match: exactMatch, wikidata_label: lacrosse ball }
+  - { concept: equipment:plate, wikidata: Q2220762, match: exactMatch, wikidata_label: weight plate }
+  - { concept: equipment:cable resistance machine, wikidata: Q383154, match: exactMatch, wikidata_label: cable machine }
+  - { concept: equipment:box, wikidata: Q113450044, match: exactMatch, wikidata_label: jump box }
+  - { concept: equipment:rack, wikidata: Q957820, match: closeMatch, wikidata_label: power rack }
+  - { concept: equipment:flat bench, wikidata: Q1422097, match: closeMatch, wikidata_label: bench }
+  - { concept: equipment:horizontal leg press machine, wikidata: Q126949025, match: closeMatch, wikidata_label: leg press machine }
+  - { concept: equipment:adjustable bench - incline, wikidata: Q1422097, match: broadMatch, wikidata_label: bench }
+  - { concept: equipment:adjustable bench - decline, wikidata: Q1422097, match: broadMatch, wikidata_label: bench }
+  - { concept: equipment:preacher curl bench, wikidata: Q1422097, match: broadMatch, wikidata_label: bench }
+  - { concept: equipment:resistance band - loop, wikidata: Q2882175, match: broadMatch, wikidata_label: resistance band }
+  - { concept: equipment:resistance band - with handles, wikidata: Q2882175, match: broadMatch, wikidata_label: resistance band }
+  - { concept: equipment:miniband, wikidata: Q2882175, match: broadMatch, wikidata_label: resistance band }
+  - { concept: equipment:suspension trainer, wikidata: Q1143113, match: relatedMatch, wikidata_label: suspension training }
+  - { concept: equipment:seated lat pulldown machine, wikidata: Q1995651, match: relatedMatch, wikidata_label: pulldown exercise }

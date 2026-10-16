@@ -1,0 +1,61 @@
+# Default programming used to turn a list of exercises into a timed session.
+# Not safety facts: the safety filter never reads this file. While it is a draft, every plan says
+# its sets, reps and rest are model-drafted defaults.
+#
+# Units: seconds unless a key says otherwise. The dataset's estimated_rep_duration has no
+# documented unit (values 0-1.9 do not fit seconds or minutes per rep), so timing uses tempo_s.
+review:
+  status: signed
+  drafted_by: model
+  reviewer: PD
+  signed_on: 2026-10-16
+
+tempo_s: 4              # one controlled repetition, both phases
+transition_s: 20        # moving to the next exercise
+each_side_patterns_note: Side-specific catalog rows are done on each side, doubling work time.
+
+blocks:
+  warmup:
+    share: 0.15         # of session minutes
+    min_minutes: 3
+    max_minutes: 8
+    patterns: [mobility - dynamic, car, quadruped]
+    dose: { sets: 1, reps: 8, work_s: 40, rest_s: 0 }
+  main:
+    dose_reps: { sets: 3, reps: 10, rest_s: 60 }
+    dose_duration: { sets: 3, work_s: 40, rest_s: 45 }
+    min_sets: 2         # last exercise may drop to this to fit the time budget
+  cooldown:
+    share: 0.10
+    min_minutes: 2
+    max_minutes: 6
+    patterns: [mobility - static, yoga, regen, massage]
+    dose: { sets: 1, reps: 6, work_s: 45, rest_s: 0 }
+
+# Journey stage: a lighter main block early in membership or while adherence is falling, so the
+# plan is easier to complete. Volume only (it never adds an exercise), and every plan it changes
+# says so.
+journey:
+  new_member_days: 28         # member_since within this many days of the as-of date
+  falling_adherence:
+    weeks: 4                  # look at the most recent N weekly completion values
+    drop_points: 25           # latest week at least this many points below the first of them
+  main_sets: 2                # sets per main-block exercise when either applies
+
+# Movement patterns that count toward a training focus named in a request.
+focus_patterns:
+  lower body: [lower push - squat, lower push - split squat, lower push - lunge, lower push - step-up,
+               lower push - calf raise, lower pull - hip lift, lower pull - hip hinge, legs - accessory, lower - abduction,
+               lower - adduction]
+  upper body: [upper push - horizontal, upper push - vertical, upper pull - horizontal,
+               upper pull - vertical, arms - accessory, shoulders - accessory, upper - adduction]
+  push: [upper push - horizontal, upper push - vertical, lower push - squat, lower push - split squat,
+         lower push - lunge, lower push - step-up]
+  pull: [upper pull - horizontal, upper pull - vertical, lower pull - hip lift, lower pull - hip hinge]
+  core: [core - anti-extension, core - anti-lateral flexion, core - anti-rotation, core - carry,
+         core - extension, core - flexion, core - rotation]
+  cardio: [cardio, cardio - locomotion, cardio - plyometric]
+  plyometric: [cardio - plyometric]
+  jump: [cardio - plyometric]
+  mobility: [mobility - dynamic, mobility - static, yoga, car]
+  full body: []        # no constraint: the scorer balances patterns

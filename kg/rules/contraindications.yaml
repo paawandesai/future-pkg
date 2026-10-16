@@ -1,0 +1,91 @@
+# Conditions and the rules that exclude or flag exercises while a condition is active.
+# Rule wording is our paraphrase; no guideline text is copied. Each rule names its source.
+#   effect: exclude  -> removed from candidates
+#           flag     -> kept, shown to the coach with the reason
+# A rule is used by the safety filter only when this file is signed AND the rule's source is
+# checked (citation.doi_checked and citation.claim_checked, or a dataset field). Otherwise the
+# rule is ignored and plans are marked "unverified" (docs/rules.md).
+review:
+  status: signed
+  drafted_by: model
+  reviewer: PD
+  signed_on: 2026-10-15
+
+conditions:
+  - id: patellofemoral_pain
+    label: Patellofemoral pain
+    alt_labels: [PFP, PFPS, patellofemoral pain syndrome, runner's knee, anterior knee pain]
+    regions: [patellofemoral_joint]
+  - id: ankle_sprain
+    label: Lateral ankle sprain
+    alt_labels: [sprained ankle, rolled ankle, ankle sprain]
+    regions: [ankle]
+  - id: rotator_cuff_tendinopathy
+    label: Rotator cuff tendinopathy
+    alt_labels: [rotator cuff tendinitis, shoulder tendinopathy, rotator cuff pain]
+    regions: [glenohumeral_joint]
+  - id: low_back_pain
+    label: Low back pain
+    alt_labels: [lower back pain, LBP, back pain]
+    regions: [lumbar_spine]
+  - id: unspecified_pain
+    label: Pain or injury, type not specified
+    alt_labels: []
+    regions: []
+
+rules:
+  - id: pfp-no-deep-loaded-knee-flexion
+    condition: patellofemoral_pain
+    when: { loaded_knee_flexion: [deep] }
+    effect: exclude
+    paraphrase: >-
+      Patellofemoral joint stress rises with knee flexion under load; keep loaded knee bends
+      within roughly 0-45 degrees while symptoms are active.
+    citations:
+      - doi: 10.2519/jospt.2014.4936
+        short: Powers et al. 2014, J Orthop Sports Phys Ther 44(5):320-327
+        doi_checked: 2026-10-15
+        claim_checked: abstract
+      - doi: 10.26603/001c.31876
+        short: Escamilla et al. 2022, Int J Sports Phys Ther 17(2)
+        doi_checked: 2026-10-15
+        claim_checked: full text (research register, 2026-10-15)
+  - id: pfp-no-high-impact
+    condition: patellofemoral_pain
+    when: { impact: [high] }
+    effect: exclude
+    paraphrase: Avoid jumping and landing work while patellofemoral pain is active.
+    citations:
+      - dataset: member-context.json injuries[].notes ("avoid ... plyometrics")
+  - id: pfp-no-plyometric-pattern
+    condition: patellofemoral_pain
+    when: { patterns_any: [cardio - plyometric] }
+    effect: exclude
+    paraphrase: Exercises the catalog tags as plyometric are excluded while patellofemoral pain is active.
+    citations:
+      - dataset: member-context.json injuries[].notes ("avoid ... plyometrics")
+  - id: pfp-kneeling-flag
+    condition: patellofemoral_pain
+    when: { kneeling: true }
+    effect: flag
+    paraphrase: Kneeling puts direct pressure on the front of the knee; ask the member how it feels.
+    citations: []
+  - id: ankle-sprain-no-high-impact
+    condition: ankle_sprain
+    when: { impact: [high] }
+    effect: exclude
+    paraphrase: No jumping, hopping or cutting until a clinician clears return to impact.
+    citations:
+      - short: Martin et al. 2021, J Orthop Sports Phys Ther 51(4), ankle stability CPG
+        doi_checked: null
+        claim_checked: null
+  - id: rc-overhead-flag
+    condition: rotator_cuff_tendinopathy
+    when: { patterns_any: [upper push - vertical] }
+    effect: flag
+    paraphrase: Loaded overhead pressing is flagged for coach review rather than excluded.
+    citations:
+      - doi: 10.2519/jospt.2025.13182
+        short: Desmeules et al. 2025, J Orthop Sports Phys Ther 55(4):235-274
+        doi_checked: 2026-10-15
+        claim_checked: null

@@ -1,0 +1,42 @@
+# Labeled resolver cases. expect: concept id, "ambiguous" or "no_match". side: expected laterality.
+# Used by tests/test_resolver.py, which also reports accuracy per method.
+body:
+  - { text: her left knee, expect: region:knee, side: left }
+  - { text: left knee, expect: region:knee, side: left }
+  - { text: Right Knee, expect: region:knee, side: right }
+  - { text: knees, expect: region:knee }
+  - { text: kne, expect: ambiguous }   # short typo scores below accept: fails closed upstream
+  - { text: knee joint, expect: region:knee }
+  - { text: kneecap, expect: region:patella }
+  - { text: bad lower back, expect: region:lumbar_spine }
+  - { text: low back, expect: region:lumbar_spine }
+  - { text: lower bak, expect: region:lumbar_spine }
+  - { text: her neck, expect: region:cervical_spine }
+  - { text: left shoulder, expect: region:shoulder, side: left }
+  - { text: sholder, expect: region:shoulder }
+  - { text: right ankle, expect: region:ankle, side: right }
+  - { text: anckle, expect: region:ankle }
+  - { text: hips, expect: region:hip }
+  - { text: runner's knee, expect: condition:patellofemoral_pain }
+  - { text: patellofemoral pain syndrome, expect: condition:patellofemoral_pain }
+  - { text: PFPS, expect: condition:patellofemoral_pain }
+  - { text: sprained ankle, expect: condition:ankle_sprain }
+  - { text: lower back pain, expect: condition:low_back_pain }
+  - { text: her leg, expect: region:lower_limb }
+  - { text: tummy, expect: no_match }
+  - { text: her thing, expect: no_match }
+  - { text: spleen, expect: no_match }
+other:
+  - { text: kettle bell, kinds: [equipment], expect: "equipment:kettlebell" }
+  - { text: DBs, kinds: [equipment], expect: equipment:dumbbell }
+  - { text: KB, kinds: [equipment], expect: equipment:kettlebell }
+  - { text: pecs, kinds: [muscle], expect: muscle:chest }
+  - { text: lumbar, kinds: [region], expect: region:lumbar_spine }
+  - { text: dumbells, kinds: [equipment], expect: "equipment:dumbbell" }
+  - { text: deadlifts, kinds: [family], expect: family:deadlift }
+  - { text: RDL, kinds: [family, exercise], expect: family:deadlift }
+  - { text: burpees, kinds: [family], expect: family:jump }
+  - { text: KB Romanian Deadlift, kinds: [exercise], expect: ex:authored-kb-romanian-deadlift }
+  - { text: Goblet Squat (box-supported), kinds: [exercise], expect: ex:authored-high-box-goblet-squat }
+  - { text: hamstring, kinds: [muscle], expect: "muscle:hamstrings" }
+  - { text: glutes, kinds: [muscle], expect: "muscle:glutes" }

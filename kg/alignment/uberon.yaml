@@ -1,0 +1,43 @@
+# Uberon alignments (Uberon is CC BY 3.0; attribution in NOTICE). Labels below are Uberon's own,
+# kept so tests/test_uberon_live.py can check the IRI still carries that label.
+iri_prefix: http://purl.obolibrary.org/obo/
+alignments:
+  - { concept: region:lower_limb, uberon: UBERON:0000978, match: closeMatch, uberon_label: leg }
+  - { concept: region:hip, uberon: UBERON:0001486, match: exactMatch, uberon_label: hip joint }
+  - { concept: region:knee, uberon: UBERON:0001485, match: exactMatch, uberon_label: knee joint }
+  - { concept: region:patellofemoral_joint, uberon: UBERON:0011166, match: exactMatch, uberon_label: patellofemoral joint }
+  - { concept: region:tibiofemoral_joint, uberon: UBERON:0009005, match: exactMatch, uberon_label: femorotibial joint }
+  - { concept: region:patella, uberon: UBERON:0002446, match: exactMatch, uberon_label: patella }
+  - { concept: region:meniscus, uberon: UBERON:0000387, match: exactMatch, uberon_label: meniscus }
+  - { concept: region:ankle, uberon: UBERON:0001488, match: exactMatch, uberon_label: ankle joint }
+  - { concept: region:upper_limb, uberon: UBERON:0001460, match: closeMatch, uberon_label: arm }
+  - { concept: region:shoulder, uberon: UBERON:0001467, match: closeMatch, uberon_label: shoulder }
+  - { concept: region:glenohumeral_joint, uberon: UBERON:0001470, match: exactMatch, uberon_label: glenohumeral joint }
+  - { concept: region:elbow, uberon: UBERON:0001490, match: exactMatch, uberon_label: elbow joint }
+  - { concept: region:wrist, uberon: UBERON:0001491, match: exactMatch, uberon_label: wrist joint }
+  - { concept: region:spine, uberon: UBERON:0001130, match: exactMatch, uberon_label: vertebral column }
+  - { concept: region:cervical_spine, uberon: UBERON:0006072, match: exactMatch, uberon_label: cervical region of vertebral column }
+  - { concept: region:thoracic_spine, uberon: UBERON:0006073, match: exactMatch, uberon_label: thoracic region of vertebral column }
+  - { concept: region:lumbar_spine, uberon: UBERON:0006074, match: exactMatch, uberon_label: lumbar region of vertebral column }
+  # Muscle groups. The dataset's groups are coarser than Uberon's muscles, so most are closeMatch
+  # (nearest muscle or musculature) or broadMatch (Uberon's term is wider). Found by searching
+  # EBI OLS on 2026-10-15.
+  - { concept: muscle:biceps, uberon: UBERON:0001507, match: exactMatch, uberon_label: biceps brachii }
+  - { concept: muscle:calves, uberon: UBERON:0001665, match: closeMatch, uberon_label: triceps surae }
+  - { concept: muscle:chest, uberon: UBERON:0001495, match: closeMatch, uberon_label: pectoral muscle }
+  - { concept: muscle:core, uberon: UBERON:0002343, match: closeMatch, uberon_label: abdomen musculature }
+  - { concept: muscle:deltoids, uberon: UBERON:0001476, match: exactMatch, uberon_label: deltoid }
+  - { concept: muscle:forearms, uberon: UBERON:0004487, match: closeMatch, uberon_label: musculature of forelimb zeugopod }
+  - { concept: muscle:glutes, uberon: UBERON:0002000, match: closeMatch, uberon_label: gluteal muscle }
+  - { concept: muscle:hamstrings, uberon: UBERON:0002463, match: closeMatch, uberon_label: muscle of posterior compartment of hindlimb stylopod }
+  - { concept: muscle:hip adductors, uberon: UBERON:0011144, match: exactMatch, uberon_label: adductor muscle of hip }
+  - { concept: muscle:hip flexors, uberon: UBERON:0001999, match: closeMatch, uberon_label: iliopsoas }
+  - { concept: muscle:lats, uberon: UBERON:0001112, match: exactMatch, uberon_label: latissimus dorsi muscle }
+  - { concept: muscle:lower back, uberon: UBERON:0002462, match: closeMatch, uberon_label: erector spinae muscle group }
+  - { concept: muscle:middle back, uberon: UBERON:0005621, match: closeMatch, uberon_label: rhomboid }
+  - { concept: muscle:obliques, uberon: UBERON:0005442, match: closeMatch, uberon_label: abdominal external oblique muscle }
+  - { concept: muscle:quads, uberon: UBERON:0001377, match: exactMatch, uberon_label: quadriceps femoris }
+  - { concept: muscle:rotator cuff, uberon: UBERON:0003683, match: exactMatch, uberon_label: rotator cuff }
+  - { concept: muscle:traps, uberon: UBERON:0002380, match: exactMatch, uberon_label: trapezius muscle }
+  - { concept: muscle:triceps, uberon: UBERON:0001509, match: exactMatch, uberon_label: triceps brachii }
+  - { concept: muscle:upper back, uberon: UBERON:0004469, match: broadMatch, uberon_label: musculature of back }

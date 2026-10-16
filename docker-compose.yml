@@ -1,0 +1,22 @@
+# One-command local run: `make up` (fetches data/, then docker compose up --build).
+# Opens on http://localhost:5173 with mock sign-in. Put ANTHROPIC_FUTURE_API_KEY in .env for
+# drafting and the copilot; everything else works without it.
+services:
+  api:
+    build: { context: ., dockerfile: api/Dockerfile }
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      AUTH_MODE: mock
+      LLM_MODEL_FAST: ${LLM_MODEL_FAST:-claude-haiku-5-5}
+      LLM_MODEL_MAIN: ${LLM_MODEL_MAIN:-claude-sonnet-5-5}
+    volumes:
+      - ./data:/app/data:ro
+    ports: ["127.0.0.1:8000:8000"]
+  web:
+    build: { context: ., dockerfile: web/Dockerfile }
+    environment:
+      API_PROXY: http://api:8000
+    ports: ["127.0.0.1:5173:5173"]
+    depends_on: [api]

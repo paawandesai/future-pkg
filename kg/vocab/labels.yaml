@@ -1,0 +1,54 @@
+# Extra labels (skos:altLabel) for concepts, so coach shorthand resolves: "pecs", "DBs", "KB".
+# Keyed by concept kind, then by the concept's preferred label (as in the dataset or rule files).
+#
+# Not a rule file and not signed: a label only maps text onto a concept. It can't make anything
+# allowed. Equipment the member owns comes from the member record, not from these labels, and an
+# injury mention that resolves through a label still restricts exactly like the preferred term.
+# The loader fails on a label for a concept that doesn't exist, or one label on two concepts.
+
+muscle:
+  chest: [pecs, pec, pecs major, pectorals, pectoralis, pectoralis major]
+  core: [abs, abdominals, ab, six pack, midsection, trunk]
+  obliques: [side abs, oblique]
+  quads: [quadriceps, quad, thighs, front of thigh]
+  hamstrings: [hammies, hamstring, back of thigh]
+  glutes: [glute, butt, bum, gluteus, gluteus maximus, glute max, gluteals]
+  calves: [calf, gastrocnemius, soleus]
+  biceps: [bicep, bis, guns]
+  triceps: [tricep, tris]
+  deltoids: [delts, delt, deltoid, shoulder muscles]
+  lats: [lat, latissimus, latissimus dorsi]
+  traps: [trap, trapezius]
+  forearms: [forearm, grip]
+  rotator cuff: [cuff, rotator cuff muscles]
+  hip adductors: [adductors, adductor, inner thigh, groin]
+  hip flexors: [hip flexor, psoas, iliopsoas]
+  lower back: [erectors, spinal erectors, erector spinae]
+  middle back: [mid-back muscles, rhomboids]
+  upper back: [upper-back muscles]
+
+equipment:
+  Dumbbell: [DB, DBs, dumbbells, dumbells, dumbbell pair]
+  Kettlebell: [KB, KBs, kettlebells, kettle bell]
+  Barbell: [BB, barbells, olympic bar]
+  EZ Bar: [EZ curl bar, curl bar, ez-bar]
+  Resistance Band - Loop: [loop band, booty band, band loop]
+  Resistance Band - With Handles: [tube band, band with handles]
+  Miniband: [mini band, mini-band, hip circle]
+  Pull-Up Bar: [pullup bar, chin-up bar, chinup bar]
+  Medicine Ball: [med ball, medball]
+  Stability Ball: [swiss ball, exercise ball, physio ball]
+  Suspension Trainer: [TRX, suspension straps]
+  Yoga Mat: [mat, exercise mat]
+  Flat Bench: [bench, weight bench]
+  Cable Resistance Machine: [cable machine, cables, cable stack]
+  Jump Rope: [skipping rope, rope]
+  Rack: [squat rack, power rack]
+  Box: [plyo box, step, step box]
+
+region:
+  Lumbar spine: [lumbar, lumbar back]
+  Thoracic spine: [thoracic, t-spine]
+  Cervical spine: [c-spine, cervical]
+  Lower limb: [lower-body, lower half]
+  Upper limb: [upper-body]

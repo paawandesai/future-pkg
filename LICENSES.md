@@ -14,6 +14,7 @@ CI fails if this file is stale or if a GPL/AGPL/SSPL/BUSL/non-commercial license
 
 | Package | Version | License |
 |---|---|---|
+| PyJWT | 2.15.1 | MIT |
 | PyYAML | 6.0.3 | MIT License |
 | Pygments | 2.21.0 | BSD-2-Clause |
 | RapidFuzz | 3.14.6 | MIT |
@@ -23,7 +24,9 @@ CI fails if this file is stale or if a GPL/AGPL/SSPL/BUSL/non-commercial license
 | anyio | 4.15.1 | MIT |
 | ast_serialize | 0.13.0 | MIT |
 | certifi | 2026.7.22 | Mozilla Public License 2.0 (MPL 2.0) |
+| cffi | 2.1.1 | MIT-0 |
 | click | 8.5.0 | BSD-3-Clause |
+| cryptography | 50.0.2 | Apache-2.0 OR BSD-3-Clause |
 | docstring_parser | 0.18.0 | MIT License |
 | execnet | 2.1.2 | MIT |
 | fastapi | 0.143.0 | MIT |
@@ -44,6 +47,7 @@ CI fails if this file is stale or if a GPL/AGPL/SSPL/BUSL/non-commercial license
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause |
 | pathspec | 1.1.1 | Mozilla Public License 2.0 (MPL 2.0) |
 | pluggy | 1.6.0 | MIT License |
+| pycparser | 3.11 | BSD-3-Clause |
 | pydantic | 2.14.1 | MIT |
 | pydantic_core | 2.50.1 | MIT |
 | pyparsing | 3.3.3 | MIT |
@@ -56,6 +60,7 @@ CI fails if this file is stale or if a GPL/AGPL/SSPL/BUSL/non-commercial license
 | starlette | 1.7.0 | BSD-3-Clause |
 | truststore | 0.10.5 | MIT |
 | types-PyYAML | 6.0.12.20260906 | Apache-2.0 |
+| types-networkx | 3.6.1.20261006 | Apache-2.0 |
 | typing-inspection | 0.4.4 | MIT |
 | typing_extensions | 4.16.0 | PSF-2.0 |
 | uvicorn | 0.54.0 | BSD-3-Clause |
@@ -69,6 +74,9 @@ CI fails if this file is stale or if a GPL/AGPL/SSPL/BUSL/non-commercial license
 |---|---|---|
 | @asamuzakjp/css-color | 7.1.5 | MIT |
 | @asamuzakjp/dom-selector | 10.0.3 | MIT |
+| @aws-cdk/asset-awscli-v1 | 2.2.292 | Apache-2.0 |
+| @aws-cdk/asset-node-proxy-agent-v6 | 2.1.3 | Apache-2.0 |
+| @aws-cdk/cloud-assembly-schema | 54.26.0 | Apache-2.0 |
 | @babel/code-frame | 7.29.7 | MIT |
 | @babel/compat-data | 7.29.7 | MIT |
 | @babel/core | 7.29.7 | MIT |
@@ -95,6 +103,7 @@ CI fails if this file is stale or if a GPL/AGPL/SSPL/BUSL/non-commercial license
 | @csstools/css-parser-algorithms | 4.0.2 | MIT |
 | @csstools/css-syntax-patches-for-csstree | 1.1.15 | MIT-0 |
 | @csstools/css-tokenizer | 4.0.2 | MIT |
+| @esbuild/linux-x64 | 0.28.2 | MIT |
 | @eslint-community/eslint-utils | 4.10.1 | MIT |
 | @eslint-community/regexpp | 4.12.2 | MIT |
 | @eslint/config-array | 0.23.5 | Apache-2.0 |
@@ -142,6 +151,7 @@ CI fails if this file is stale or if a GPL/AGPL/SSPL/BUSL/non-commercial license
 | @types/esrecurse | 4.3.1 | MIT |
 | @types/estree | 1.0.9 | MIT |
 | @types/json-schema | 7.0.15 | MIT |
+| @types/node | 22.20.5 | MIT |
 | @types/react | 19.3.0 | MIT |
 | @types/react-dom | 19.3.0 | MIT |
 | @types/use-sync-external-store | 0.0.6 | MIT |
@@ -165,6 +175,8 @@ CI fails if this file is stale or if a GPL/AGPL/SSPL/BUSL/non-commercial license
 | ansi-styles | 5.2.0 | MIT |
 | aria-query | 5.3.0 | Apache-2.0 |
 | assertion-error | 2.0.1 | MIT |
+| aws-cdk | 2.1144.0 | Apache-2.0 |
+| aws-cdk-lib | 2.272.0 | Apache-2.0 |
 | balanced-match | 4.0.4 | MIT |
 | baseline-browser-mapping | 2.11.28 | Apache-2.0 |
 | bidi-js | 1.1.0 | MIT |
@@ -174,6 +186,7 @@ CI fails if this file is stale or if a GPL/AGPL/SSPL/BUSL/non-commercial license
 | caniuse-lite | 1.0.30001816 | CC-BY-4.0 |
 | chai | 6.3.0 | MIT |
 | clsx | 2.1.1 | MIT |
+| constructs | 10.8.1 | Apache-2.0 |
 | convert-source-map | 2.0.0 | MIT |
 | cross-spawn | 7.0.6 | MIT |
 | css-tree | 3.2.1 | MIT |
@@ -201,6 +214,7 @@ CI fails if this file is stale or if a GPL/AGPL/SSPL/BUSL/non-commercial license
 | entities | 8.1.0 | BSD-2-Clause |
 | es-module-lexer | 2.3.2 | MIT |
 | es-toolkit | 1.52.0 | MIT |
+| esbuild | 0.28.2 | MIT |
 | escalade | 3.2.0 | MIT |
 | escape-string-regexp | 4.0.0 | MIT |
 | eslint | 10.12.0 | MIT |
@@ -309,10 +323,12 @@ CI fails if this file is stale or if a GPL/AGPL/SSPL/BUSL/non-commercial license
 | tough-cookie | 6.0.2 | BSD-3-Clause |
 | tr46 | 7.0.0 | MIT |
 | ts-api-utils | 2.5.0 | MIT |
+| tsx | 4.23.15 | MIT |
 | type-check | 0.4.0 | MIT |
 | typescript | 5.9.3 | Apache-2.0 |
 | typescript-eslint | 8.71.2 | MIT |
 | undici | 8.12.2 | MIT |
+| undici-types | 6.21.0 | MIT |
 | update-browserslist-db | 1.3.4 | MIT |
 | uri-js | 4.4.1 | BSD-2-Clause |
 | use-sync-external-store | 1.7.0 | MIT |
