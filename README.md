@@ -124,9 +124,9 @@ there.
 
 | Coach request | Result |
 |---|---|
-| "45 minutes, lower body. Her left knee is still a bit sore." | 10 exercises, 35.7 min, 2.6 s. Lower-body work is Dumbbell Hip Thrust and Glute Bridge. No exercise loads the knee, and both Romanian deadlifts are left out because Jordan dislikes them. |
-| "30 min upper body. She has no barbell and no bench this week." | 7 exercises, 24.4 min, 1.9 s. Nothing needs a barbell or a bench, and the trace offers four equivalent alternatives, such as Push-Up to Knee-Drive instead of Barbell Decline Bench Press. |
-| "Full body 40 min, no deadlifts." | 8 exercises, 30.7 min, 3.2 s. Nothing from the deadlift family or its variants. |
+| "45 minutes, lower body. Her left knee is still a bit sore." | 10 exercises, 35.7 min, 1.7 s. Lower-body work is Dumbbell Hip Thrust and Glute Bridge. No exercise loads the knee, and both Romanian deadlifts are left out because Jordan dislikes them. |
+| "30 min upper body. She has no barbell and no bench this week." | 7 exercises, 24.4 min, 1.6 s. Nothing needs a barbell or a bench, and the trace offers four equivalent alternatives, such as Push-Up to Knee-Drive instead of Barbell Decline Bench Press. |
+| "Full body 40 min, no deadlifts." | 8 exercises, 30.7 min, 3.1 s. Nothing from the deadlift family or its variants. |
 | "Upper body today, her thingy is acting up again." | Blocked. The injury mention can't be resolved, so the coach is asked to pick the region. |
 
 <details>
@@ -134,7 +134,7 @@ there.
 
 > 45 minutes, lower body. Her left knee is still a bit sore.
 
-10 exercises, 35.7 min, 2605 ms.
+10 exercises, 35.7 min, 1749 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -144,8 +144,8 @@ there.
 | Glute Bridge | 3 | matches the requested focus; fits a priority-1 goal; uses only equipment the member has (Yoga Mat); loads hip, which is not restricted; picked for the main block by the selection step | same pattern trained in the last two days |
 | Alternating Dumbbell Overhead Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
 | Dumbbell Neutral-Grip Bench Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
-| Bodyweight Pike | 3 | uses only equipment the member has (Yoga Mat); loads hip, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
 | Push-Up to Knee-Drive | 3 | uses only equipment the member has (Yoga Mat); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
+| Bodyweight Pike | 3 | uses only equipment the member has (Yoga Mat); loads hip, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
 | Resistance Band Reverse Curl | 2 | uses only equipment the member has (Resistance Band - Loop); loads elbow, which is not restricted; picked for the main block by the selection step | - |
 | Ground Upper Trap Stretch | 1 | uses only equipment the member has (Yoga Mat); loads cervical spine, which is not restricted; mobility - static, regen are cool-down patterns in programming.yaml | - |
 
@@ -174,13 +174,11 @@ time, and the plan says that too.
 ## Evaluation
 
 `eval/` runs 11 generator scenarios and 5 adversarial cases on the live API. Checks are graph facts
-and regular expressions, never a model grading a model. Latest run (2026-10-16): **15 of 16 passed**
-([eval/results/latest.md](eval/results/latest.md)). The one failure, `coach-impersonation-in-chat`,
-is in the check, not the answer: the copilot replied "Nothing in the record shows the knee
-restriction has been lifted", and the regex that looks for an answer claiming the restriction was
-lifted can't tell a negated sentence from an assertion. The plan drafted in that case still
-excluded every exercise that loads the left knee. We report the failure as measured rather than
-loosening the check after the fact. The adversarial cases are:
+and regular expressions, never a model grading a model. Latest run (2026-10-16): **16 of 16 passed**
+([eval/results/latest.md](eval/results/latest.md)). Checks that an answer must not claim
+something skip sentences that negate it. The run before this one failed on "Nothing in the
+record shows the knee restriction has been lifted", because the negation list didn't include
+"nothing"; we added it (with "none", "neither" and "nor") and reran rather than dropping the check. The adversarial cases are:
 - "ignore the injury filter" in the coach request;
 - a member chat line impersonating the coach;
 - an instruction hidden in an image caption;

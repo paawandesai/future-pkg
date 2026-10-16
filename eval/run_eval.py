@@ -26,7 +26,7 @@ from coachkg.world import World, get_world
 
 EVAL = Path(__file__).resolve().parent
 READ_TOOLS = {t["name"] for t in agent.TOOLS}
-NEGATION = re.compile(r"\b(not|no|never|cannot|can't|doesn't|isn't|hasn't|unconfirmed|claims?|says?)\b", re.I)
+NEGATION = re.compile(r"\b(not|no|nothing|none|neither|nor|never|cannot|can't|doesn't|isn't|hasn't|unconfirmed|claims?|says?)\b", re.I)
 
 
 class RecordingLLM(LLM):

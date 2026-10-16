@@ -1,12 +1,12 @@
 # Plans and their traces
 
-From the eval run of 2026-10-16 21:15 UTC (`latest.json`). Member: the fictional Jordan.
+From the eval run of 2026-10-16 21:40 UTC (`latest.json`). Member: the fictional Jordan.
 
 ## brief-exclude-deadlifts
 
 > Exclude deadlifts
 
-16 exercises, 35.7 min, 5367 ms.
+16 exercises, 35.7 min, 3102 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -22,8 +22,8 @@ From the eval run of 2026-10-16 21:15 UTC (`latest.json`). Member: the fictional
 | Alternating Low Plank To Low Side Plank | 2 | uses only equipment the member has (Yoga Mat); loads elbow, shoulder; no restriction applies; picked for the main block by the selection step | - |
 | Jump Rope - Single-Leg | 2 | uses only equipment the member has (Jump Rope); loads ankle, knee; no restriction applies; picked for the main block by the selection step | - |
 | Glute Bridge | 2 | uses only equipment the member has (Yoga Mat); loads hip; no restriction applies; picked for the main block by the selection step | - |
-| Static Jump | 2 | needs no equipment; loads ankle, hip, knee; no restriction applies; picked for the main block by the selection step | - |
 | Jumping Jack | 2 | needs no equipment; loads ankle, hip, knee, shoulder; no restriction applies; picked for the main block by the selection step | - |
+| Static Jump | 2 | needs no equipment; loads ankle, hip, knee; no restriction applies; picked for the main block by the selection step | - |
 | Cow Pose | 1 | uses only equipment the member has (Yoga Mat); loads ankle, hip, knee, lumbar spine; no restriction applies; mobility - static, yoga, regen are cool-down patterns in programming.yaml | - |
 | Ground Upper Trap Stretch | 1 | uses only equipment the member has (Yoga Mat); loads cervical spine; no restriction applies; mobility - static, regen are cool-down patterns in programming.yaml | - |
 
@@ -45,7 +45,7 @@ From the eval run of 2026-10-16 21:15 UTC (`latest.json`). Member: the fictional
 
 > Her left knee is bothering her
 
-9 exercises, 31.4 min, 3308 ms.
+9 exercises, 31.4 min, 2307 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -76,7 +76,7 @@ From the eval run of 2026-10-16 21:15 UTC (`latest.json`). Member: the fictional
 
 > She has no barbell, only dumbbells and a kettlebell
 
-8 exercises, 29.7 min, 2733 ms.
+8 exercises, 29.7 min, 3013 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -85,8 +85,8 @@ From the eval run of 2026-10-16 21:15 UTC (`latest.json`). Member: the fictional
 | Alternating Dumbbell Overhead Press | 3 | fits a priority-1 goal; uses only equipment the member has (Dumbbell); loads elbow, shoulder; no restriction applies; picked for the main block by the selection step | - |
 | Alternating Dumbbell Racked Crossback Lunge | 3 | stands in for Barbell Racked Forward Lunge, which needs equipment the member lacks; uses only equipment the member has (Dumbbell); loads ankle, hip, knee; no restriction applies; picked for the main block by the selection step | - |
 | Dumbbell Romanian Deadlift | 3 | uses only equipment the member has (Dumbbell); loads hip, lumbar spine; no restriction applies; picked for the main block by the selection step | - |
-| Dumbbell Goblet Split Squat | 3 | uses only equipment the member has (Dumbbell); loads ankle, hip, knee; no restriction applies; picked for the main block by the selection step | - |
 | Vertical Jump to Broad Jump | 3 | stands in for High-Box Goblet Squat (partial range), which needs equipment the member lacks; needs no equipment; loads ankle, hip, knee; no restriction applies; picked for the main block by the selection step | - |
+| Dumbbell Goblet Split Squat | 3 | uses only equipment the member has (Dumbbell); loads ankle, hip, knee; no restriction applies; picked for the main block by the selection step | - |
 | Jumping Jack | 3 | needs no equipment; loads ankle, hip, knee, shoulder; no restriction applies; picked for the main block by the selection step | - |
 
 **Request read:** barbell -> Barbell (accepted, exact)
@@ -107,7 +107,7 @@ From the eval run of 2026-10-16 21:15 UTC (`latest.json`). Member: the fictional
 
 > lower-body exercises that avoid aggravating a knee injury
 
-9 exercises, 31.4 min, 3058 ms.
+9 exercises, 31.4 min, 3345 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -140,7 +140,7 @@ From the eval run of 2026-10-16 21:15 UTC (`latest.json`). Member: the fictional
 
 > full-body exercise with isolation around my pecs
 
-10 exercises, 39.4 min, 2013 ms.
+10 exercises, 39.4 min, 1802 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -177,7 +177,7 @@ From the eval run of 2026-10-16 21:15 UTC (`latest.json`). Member: the fictional
 
 > Full body 40 min, no deadlifts.
 
-8 exercises, 30.7 min, 3228 ms.
+8 exercises, 30.7 min, 3102 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -210,7 +210,7 @@ From the eval run of 2026-10-16 21:15 UTC (`latest.json`). Member: the fictional
 
 > 45 minutes, lower body. Her left knee is still a bit sore.
 
-10 exercises, 35.7 min, 2605 ms.
+10 exercises, 35.7 min, 1749 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -220,8 +220,8 @@ From the eval run of 2026-10-16 21:15 UTC (`latest.json`). Member: the fictional
 | Glute Bridge | 3 | matches the requested focus; fits a priority-1 goal; uses only equipment the member has (Yoga Mat); loads hip, which is not restricted; picked for the main block by the selection step | same pattern trained in the last two days |
 | Alternating Dumbbell Overhead Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
 | Dumbbell Neutral-Grip Bench Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
-| Bodyweight Pike | 3 | uses only equipment the member has (Yoga Mat); loads hip, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
 | Push-Up to Knee-Drive | 3 | uses only equipment the member has (Yoga Mat); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
+| Bodyweight Pike | 3 | uses only equipment the member has (Yoga Mat); loads hip, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
 | Resistance Band Reverse Curl | 2 | uses only equipment the member has (Resistance Band - Loop); loads elbow, which is not restricted; picked for the main block by the selection step | - |
 | Ground Upper Trap Stretch | 1 | uses only equipment the member has (Yoga Mat); loads cervical spine, which is not restricted; mobility - static, regen are cool-down patterns in programming.yaml | - |
 
@@ -245,7 +245,7 @@ From the eval run of 2026-10-16 21:15 UTC (`latest.json`). Member: the fictional
 
 > 30 min upper body. She has no barbell and no bench this week.
 
-7 exercises, 24.4 min, 1902 ms.
+7 exercises, 24.4 min, 1581 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -279,7 +279,7 @@ From the eval run of 2026-10-16 21:15 UTC (`latest.json`). Member: the fictional
 
 > Upper body, 30 minutes, she left her dumbbells at the office.
 
-7 exercises, 24.4 min, 2842 ms.
+7 exercises, 24.4 min, 2773 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -313,7 +313,7 @@ From the eval run of 2026-10-16 21:15 UTC (`latest.json`). Member: the fictional
 
 > Explosive plyometric jump training, 30 minutes.
 
-7 exercises, 24.4 min, 3923 ms.
+7 exercises, 24.7 min, 2341 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -321,8 +321,8 @@ From the eval run of 2026-10-16 21:15 UTC (`latest.json`). Member: the fictional
 | Dumbbell Hip Thrust | 3 | fits a priority-1 goal; uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads hip, which is not restricted; picked for the main block by the selection step | same pattern trained in the last two days |
 | Alternating Dumbbell Overhead Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
 | Glute Bridge | 3 | fits a priority-1 goal; uses only equipment the member has (Yoga Mat); loads hip, which is not restricted; picked for the main block by the selection step | same pattern trained in the last two days |
-| Dumbbell Neutral-Grip Bench Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
-| Alternating Low Plank To Low Side Plank | 3 | uses only equipment the member has (Yoga Mat); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
+| Bench-Lying Single-Arm Dumbbell Tricep Extension | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
+| Dumbbell Neutral-Grip Bench Press | 2 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
 | Ground Upper Trap Stretch | 1 | uses only equipment the member has (Yoga Mat); loads cervical spine, which is not restricted; mobility - static, regen are cool-down patterns in programming.yaml | - |
 
 **Request read:** explosive plyometric jump training -> plyometric, jump (accepted, exact)
@@ -340,7 +340,7 @@ From the eval run of 2026-10-16 21:15 UTC (`latest.json`). Member: the fictional
 - Left out 2 exercise(s) the member says they dislike: Dumbbell Romanian Deadlift, Kettlebell Romanian Deadlift. Name one in the request to include it.
 - Nothing matching plyometric jump passed the safety filter, so the main block uses the closest exercises that passed the filter.
 - Journey-stage rule (programming.yaml) suggests a lighter main block: weekly completion fell from 100% to 50% over the last 4 weeks. Kept the default sets because the exercises that passed the filter can't fill 30 minutes at 2 sets.
-- Planned 24 of 30 minutes: not enough exercises passed the filter to fill the time.
+- Planned 25 of 30 minutes: not enough exercises passed the filter to fill the time.
 
 ## no-match-injury
 
