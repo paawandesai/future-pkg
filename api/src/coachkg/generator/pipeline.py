@@ -313,7 +313,7 @@ async def run(
     if focus and not any(x.focus_match for x in pool["main"]):
         notes.append(
             f"Nothing matching {', '.join(focus.labels)} passed the safety filter, "
-            "so the main block uses the closest safe exercises."
+            "so the main block uses the closest exercises that passed the filter."
         )
 
     # 6. Selection among safe candidates only.
@@ -328,7 +328,9 @@ async def run(
     if sel.stats:
         calls.append(sel.stats)
     if sel.dropped:
-        notes.append(f"Dropped {len(sel.dropped)} id(s) the model returned that were not on the safe list.")
+        notes.append(
+            f"Dropped {len(sel.dropped)} id(s) the model returned that were not on the filtered list."
+        )
     yield {"event": "stage", "stage": "selection", "ms": timer.mark("selection")}
 
     # Time budget is enforced after selection.
@@ -344,7 +346,7 @@ async def run(
             fitted = full
             notes.append(
                 f"Journey-stage rule (programming.yaml{unsigned}) suggests a lighter main block: "
-                f"{lighter}. Kept the default sets because the safe exercises available can't "
+                f"{lighter}. Kept the default sets because the exercises that passed the filter can't "
                 f"fill {minutes} minutes at {world.programming.journey.main_sets} sets."
             )
         else:
@@ -377,7 +379,7 @@ async def run(
     if planned_s < (minutes - 3) * 60:
         notes.append(
             f"Planned {round(planned_s / 60)} of {minutes} minutes: "
-            "not enough safe exercises to fill the time."
+            "not enough exercises passed the filter to fill the time."
         )
     if not fitted["main"]:
         notes.append("No exercise fit the main block. Check the exclusions and the member's equipment.")

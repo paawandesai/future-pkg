@@ -57,23 +57,32 @@ a typed output and no way to touch the graph; every hand-off goes through code t
 
 ```mermaid
 flowchart LR
-  coach([Coach request<br/>+ time window]) --> A1
+  ui[Dashboard<br/>React SPA] -->|prompt + time window| api[FastAPI<br/>auth: mock locally, Cognito deployed]
+  api --> A1
   subgraph wf [Generator workflow]
-    A1[Intent agent<br/>fast model, structured output] --> S1[Deterministic scan<br/>adds missed injuries and equipment]
+    A1[Intent agent<br/>fast model, structured output] --> S1[Deterministic scan<br/>adds injury mentions the model missed]
     S1 --> S2[Resolver<br/>exact SKOS labels, then fuzzy]
-    S2 --> S3[Safety filter<br/>graph walk over signed rules, PROV]
+    S2 --> S3[Safety filter<br/>graph walk over signed rules]
     S3 --> S4[Scorer + alternatives<br/>focus, goals, journey stage, dislikes]
     S4 -->|safe ids only| A2[Selection agent<br/>main model picks and orders ids]
     A2 --> S5[Validator + assembler<br/>drops unknown ids, fits the time window]
   end
-  S5 --> plan([Draft plan + trace<br/>coach confirms])
-  kg1[(KG1 movement graph)] --- S2 & S3 & S4
-  kg2[(KG2 member graph)] --- S3 & S4
+  S5 --> plan[(Draft plan + PROV-O trace<br/>SQLite / DynamoDB)]
+  plan -->|coach confirms| ui
+  kg1[(KG1 movement graph<br/>exercises, anatomy, rules)] --- S2 & S3 & S4
+  rec[/Member record/] -->|injuries, equipment| S3
+  rec --> kg2[(KG2 member graph)]
+  kg2 -. joins: injury to region,<br/>equipment, session to exercise .- kg1
+  ui -->|question + recent turns| A3
   subgraph cp [Copilot]
-    A3[Copilot agent<br/>read-only tools, member fixed by server]
+    A3[Copilot agent<br/>read-only tools, member fixed by server] --> T[Tools over KG2<br/>brief, adherence, sleep, biomarkers, charts]
   end
-  kg2 --- A3
+  A1 & A2 & A3 -.-> llm{{Anthropic API}}
 ```
+
+There is no vector store. The catalog is 50 exercises and about 130 concepts, so exact labels
+plus fuzzy matching resolve the test cases, and an embedding fallback would only be allowed to
+return "ambiguous" anyway (see Known constraints).
 
 | Stage | Who | Can it change what is allowed? |
 |---|---|---|
@@ -94,7 +103,7 @@ is what lets the trace say exactly why every exercise is in or out.
 | Layer | Choice | Why |
 |---|---|---|
 | API | Python 3.12, FastAPI, Pydantic v2 | Typed contracts, and schema-validated model output |
-| Graph | NetworkX `MultiDiGraph` in-process; rdflib for the SKOS export (`kg/export/`) | About 50 exercises and 150 concepts fit in memory, and traversal takes microseconds. That keeps the latency budget without caching safety decisions. It is also one less server to run. |
+| Graph | NetworkX `MultiDiGraph` in-process; rdflib for the SKOS export (`kg/export/`) | About 50 exercises and 130 concepts fit in memory, and traversal takes microseconds. That keeps the latency budget without caching safety decisions. It is also one less server to run. |
 | Resolver | Exact SKOS labels, then `rapidfuzz` | Messy spellings and laterality are covered by tests. Low-confidence injury terms fail closed. |
 | LLM | Claude through the paid API. Model ids are configuration (`LLM_MODEL_FAST`, `LLM_MODEL_MAIN`). | Structured outputs only. Haiku 5.5 extracts intent and Sonnet 5.5 selects exercises (measured below). |
 | Orchestration | The staged workflow above, hand-written; a tool loop for the copilot | See "Why not more autonomous agents". No agent framework: each stage is a typed function, which keeps the trace exact. |
@@ -104,10 +113,15 @@ is what lets the trace say exactly why every exercise is in or out.
 
 ## Example runs (real, from `eval/results/`)
 
-These ran against the live API with Haiku 5.5 and Sonnet 5.5. The member is the fictional Jordan
+These ran against the live API with Haiku 5.5 and Sonnet 5.5 on 2026-10-15, before the second
+review's fixes (one-sided rows, shorthand, the brief's exact phrases). The eval now also runs
+the brief's three adjustment rows verbatim on members where they change the plan. The member is the fictional Jordan
 (left knee injury, patellofemoral pain, dislikes deadlifts, completion down from 100% to 50%).
 Every plan with its full trace, item by item, is in
 [eval/results/traces.md](eval/results/traces.md).
+In the app, each plan's trace also downloads as PROV-O JSON-LD that loads into any RDF tool
+([docs/provenance.md](docs/provenance.md)), and every exercise shows the graph path that put it
+there.
 
 | Coach request | Result |
 |---|---|
@@ -172,19 +186,41 @@ and regular expressions, never a model grading a model. Latest run: **11 of 11 p
 - a SNOMED code planted in a data field.
 
 The test suites hold the deterministic guarantees:
-- 120 API tests: resolver, safety filter, graph edges, alternatives, ingest, assembly, auth,
-  access requests and scoping.
+- 163 API tests: resolver, safety filter, graph edges, alternatives, provenance, member graph and
+  copilot tools, ingest, assembly, auth, access requests and scoping.
 - 58 live tests that check every SNOMED, Uberon and Wikidata identifier against its source.
-- 11 web tests.
+- 16 web tests.
 - 8 infra tests on the synthesized template (Cognito auth, noindex, TTL and purge, no secrets).
 
+**Why these critical paths.** The two places where a mistake reaches a member are reading the
+request and deciding what is allowed, so they carry most of the tests:
+- *Resolver* (`test_resolver.py`): every way a coach writes a body part, side, condition or
+  piece of equipment, including typos and shorthand, and the brief's own example prompts. A wrong
+  match here silently changes what the filter walks from; an unmatched injury must block.
+- *Safety filter* (`test_safety.py`): each rule against the graph, sub-structures through
+  `part-of`, sides, clearances, unsigned files only restricting, and the PROV record of every
+  decision. This is the one component that can make something allowed, so it is tested against
+  the graph rather than through the model.
+- *Generator* (`test_generator.py`, `test_provenance.py`): with a fake model, every id the model
+  returns that wasn't offered is dropped, time windows hold, exclusions that can't be resolved
+  stop the draft, and every item carries a reason and a graph path.
+
 **Production evaluation plan.**
-- Replay de-identified coach requests weekly through the scenarios harness.
-- Track the share of drafts confirmed without edits, edits by type, and blocks the coach overrode.
-- Treat any plan containing an exercise that loads a confirmed-injured region as a severity-1
-  incident. The filter is deterministic, so this should stay at zero, and the check proves it.
-- Add adversarial cases from every new prompt-injection pattern seen in member chat.
-- Re-measure latency per model release.
+
+| What | Metric | Alert |
+|---|---|---|
+| Safety | Plans with an exercise that loads a confirmed-injured region, or one the coach marked unsuitable | Any, as a severity-1 incident. The filter is deterministic, so this should be zero and the check proves it. |
+| Request reading | Share of injury mentions that blocked, by phrase; coach answers to "which region?" | A new phrase blocking more than a few times a week becomes a resolver label (signed) and a test |
+| Resolver drift | Exact vs fuzzy vs no-match rates per kind, weekly | Fuzzy or no-match share up by a third |
+| Plan quality | Drafts confirmed without edits; edits by type (swap, remove, sets); time-window shortfall | Confirmation rate down 10 points week on week |
+| Copilot grounding | Share of answers whose numbers all come from a tool result (checked by code against the tool output); answers with no tool call | Any answer citing a number no tool returned |
+| Injection | Adversarial suite on every release; new patterns from member chat added as cases | Any case failing |
+| Latency and cost | p50/p95 per stage and per model call; tokens per draft and per copilot answer | p95 over 5 s, or tokens per draft up 25% |
+
+Failure modes we watch for: a model returning ids it wasn't offered (dropped and counted), the
+model API failing or rejecting the key (the draft stops and says why; no fallback plan is
+invented), a rule file edited without re-signing (it drops to restrictive-only and every plan
+says so), and member text trying to clear an injury (only the coach's structured field can).
 
 ## Latency
 
@@ -192,6 +228,16 @@ Measured on the live API ([docs/latency.md](docs/latency.md)): **p50 2.3 s, p95 
 The safety filter, scoring and assembly together take under 15 ms; the rest is the two model
 calls. Opus 5.5 as the selection model measured p95 9.0 s, so Sonnet 5.5 was chosen. On AWS a
 deployed draft took 2.7 s, and a cold start adds about 2 s.
+
+Single runs vary: the deadlift case took 5.0 s in the eval run above, against a p95 of 2.4 s for
+that case in the latency run. Copilot answers aren't in these numbers. A copilot answer can take
+up to six sequential model calls (one per tool round), so it is slower than a draft; it is the
+first thing we'd measure and cap in production.
+
+**Token efficiency.** The intent call sends only the request. The selection call sends ids,
+names and patterns for the filtered candidates plus a short member summary (goals, dislikes, the
+last three sessions), not the catalog or the full record. The copilot gets the member's data only
+through the tool results it asks for, plus at most six earlier turns.
 
 ## Safety and data handling
 
@@ -234,8 +280,8 @@ deployed draft took 2.7 s, and a cold start adds about 2 s.
   [docs/ci.md](docs/ci.md).
 - **Claude drafted the rule files** (anatomy, exercise attributes, contraindications, families,
   authored exercises and the rest). A human reviewer (PD) read and signed each one. The filter
-  ignores a rule file until it is signed. `programming.yaml` (assembly only, not safety) was
-  signed on 2026-10-16.
+  ignores a rule file until it is signed. Three files are drafts again after the second review
+  (see Known constraints).
 - **Claude Design** produced the UI design, which was approved before the UI was built
   ([docs/design.md](docs/design.md)).
 - **At runtime**, Claude extracts intent, picks exercise ids from a pre-filtered list, and answers
@@ -284,7 +330,18 @@ file a person signs, and only the last one changes what the safety filter exclud
   none. Churn says so in its reasons.
 - **`priority_tier` is the same for every exercise** in the dataset, so it doesn't rank anything.
 - **The 18 unilateral exercises are all left-side rows** whose `bilateral_pair_id` points at
-  missing right-side rows. Plans dose them "each side".
+  missing right-side rows. Plans dose them "each side", so the filter treats each one as loading
+  both sides: a right-side injury excludes a left-only row too. The dataset's `is_bilateral` is
+  inverted (true marks the one-sided rows); the code uses the side in the exercise name instead.
+- **Adherence weeks in the data start on Tuesdays**, and the latest one is two days old on the
+  as-of date, so its 50% is a partial week. The workout history can't reproduce the stored
+  adherence figures; charts show both as given and mark weeks before the history starts as "no
+  data". Three of Jordan's six churn points come from the generated logins.
+- **The safety filter reads injuries and equipment from the member record, not from KG2.** KG2
+  is built from the same record and serves the copilot and the joins; keeping the filter on the
+  source record means a graph-building bug can't loosen a restriction.
+- **The morning brief is the dataset's own text**, shown beside our computed churn so the coach can
+  compare them. Images in chat are captions only; the model never sees image content.
 - **`estimated_rep_duration` has no documented unit**, so plan timing uses the tempo in
   `programming.yaml`.
 - **Three rules are still unsourced** and show as "unverified" when they apply:
@@ -298,8 +355,15 @@ file a person signs, and only the last one changes what the safety filter exclud
 - **Movement patterns have no external ontology match.** Muscles map to Uberon and equipment to
   Wikidata ([docs/alignment.md](docs/alignment.md)); no openly licensed ontology covers training
   movement patterns.
-- **The journey-stage rule is new.** It is in `programming.yaml`, signed by PD on 2026-10-16. It
-  sets volume, never which exercises are allowed, and every plan it changes says so.
+- **Three rule files are drafts again after the second review** and need a reviewer's signature:
+  `exercise_attributes.yaml` (joint loads for two rows that listed none), `equipment.yaml` (barbell
+  substitutes) and `programming.yaml` (hip hinge in the lower-body focus). Until then their facts
+  only restrict, the knee clearance can't apply, and plans say they are unsigned.
+- **The journey-stage rule** in `programming.yaml` sets volume, never which exercises are
+  allowed, and every plan it changes says so.
+- **No plan without the model.** If the API key is missing or rejected, drafting stops and says
+  so. We chose that over a rule-only fallback plan that the coach might not notice was different.
+- **`muscle_actions.yaml` and `recovery.yaml` are reference data** the app doesn't load yet.
 - **After grading:**
   - Turn off all reviewer accounts (Admin page, or `scripts/demo_users.py disable-all`).
   - Rotate the keys.

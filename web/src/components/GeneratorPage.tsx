@@ -22,7 +22,7 @@ type State =
 const STAGE_TEXT: Record<string, string> = {
   start: "Reading the request…",
   intent: "Checking the knowledge graph for restrictions…",
-  safety: "Ordering safe exercises…",
+  safety: "Ordering the filtered exercises…",
   selection: "Fitting the time budget…",
 };
 const BLOCK_TITLE: Record<PlanBlock["name"], string> = {
@@ -347,7 +347,7 @@ function PlanCard({ plan, onDiscard }: { plan: Plan; onDiscard: () => void }) {
             </h3>
             {b.items.length === 0 ? (
               <p className="small muted" style={{ margin: 0 }}>
-                No safe exercise fits this block.
+                No exercise that passed the filter fits this block.
               </p>
             ) : (
               <div className="table-wrap">
@@ -490,8 +490,8 @@ function AlternativesCard({ alts, planned }: { alts: Alternative[]; planned: Set
     <section className="card" aria-labelledby="alts-h">
       <h2 id="alts-h">Equivalent alternatives</h2>
       <p className="small muted" style={{ margin: "0 0 12px" }}>
-        For exercises left out only for missing equipment: safe exercises that share a movement pattern and a
-        target muscle in the graph.
+        For exercises left out only for missing equipment: exercises that passed the filter and share a
+        movement pattern and a target muscle in the graph.
       </p>
       <ul className="list">
         {alts.map((a) => (

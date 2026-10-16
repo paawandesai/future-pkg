@@ -47,6 +47,16 @@ a test fails when it drifts from the graph. Movement patterns (37) have no exter
 openly licensed ontology covers training movement patterns, and the closest work (COPPER, OPE) is
 cite-only for the reasons below.
 
+## What each suggested ontology gives us, and what we took
+
+| Ontology | What it offers, by its own description | What we use | What we left out, and why |
+|---|---|---|---|
+| **SNOMED CT** (via NCI EVS) | Clinical anatomy, joints, disorders and injuries with stable codes | Identifiers for our 18 regions and 5 conditions (`snomed.yaml`), live-checked in CI. Our `part-of` hierarchy mirrors its anatomy for the parts we need, so "knee" covers its sub-structures. | Descriptions and the rest of the hierarchy: redistribution needs a licence, and a hand-picked hierarchy of 18 regions is easier to review and sign than a slice of 350,000 concepts. |
+| **OPE** (Ontology of Physical Exercises) | Exercise types, the musculoskeletal system, equipment and injuries | Its split of the domain into exercise, body structure, equipment and injury is the shape of KG1's node types. | Classes and terms: no licence is published, it is an alpha release, and its OWL import fails, so nothing can be redistributed or kept in sync. The dataset's own taxonomy plus Uberon and Wikidata cover the same ground with clear licences. |
+| **COPPER** | Personalisation and behaviour-change concepts for activity recommendations (barriers, motivation, context, goals) | The idea that a recommendation depends on where the member is in their journey: our journey-stage rule (tenure, falling adherence) and the churn reasons are the two places this shows. | Its classes: CC BY-NC is a non-commercial licence, which our licence policy rules out. If Future licensed it, its behaviour-change concepts would be the natural home for KG2's goals, preferences and adherence nodes. |
+| **PROV-O** | Activities, entities, agents and derivation | The whole plan trace ([provenance.md](provenance.md)): one activity per stage, coach and model roles as agents, every exclusion linked to its rule and evidence. | Nothing: it is a W3C standard, small, and exactly the "why was this chosen" record the brief asks for. |
+| **SKOS** | Concept schemes, labels and mappings | Every catalog term as a concept with our labels and coach shorthand, `broader` from part-of and is-a, and `exact/close/broad/relatedMatch` to SNOMED, Uberon and Wikidata (`kg/export/coachkg-skos.ttl`). | OWL reasoning: we don't need inference, and SKOS keeps the mapping reviewable. |
+
 ## What we left out
 
 - **SNOMED content** beyond identifiers: redistributing descriptions needs a licence we don't hold.

@@ -11,8 +11,8 @@ Everything Claude drafted starts as `model`-attributed and is ignored by the fil
 | `kg/rules/families.yaml` | Exercise families (`variant-of`) and family hierarchy (`is-a`) | Yes (exclusion requests) |
 | `kg/authored/exercises.yaml` | Exercises we wrote as structured fields | Yes (their joint loads) |
 | `kg/rules/equipment.yaml` | Equipment substitutes | No, ranking only |
-| `kg/rules/muscle_actions.yaml` | Muscle group to joint actions | No, explanations only |
-| `kg/rules/recovery.yaml` | Self-administered recovery and referral roles | No |
+| `kg/rules/muscle_actions.yaml` | Muscle group to joint actions | No. Reference data, not loaded by the app yet |
+| `kg/rules/recovery.yaml` | Self-administered recovery and referral roles | No. Reference data, not loaded by the app yet |
 | `kg/rules/programming.yaml` | Default sets, reps, rest, tempo and warm-up/cool-down patterns | No, plan assembly only |
 
 ## Signing a file

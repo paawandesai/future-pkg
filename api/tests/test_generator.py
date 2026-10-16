@@ -111,7 +111,7 @@ def test_ids_outside_the_safe_set_are_dropped(world: World) -> None:
     safe = {e.id for e in world.safety.run(SafetyRequest(member=member)).candidates}
     assert set(_ids(plan)) <= safe
     assert len(_ids(plan)) == len(set(_ids(plan)))
-    assert any("not on the safe list" in n for n in plan["trace"]["notes"])
+    assert any("not on the filtered list" in n for n in plan["trace"]["notes"])
 
 
 def test_validate_keeps_order_and_drops_cross_block_ids() -> None:
