@@ -3,7 +3,7 @@ deterministic scan for injury words so a missed mention can never relax the filt
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from pydantic import BaseModel, Field
 
@@ -19,6 +19,8 @@ Rules:
 - injury_mentions: body parts or conditions the request says hurt, are sore, injured, or need care.
 - exclusions: exercises or exercise types the request says to leave out or avoid.
 - unavailable_equipment: equipment the request says is missing or not available.
+- available_only: when the request says only certain equipment is available ("only dumbbells and a \
+kettlebell"), copy those items. Otherwise null.
 - focus: body areas, muscles or movement types the request wants trained.
 - minutes: session length if stated."""
 
@@ -28,6 +30,9 @@ class Intent(BaseModel):
     exclusions: list[str] | None = Field(description="Exercises or types to leave out")
     injury_mentions: list[str] | None = Field(description="Hurt or sore body parts or conditions")
     unavailable_equipment: list[str] | None = Field(description="Equipment not available")
+    available_only: list[str] | None = Field(
+        default=None, description="The only equipment available, when the request limits it"
+    )
     minutes: int | None = Field(description="Session length in minutes, if stated")
 
 
@@ -62,5 +67,56 @@ def merge_mentions(resolver: Resolver, prompt: str, intent: Intent) -> tuple[lis
     return out, hints
 
 
+# Words that qualify a term without naming anything: "deadlift variations", "no hinge work".
+_QUALIFIERS = {
+    "variation",
+    "variations",
+    "variant",
+    "variants",
+    "type",
+    "types",
+    "style",
+    "styles",
+    "work",
+    "exercise",
+    "exercises",
+    "movement",
+    "movements",
+    "stuff",
+    "any",
+    "all",
+    "no",
+    "the",
+    "of",
+    "kind",
+    "kinds",
+    "version",
+    "versions",
+    "based",
+    "please",
+    "today",
+}
+
+
+def resolve_term(resolver: Resolver, text: str, kinds: list[Kind]) -> Resolution:
+    """The term as written; if that fails, without qualifier words; if that fails, the longest
+    sub-phrase that resolves ("isolation around my pecs" -> "pecs")."""
+    first = resolver.resolve(text, kinds)
+    if first.status == "accepted":
+        return first
+    words = [w for w in normalise(text).replace("-", " ").split() if w not in _QUALIFIERS]
+    if not words:
+        return first
+    cleaned = resolver.resolve(" ".join(words), kinds)
+    if cleaned.status == "accepted":
+        return replace(cleaned, text=text)
+    for n in range(len(words) - 1, 0, -1):
+        for i in range(len(words) - n + 1):
+            sub = resolver.resolve(" ".join(words[i : i + n]), kinds)
+            if sub.status == "accepted" and sub.method == "exact":
+                return replace(sub, text=text)
+    return first
+
+
 def resolve_terms(resolver: Resolver, terms: list[str] | None, kinds: list[Kind]) -> list[Resolution]:
-    return [resolver.resolve(t, kinds) for t in terms or []]
+    return [resolve_term(resolver, t, kinds) for t in terms or []]

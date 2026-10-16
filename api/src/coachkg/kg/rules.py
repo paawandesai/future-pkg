@@ -149,6 +149,8 @@ class RuleSet(BaseModel):
     substitutes: list[Substitute]
     authored_review: Review
     authored: list[Exercise]
+    # Extra labels by concept kind and preferred label (kg/vocab/labels.yaml). Text mapping only.
+    labels: dict[str, dict[str, list[str]]] = {}
 
 
 def _read(path: Path) -> dict[str, Any]:
@@ -185,6 +187,7 @@ def load_rules(kg_dir: Path, catalog: list[Exercise]) -> RuleSet:
         substitutes=[Substitute.model_validate(s) for s in equip["substitutes"]],
         authored_review=Review.model_validate(authored_raw["review"]),
         authored=authored,
+        labels=_read(kg_dir / "vocab" / "labels.yaml") if (kg_dir / "vocab" / "labels.yaml").exists() else {},
     )
     _cross_check(rs, catalog)
     return rs

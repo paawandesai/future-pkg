@@ -79,7 +79,7 @@ def _focus(world: World, terms: list[str], hints: list[str]) -> tuple[Focus, lis
                 focus.labels.append(label)
                 rows.append((term, ", ".join(keys)))
             continue
-        r = world.resolver.resolve(term, ["muscle", "pattern", "family"])
+        r = intent.resolve_term(world.resolver, term, ["muscle", "pattern", "family"])
         if r.status == "accepted" and r.concept:
             kind = r.concept.split(":", 1)[0]
             if kind == "muscle":
@@ -183,6 +183,7 @@ async def run(
     equip = intent.resolve_terms(world.resolver, it.unavailable_equipment, ["equipment"])
     exclude_concepts: list[str] = []
     unavailable: list[str] = []
+    unmatched: list[str] = []
     for r in excl:
         for c in _restrictive(r):
             (unavailable if c.startswith("equipment:") else exclude_concepts).append(c)
@@ -195,9 +196,7 @@ async def run(
                 names = ", ".join(sorted(str(world.store.node(h)["label"]) for h in hits))
                 notes.append(f'"{r.text}" was read as missing equipment: {names}.')
             else:
-                notes.append(
-                    f'Couldn\'t match "{r.text}" to an exercise or equipment, so nothing was left out for it.'
-                )
+                unmatched.append(r.text)
     for r in equip:
         hits = _restrictive(r) if r.status == "accepted" else _equipment_containing(world, r.text)
         unavailable += hits
@@ -205,7 +204,27 @@ async def run(
             names = ", ".join(sorted(str(world.store.node(h)["label"]) for h in hits))
             notes.append(f'"{r.text}" was read as every matching item: {names}.')
         elif not hits:
-            notes.append(f'Couldn\'t match "{r.text}" to equipment in the catalog.')
+            unmatched.append(r.text)
+    # "Only dumbbells and a kettlebell": everything else the member owns counts as missing.
+    if it.available_only:
+        only = intent.resolve_terms(world.resolver, it.available_only, ["equipment"])
+        keep = {c for r in only if r.status == "accepted" for c in _restrictive(r)}
+        unmatched += [r.text for r in only if r.status != "accepted"]
+        owned = {f"equipment:{q.strip().lower()}" for q in member.equipment_available}
+        dropped = sorted(owned - keep - set(unavailable))
+        unavailable += dropped
+        if dropped:
+            names = ", ".join(str(world.store.node(d)["label"]) for d in dropped if d in world.store.g)
+            notes.append(f"Only the equipment named in the request was used; left out: {names}.")
+    if unmatched:
+        # Fail closed: the coach asked to leave something out and we can't tell what.
+        said = ", ".join(f'"{t}"' for t in unmatched)
+        yield {
+            "event": "error",
+            "message": f"Couldn't tell what to leave out for {said}. Name an exercise, a family "
+            "(for example deadlift or lunge) or a piece of equipment, and try again.",
+        }
+        return
     focus, focus_rows = _focus(world, list(it.focus or []), hints)
     for said, understood in focus_rows:
         if understood is None:

@@ -7,6 +7,7 @@ import asyncio
 import json
 import re
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -72,8 +73,9 @@ def monkeypatch_module() -> Any:
     mp.undo()
 
 
-def _run(world: World, llm: FakeLLM, prompt: str, **kw: Any) -> list[dict[str, Any]]:
-    member = next(iter(world.members.values()))
+def _run(world: World, llm: FakeLLM, prompt: str, who: str | None = None, **kw: Any) -> list[dict[str, Any]]:
+    members = list(world.members.values())
+    member = next(m for m in members if m.name == who) if who else members[0]
     req = GenerateRequest(member_id=member.id, prompt=prompt, **kw)
 
     async def collect() -> list[dict[str, Any]]:
@@ -169,16 +171,22 @@ def test_plan_is_a_draft_and_unsigned_programming_is_disclosed(world: World) -> 
     plan = _plan(_run(world, FakeLLM(_intent(), _all_offered), "upper body"))
     assert plan["status"] == "draft"
     assert "Coach decision support" in plan["label"]
-    # programming.yaml is signed on disk (PD, 2026-10-16), so the plan doesn't flag it.
-    assert not any("programming.yaml" in line for line in plan["trace"]["unverified"])
+    # Signed in memory: the plan doesn't flag it.
+    disk = world.programming
+    signed_review = Review(status="signed", reviewer="TEST", signed_on=date(2026, 10, 16))
+    world.programming = disk.model_copy(update={"review": signed_review})
+    try:
+        signed = _plan(_run(world, FakeLLM(_intent(), _all_offered), "upper body"))
+    finally:
+        world.programming = disk
+    assert not any("programming.yaml" in line for line in signed["trace"]["unverified"])
 
-    # Back to draft in memory: the plan must disclose the model-drafted defaults again.
-    signed = world.programming
-    world.programming = signed.model_copy(update={"review": Review()})
+    # Draft in memory: the plan must disclose the model-drafted defaults.
+    world.programming = disk.model_copy(update={"review": Review()})
     try:
         plan = _plan(_run(world, FakeLLM(_intent(), _all_offered), "upper body"))
     finally:
-        world.programming = signed
+        world.programming = disk
     assert any("programming.yaml" in line for line in plan["trace"]["unverified"])
 
 
@@ -308,3 +316,48 @@ def test_steady_member_keeps_default_sets(world: World) -> None:
     llm = FakeLLM(_intent(focus=["upper body"]), _all_offered)
     plan = _run_for(world, "mbr_01HXGEN0002", llm, "upper body", minutes=45)
     assert not any(n.startswith("Lighter main block") for n in plan["trace"]["notes"])
+
+
+# ---------- the brief's own example requests ----------
+
+
+def _names(world: World, plan: dict[str, Any]) -> set[str]:
+    by_id = {e.id: e.name for e in world.catalog} | {e.id: e.name for e in world.rules.authored}
+    return {by_id[i] for i in _ids(plan)}
+
+
+def test_brief_knee_example_keeps_lower_body_work(world: World) -> None:
+    prompt = "lower-body exercises that avoid aggravating a knee injury"
+    it = _intent(focus=["lower-body exercises"], injury_mentions=["knee"])
+    plan = _plan(_run(world, FakeLLM(it, _all_offered), prompt, who="Elena Petrova"))
+    assert [r["regions"] for r in plan["trace"]["restrictions"]] == [["region:knee"]]
+    names = _names(world, plan)
+    assert names & {"Dumbbell Romanian Deadlift", "Kettlebell Romanian Deadlift", "Glute Bridge"}, names
+
+
+def test_brief_deadlift_variations_are_excluded(world: World) -> None:
+    it = _intent(exclusions=["deadlift variations"])
+    plan = _plan(_run(world, FakeLLM(it, _all_offered), "Exclude deadlifts", who="Elena Petrova"))
+    assert not any("Deadlift" in n for n in _names(world, plan))
+
+
+def test_unmatched_exclusion_fails_closed(world: World) -> None:
+    it = _intent(exclusions=["zorbing"])
+    events = _run(world, FakeLLM(it, _all_offered), "no zorbing", who="Elena Petrova")
+    assert not any(e["event"] == "plan" for e in events)
+    assert any(e["event"] == "error" and "zorbing" in e["message"] for e in events)
+
+
+def test_only_named_equipment_is_used(world: World) -> None:
+    it = _intent(unavailable_equipment=["barbell"], available_only=["dumbbells", "kettlebell"])
+    prompt = "She has no barbell, only dumbbells and a kettlebell"
+    plan = _plan(_run(world, FakeLLM(it, _all_offered), prompt, who="Sam Okafor"))
+    needs = {q for e in world.catalog if e.id in _ids(plan) for q in e.equipment_required}
+    assert needs <= {"Dumbbell", "Kettlebell"}, needs
+
+
+def test_shorthand_focus_resolves(world: World) -> None:
+    it = _intent(focus=["full-body", "isolation around my pecs"])
+    plan = _plan(_run(world, FakeLLM(it, _all_offered), "full-body exercise with isolation around my pecs"))
+    understood = {str(row.get("understood_as")).lower() for row in plan["trace"]["read"]}
+    assert "chest" in understood, plan["trace"]["read"]

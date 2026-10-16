@@ -230,4 +230,26 @@ def build_movement_graph(catalog: list[Exercise], rules: RuleSet) -> NetworkXSto
                 use, missing, "substitutes-for", eq_prov, "kg/rules/equipment.yaml", {"patterns": s.patterns}
             )
         )
+    _add_labels(store, rules.labels)
     return store
+
+
+def _add_labels(store: NetworkXStore, labels: dict[str, dict[str, list[str]]]) -> None:
+    """Attach kg/vocab/labels.yaml as alt labels. Fails on an unknown concept or a label that
+    would point at two concepts of the same kind."""
+    for kind, by_pref in labels.items():
+        nodes = {store.node(n)["label"]: n for n in store.nodes(kind)}
+        taken = {
+            _slug(lab): n
+            for n in nodes.values()
+            for lab in [store.node(n)["label"], *store.node(n).get("alt_labels", [])]
+        }
+        for pref, extra in by_pref.items():
+            if pref not in nodes:
+                raise ValueError(f"kg/vocab/labels.yaml: no {kind} called {pref!r}")
+            node = nodes[pref]
+            for lab in extra:
+                other = taken.setdefault(_slug(lab), node)
+                if other != node:
+                    raise ValueError(f"kg/vocab/labels.yaml: {lab!r} already names {other}")
+            store.g.nodes[node]["alt_labels"] = [*store.node(node).get("alt_labels", []), *extra]

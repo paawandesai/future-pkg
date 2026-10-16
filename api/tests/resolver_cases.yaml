@@ -28,7 +28,10 @@ body:
   - { text: spleen, expect: no_match }
 other:
   - { text: kettle bell, kinds: [equipment], expect: "equipment:kettlebell" }
-  - { text: DBs, kinds: [equipment], expect: no_match }
+  - { text: DBs, kinds: [equipment], expect: equipment:dumbbell }
+  - { text: KB, kinds: [equipment], expect: equipment:kettlebell }
+  - { text: pecs, kinds: [muscle], expect: muscle:chest }
+  - { text: lumbar, kinds: [region], expect: region:lumbar_spine }
   - { text: dumbells, kinds: [equipment], expect: "equipment:dumbbell" }
   - { text: deadlifts, kinds: [family], expect: family:deadlift }
   - { text: RDL, kinds: [family, exercise], expect: family:deadlift }

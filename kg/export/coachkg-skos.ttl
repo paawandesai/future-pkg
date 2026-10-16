@@ -232,6 +232,9 @@
     skos:prefLabel "Adjustable Bench - Incline"@en .
 
 <urn:coachkg:equipment/barbell> a skos:Concept ;
+    skos:altLabel "BB"@en,
+        "barbells"@en,
+        "olympic bar"@en ;
     skos:exactMatch <http://www.wikidata.org/entity/Q1043897> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Barbell"@en .
@@ -242,11 +245,17 @@
     skos:prefLabel "BOSU"@en .
 
 <urn:coachkg:equipment/box> a skos:Concept ;
+    skos:altLabel "plyo box"@en,
+        "step"@en,
+        "step box"@en ;
     skos:exactMatch <http://www.wikidata.org/entity/Q113450044> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Box"@en .
 
 <urn:coachkg:equipment/cable_resistance_machine> a skos:Concept ;
+    skos:altLabel "cable machine"@en,
+        "cable stack"@en,
+        "cables"@en ;
     skos:exactMatch <http://www.wikidata.org/entity/Q383154> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Cable Resistance Machine"@en .
@@ -256,15 +265,25 @@
     skos:prefLabel "Chest Supported Row Machine"@en .
 
 <urn:coachkg:equipment/dumbbell> a skos:Concept ;
+    skos:altLabel "DB"@en,
+        "DBs"@en,
+        "dumbbell pair"@en,
+        "dumbbells"@en,
+        "dumbells"@en ;
     skos:exactMatch <http://www.wikidata.org/entity/Q465453> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Dumbbell"@en .
 
 <urn:coachkg:equipment/ez_bar> a skos:Concept ;
+    skos:altLabel "EZ curl bar"@en,
+        "curl bar"@en,
+        "ez-bar"@en ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "EZ Bar"@en .
 
 <urn:coachkg:equipment/flat_bench> a skos:Concept ;
+    skos:altLabel "bench"@en,
+        "weight bench"@en ;
     skos:closeMatch <http://www.wikidata.org/entity/Q1422097> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Flat Bench"@en .
@@ -279,10 +298,16 @@
     skos:prefLabel "Horizontal Leg Press Machine"@en .
 
 <urn:coachkg:equipment/jump_rope> a skos:Concept ;
+    skos:altLabel "rope"@en,
+        "skipping rope"@en ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Jump Rope"@en .
 
 <urn:coachkg:equipment/kettlebell> a skos:Concept ;
+    skos:altLabel "KB"@en,
+        "KBs"@en,
+        "kettle bell"@en,
+        "kettlebells"@en ;
     skos:exactMatch <http://www.wikidata.org/entity/Q376762> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Kettlebell"@en .
@@ -293,11 +318,16 @@
     skos:prefLabel "Lacrosse Ball"@en .
 
 <urn:coachkg:equipment/medicine_ball> a skos:Concept ;
+    skos:altLabel "med ball"@en,
+        "medball"@en ;
     skos:exactMatch <http://www.wikidata.org/entity/Q1304461> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Medicine Ball"@en .
 
 <urn:coachkg:equipment/miniband> a skos:Concept ;
+    skos:altLabel "hip circle"@en,
+        "mini band"@en,
+        "mini-band"@en ;
     skos:broadMatch <http://www.wikidata.org/entity/Q2882175> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Miniband"@en .
@@ -313,21 +343,31 @@
     skos:prefLabel "Preacher Curl Bench"@en .
 
 <urn:coachkg:equipment/pull-up_bar> a skos:Concept ;
+    skos:altLabel "chin-up bar"@en,
+        "chinup bar"@en,
+        "pullup bar"@en ;
     skos:exactMatch <http://www.wikidata.org/entity/Q1060174> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Pull-Up Bar"@en .
 
 <urn:coachkg:equipment/rack> a skos:Concept ;
+    skos:altLabel "power rack"@en,
+        "squat rack"@en ;
     skos:closeMatch <http://www.wikidata.org/entity/Q957820> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Rack"@en .
 
 <urn:coachkg:equipment/resistance_band_-_loop> a skos:Concept ;
+    skos:altLabel "band loop"@en,
+        "booty band"@en,
+        "loop band"@en ;
     skos:broadMatch <http://www.wikidata.org/entity/Q2882175> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Resistance Band - Loop"@en .
 
 <urn:coachkg:equipment/resistance_band_-_with_handles> a skos:Concept ;
+    skos:altLabel "band with handles"@en,
+        "tube band"@en ;
     skos:broadMatch <http://www.wikidata.org/entity/Q2882175> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Resistance Band - With Handles"@en .
@@ -350,6 +390,9 @@
     skos:prefLabel "Slant Board"@en .
 
 <urn:coachkg:equipment/stability_ball> a skos:Concept ;
+    skos:altLabel "exercise ball"@en,
+        "physio ball"@en,
+        "swiss ball"@en ;
     skos:exactMatch <http://www.wikidata.org/entity/Q1463093> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Stability Ball"@en .
@@ -359,6 +402,8 @@
     skos:prefLabel "Stair Climber"@en .
 
 <urn:coachkg:equipment/suspension_trainer> a skos:Concept ;
+    skos:altLabel "TRX"@en,
+        "suspension straps"@en ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Suspension Trainer"@en ;
     skos:relatedMatch <http://www.wikidata.org/entity/Q1143113> .
@@ -368,6 +413,8 @@
     skos:prefLabel "Wall"@en .
 
 <urn:coachkg:equipment/yoga_mat> a skos:Concept ;
+    skos:altLabel "exercise mat"@en,
+        "mat"@en ;
     skos:exactMatch <http://www.wikidata.org/entity/Q2600531> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Yoga Mat"@en .
@@ -472,96 +519,158 @@
     skos:prefLabel "Vertical pull"@en .
 
 <urn:coachkg:muscle/biceps> a skos:Concept ;
+    skos:altLabel "bicep"@en,
+        "bis"@en,
+        "guns"@en ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0001507> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "biceps"@en .
 
 <urn:coachkg:muscle/calves> a skos:Concept ;
+    skos:altLabel "calf"@en,
+        "gastrocnemius"@en,
+        "soleus"@en ;
     skos:closeMatch <http://purl.obolibrary.org/obo/UBERON_0001665> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "calves"@en .
 
 <urn:coachkg:muscle/chest> a skos:Concept ;
+    skos:altLabel "pec"@en,
+        "pecs"@en,
+        "pecs major"@en,
+        "pectoralis"@en,
+        "pectoralis major"@en,
+        "pectorals"@en ;
     skos:closeMatch <http://purl.obolibrary.org/obo/UBERON_0001495> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "chest"@en .
 
 <urn:coachkg:muscle/core> a skos:Concept ;
+    skos:altLabel "ab"@en,
+        "abdominals"@en,
+        "abs"@en,
+        "midsection"@en,
+        "six pack"@en,
+        "trunk"@en ;
     skos:closeMatch <http://purl.obolibrary.org/obo/UBERON_0002343> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "core"@en .
 
 <urn:coachkg:muscle/deltoids> a skos:Concept ;
+    skos:altLabel "delt"@en,
+        "deltoid"@en,
+        "delts"@en,
+        "shoulder muscles"@en ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0001476> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "deltoids"@en .
 
 <urn:coachkg:muscle/forearms> a skos:Concept ;
+    skos:altLabel "forearm"@en,
+        "grip"@en ;
     skos:closeMatch <http://purl.obolibrary.org/obo/UBERON_0004487> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "forearms"@en .
 
 <urn:coachkg:muscle/glutes> a skos:Concept ;
+    skos:altLabel "bum"@en,
+        "butt"@en,
+        "glute"@en,
+        "glute max"@en,
+        "gluteals"@en,
+        "gluteus"@en,
+        "gluteus maximus"@en ;
     skos:closeMatch <http://purl.obolibrary.org/obo/UBERON_0002000> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "glutes"@en .
 
 <urn:coachkg:muscle/hamstrings> a skos:Concept ;
+    skos:altLabel "back of thigh"@en,
+        "hammies"@en,
+        "hamstring"@en ;
     skos:closeMatch <http://purl.obolibrary.org/obo/UBERON_0002463> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "hamstrings"@en .
 
 <urn:coachkg:muscle/hip_adductors> a skos:Concept ;
+    skos:altLabel "adductor"@en,
+        "adductors"@en,
+        "groin"@en,
+        "inner thigh"@en ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0011144> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "hip adductors"@en .
 
 <urn:coachkg:muscle/hip_flexors> a skos:Concept ;
+    skos:altLabel "hip flexor"@en,
+        "iliopsoas"@en,
+        "psoas"@en ;
     skos:closeMatch <http://purl.obolibrary.org/obo/UBERON_0001999> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "hip flexors"@en .
 
 <urn:coachkg:muscle/lats> a skos:Concept ;
+    skos:altLabel "lat"@en,
+        "latissimus"@en,
+        "latissimus dorsi"@en ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0001112> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "lats"@en .
 
 <urn:coachkg:muscle/lower_back> a skos:Concept ;
+    skos:altLabel "erector spinae"@en,
+        "erectors"@en,
+        "spinal erectors"@en ;
     skos:closeMatch <http://purl.obolibrary.org/obo/UBERON_0002462> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "lower back"@en .
 
 <urn:coachkg:muscle/middle_back> a skos:Concept ;
+    skos:altLabel "mid-back muscles"@en,
+        "rhomboids"@en ;
     skos:closeMatch <http://purl.obolibrary.org/obo/UBERON_0005621> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "middle back"@en .
 
 <urn:coachkg:muscle/obliques> a skos:Concept ;
+    skos:altLabel "oblique"@en,
+        "side abs"@en ;
     skos:closeMatch <http://purl.obolibrary.org/obo/UBERON_0005442> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "obliques"@en .
 
 <urn:coachkg:muscle/quads> a skos:Concept ;
+    skos:altLabel "front of thigh"@en,
+        "quad"@en,
+        "quadriceps"@en,
+        "thighs"@en ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0001377> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "quads"@en .
 
 <urn:coachkg:muscle/rotator_cuff> a skos:Concept ;
+    skos:altLabel "cuff"@en,
+        "rotator cuff muscles"@en ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0003683> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "rotator cuff"@en .
 
 <urn:coachkg:muscle/traps> a skos:Concept ;
+    skos:altLabel "trap"@en,
+        "trapezius"@en ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0002380> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "traps"@en .
 
 <urn:coachkg:muscle/triceps> a skos:Concept ;
+    skos:altLabel "tricep"@en,
+        "tris"@en ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0001509> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "triceps"@en .
 
 <urn:coachkg:muscle/upper_back> a skos:Concept ;
+    skos:altLabel "upper-back muscles"@en ;
     skos:broadMatch <http://purl.obolibrary.org/obo/UBERON_0004469> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "upper back"@en .
@@ -715,7 +824,9 @@
     skos:prefLabel "yoga"@en .
 
 <urn:coachkg:region/cervical_spine> a skos:Concept ;
-    skos:altLabel "neck"@en ;
+    skos:altLabel "c-spine"@en,
+        "cervical"@en,
+        "neck"@en ;
     skos:broader <urn:coachkg:region/spine> ;
     skos:closeMatch <http://snomed.info/id/122494005> ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0006072> ;
@@ -741,6 +852,8 @@
 <urn:coachkg:region/lumbar_spine> a skos:Concept ;
     skos:altLabel "low back"@en,
         "lower back"@en,
+        "lumbar"@en,
+        "lumbar back"@en,
         "lumbar region"@en ;
     skos:broader <urn:coachkg:region/spine> ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0006074>,
@@ -774,6 +887,8 @@
 
 <urn:coachkg:region/thoracic_spine> a skos:Concept ;
     skos:altLabel "mid back"@en,
+        "t-spine"@en,
+        "thoracic"@en,
         "upper back"@en ;
     skos:broader <urn:coachkg:region/spine> ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0006073>,
@@ -845,7 +960,9 @@
 <urn:coachkg:region/lower_limb> a skos:Concept ;
     skos:altLabel "leg"@en,
         "legs"@en,
-        "lower body"@en ;
+        "lower body"@en,
+        "lower half"@en,
+        "lower-body"@en ;
     skos:broader <urn:coachkg:region/body> ;
     skos:closeMatch <http://purl.obolibrary.org/obo/UBERON_0000978> ;
     skos:inScheme <urn:coachkg:scheme> ;
@@ -862,7 +979,8 @@
 <urn:coachkg:region/upper_limb> a skos:Concept ;
     skos:altLabel "arm"@en,
         "arms"@en,
-        "upper body"@en ;
+        "upper body"@en,
+        "upper-body"@en ;
     skos:broader <urn:coachkg:region/body> ;
     skos:closeMatch <http://purl.obolibrary.org/obo/UBERON_0001460> ;
     skos:inScheme <urn:coachkg:scheme> ;

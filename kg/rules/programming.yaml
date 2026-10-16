@@ -1,14 +1,16 @@
 # Default programming used to turn a list of exercises into a timed session.
-# Not safety facts: the safety filter never reads this file. Signed by PD on 2026-10-16. If it is
-# changed and set back to draft, every plan says its sets, reps and rest are model-drafted defaults.
+# Not safety facts: the safety filter never reads this file. While it is a draft, every plan says
+# its sets, reps and rest are model-drafted defaults.
 #
 # Units: seconds unless a key says otherwise. The dataset's estimated_rep_duration has no
 # documented unit (values 0-1.9 do not fit seconds or minutes per rep), so timing uses tempo_s.
 review:
-  status: signed
+  status: draft
   drafted_by: model
-  reviewer: PD
-  signed_on: 2026-10-16
+  reviewer: null
+  signed_on: null
+  # Signed by PD on 2026-10-16, then reset to draft the same day after adding the hip-hinge
+  # pattern (the authored deadlift family) to the lower-body and pull focus lists.
 
 tempo_s: 4              # one controlled repetition, both phases
 transition_s: 20        # moving to the next exercise
@@ -45,13 +47,13 @@ journey:
 # Movement patterns that count toward a training focus named in a request.
 focus_patterns:
   lower body: [lower push - squat, lower push - split squat, lower push - lunge, lower push - step-up,
-               lower push - calf raise, lower pull - hip lift, legs - accessory, lower - abduction,
+               lower push - calf raise, lower pull - hip lift, lower pull - hip hinge, legs - accessory, lower - abduction,
                lower - adduction]
   upper body: [upper push - horizontal, upper push - vertical, upper pull - horizontal,
                upper pull - vertical, arms - accessory, shoulders - accessory, upper - adduction]
   push: [upper push - horizontal, upper push - vertical, lower push - squat, lower push - split squat,
          lower push - lunge, lower push - step-up]
-  pull: [upper pull - horizontal, upper pull - vertical, lower pull - hip lift]
+  pull: [upper pull - horizontal, upper pull - vertical, lower pull - hip lift, lower pull - hip hinge]
   core: [core - anti-extension, core - anti-lateral flexion, core - anti-rotation, core - carry,
          core - extension, core - flexion, core - rotation]
   cardio: [cardio, cardio - locomotion, cardio - plyometric]

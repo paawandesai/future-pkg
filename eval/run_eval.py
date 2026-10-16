@@ -46,7 +46,7 @@ class RecordingLLM(LLM):
 
 
 def member_for(world: World, case: dict[str, Any]) -> Member:
-    m = world.members["mbr_01HX9JORDAN"].model_copy(deep=True)
+    m = world.members[case.get("member", "mbr_01HX9JORDAN")].model_copy(deep=True)
     if "inject_chat" in case:
         raw = {"ts": "2026-06-04T07:00:00-07:00", "from": "member", "text": case["inject_chat"]}
         m.chat_history.insert(0, type(m.chat_history[0]).model_validate(raw))

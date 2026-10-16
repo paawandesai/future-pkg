@@ -108,12 +108,15 @@ def find(
 
     wanted = [ex for ex in excluded if said(ex) or on_focus(ex)]
     out: list[Alternative] = []
+    used: set[str] = set()  # each stand-in is offered once, for the exercise it fits best
     for ex in sorted(wanted, key=lambda e: (not (said(e) and on_focus(e)), not said(e), e.name)):
         pats = _dst(store, ex, "has-pattern")
         musc = _dst(store, ex, "targets")
         ranked: list[tuple[tuple[int, int, int, str], Alternative]] = []
         main = not set(ex.movement_patterns) & edge_patterns
         for cand in safe:
+            if cand.id in used:
+                continue
             if main and set(cand.movement_patterns) & edge_patterns:
                 continue
             shared_p = sorted(pats & safe_pats[cand.id])
@@ -133,7 +136,9 @@ def find(
             key = (0 if sub else 1, -len(shared_p), -len(shared_m), cand.name)
             ranked.append((key, alt))
         ranked.sort(key=lambda r: r[0])
-        out += [a for _, a in ranked[:PER_EXCLUDED]]
+        picked = [a for _, a in ranked[:PER_EXCLUDED]]
+        used |= {a.use.id for a in picked}
+        out += picked
         if len(out) >= MAX_TOTAL:
             return out[:MAX_TOTAL]
     return out
