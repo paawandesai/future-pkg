@@ -5,12 +5,10 @@
 # Units: seconds unless a key says otherwise. The dataset's estimated_rep_duration has no
 # documented unit (values 0-1.9 do not fit seconds or minutes per rep), so timing uses tempo_s.
 review:
-  status: draft
+  status: signed
   drafted_by: model
-  reviewer: null
-  signed_on: null
-  # Signed by PD on 2026-10-16, then reset to draft the same day after adding the hip-hinge
-  # pattern (the authored deadlift family) to the lower-body and pull focus lists.
+  reviewer: PD
+  signed_on: 2026-10-16
 
 tempo_s: 4              # one controlled repetition, both phases
 transition_s: 20        # moving to the next exercise

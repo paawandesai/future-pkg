@@ -2,13 +2,10 @@
 # swap that works for a goblet hold may not work for a throw or a press.
 # Used for ranking and suggestions only, never for safety decisions.
 review:
-  status: draft
+  status: signed
   drafted_by: model
-  reviewer: null
-  signed_on: null
-  # Previously signed by PD on 2026-10-15. Reset to draft on 2026-10-16 after adding the two
-  # barbell substitutes. ("car" on the miniband row is the dataset's controlled-articular-rotation
-  # pattern, not a typo.)
+  reviewer: PD
+  signed_on: 2026-10-16
   basis: Our judgment of load-holding equivalence; no external source.
 
 substitutes:

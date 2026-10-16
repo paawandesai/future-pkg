@@ -280,8 +280,8 @@ through the tool results it asks for, plus at most six earlier turns.
   [docs/ci.md](docs/ci.md).
 - **Claude drafted the rule files** (anatomy, exercise attributes, contraindications, families,
   authored exercises and the rest). A human reviewer (PD) read and signed each one. The filter
-  ignores a rule file until it is signed. Three files are drafts again after the second review
-  (see Known constraints).
+  ignores a rule file until it is signed. Three files were edited and re-signed after the second
+  review (see Known constraints).
 - **Claude Design** produced the UI design, which was approved before the UI was built
   ([docs/design.md](docs/design.md)).
 - **At runtime**, Claude extracts intent, picks exercise ids from a pre-filtered list, and answers
@@ -355,10 +355,9 @@ file a person signs, and only the last one changes what the safety filter exclud
 - **Movement patterns have no external ontology match.** Muscles map to Uberon and equipment to
   Wikidata ([docs/alignment.md](docs/alignment.md)); no openly licensed ontology covers training
   movement patterns.
-- **Three rule files are drafts again after the second review** and need a reviewer's signature:
+- **Three rule files were edited after the second review and signed again** (PD, 2026-10-16):
   `exercise_attributes.yaml` (joint loads for two rows that listed none), `equipment.yaml` (barbell
-  substitutes) and `programming.yaml` (hip hinge in the lower-body focus). Until then their facts
-  only restrict, the knee clearance can't apply, and plans say they are unsigned.
+  substitutes) and `programming.yaml` (hip hinge in the lower-body focus).
 - **The journey-stage rule** in `programming.yaml` sets volume, never which exercises are
   allowed, and every plan it changes says so.
 - **No plan without the model.** If the API key is missing or rejected, drafting stops and says
