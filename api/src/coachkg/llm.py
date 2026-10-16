@@ -27,6 +27,20 @@ class LLMError(RuntimeError):
     """The model call failed or returned nothing usable. Callers fail closed."""
 
 
+class LLMAuthError(LLMError):
+    """The API key is missing or was rejected. Retrying won't help, so callers say so."""
+
+
+KEY_PROBLEM = (
+    "The model API key is missing or was rejected (ANTHROPIC_FUTURE_API_KEY). "
+    "Drafting and the copilot need a valid key; everything else still works."
+)
+
+
+def failure_message(exc: LLMError, default: str) -> str:
+    return KEY_PROBLEM if isinstance(exc, LLMAuthError) else default
+
+
 @dataclass(frozen=True)
 class CallStats:
     purpose: str
@@ -42,7 +56,7 @@ class LLM:
         if client is None:
             key = anthropic_api_key()
             if not key:
-                raise LLMError("ANTHROPIC_FUTURE_API_KEY is not set")
+                raise LLMAuthError("ANTHROPIC_FUTURE_API_KEY is not set")
             client = anthropic.AsyncAnthropic(api_key=key, timeout=timeout_s, max_retries=1)
         self.client = client
 
@@ -79,6 +93,8 @@ class LLM:
                     output_format=schema,
                     output_config={"effort": effort},
                 )
+        except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as exc:
+            raise LLMAuthError(f"{purpose}: {type(exc).__name__}") from exc
         except anthropic.APIError as exc:
             raise LLMError(f"{purpose}: {type(exc).__name__}") from exc
         ms = int((time.perf_counter() - t0) * 1000)
@@ -116,6 +132,8 @@ class LLM:
                 )
             else:
                 resp = await self.client.messages.create(**kw)
+        except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as exc:
+            raise LLMAuthError(f"copilot: {type(exc).__name__}") from exc
         except anthropic.APIError as exc:
             raise LLMError(f"copilot: {type(exc).__name__}") from exc
         return resp, int((time.perf_counter() - t0) * 1000)

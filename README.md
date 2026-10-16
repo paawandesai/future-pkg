@@ -22,7 +22,7 @@ generated (`scripts/generate_fixtures.py`) to show different cases:
 
 | Member | Case |
 |---|---|
-| Priya Nair | Active right-shoulder tendinopathy: shoulder work is excluded until the coach records a clearance |
+| Priya Nair | Active right-shoulder tendinopathy: shoulder work, including one-arm rows, is excluded (the low-impact clearance applies to knee injuries only) |
 | Marcus Bell | Only a mat and a wall; low back pain restricts lumbar loading |
 | Elena Petrova | Adherence 100% to 25% over four weeks and logins falling: churn is high |
 | Theo Lindqvist | Ankle sprain already cleared: no restriction, the history still shows it |
@@ -33,12 +33,22 @@ generated (`scripts/generate_fixtures.py`) to show different cases:
 ```
 cp .env.example .env    # add ANTHROPIC_FUTURE_API_KEY to draft plans and use the copilot
 make up                 # Docker: fetches data/, builds, serves http://localhost:5173
-make dev                # same without Docker (needs uv and pnpm)
-make test               # API, web and infra test suites
+make dev                # same without Docker: installs, then API on :8000 and web on :5173
+make test               # installs if needed, then the API, web and infra suites (offline)
 ```
 
-Sign-in is mocked locally ("Continue as demo coach"). Without an API key, everything except
-drafting and the copilot still works: the member view, charts, churn and the graph-backed filters.
+**Prerequisites.** Docker for `make up`. For `make dev` and `make test`: Python 3.12 with
+[uv](https://docs.astral.sh/uv/), Node 22 with pnpm 10 (`corepack enable`), and `python3` on the
+path. Both paths need network access to fetch the assessment data (from its GitHub repo, at a
+pinned commit, checksum-verified) and packages, and free ports 5173 and 8000.
+
+Sign-in is mocked locally ("Continue as demo coach"). Without a valid API key the member view,
+charts, churn and the member graph still work. Drafting a plan and
+asking the copilot need the model, and say plainly when the key is missing or rejected.
+
+Live checks, which need network and (for the eval) the key:
+`cd api && uv run pytest -m live` (SNOMED, Uberon and Wikidata identifiers) and
+`cd api && uv run python ../eval/run_eval.py` (the scenario and adversarial eval).
 
 ## Architecture: one staged agentic workflow
 

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from coachkg.access import (
@@ -32,12 +32,20 @@ from coachkg.auth import Admin, current_admin, current_coach
 from coachkg.config import REPO_ROOT
 from coachkg.copilot import agent, data
 from coachkg.generator.pipeline import GenerateRequest, run
-from coachkg.llm import LLM, LLMError
+from coachkg.llm import KEY_PROBLEM, LLM, LLMAuthError, LLMError, failure_message
 from coachkg.member import Member
 from coachkg.plans import DynamoPlanStore, PlanStore, SqlitePlanStore
 from coachkg.world import World, get_world
 
 app = FastAPI(title="coachkg", docs_url=None, redoc_url=None, openapi_url=None)
+
+
+@app.exception_handler(LLMAuthError)
+async def _key_problem(_request: Request, _exc: LLMAuthError) -> JSONResponse:
+    # Raised while building the client when no key is set at all.
+    return JSONResponse(status_code=503, content={"detail": KEY_PROBLEM})
+
+
 access_log = logging.getLogger("coachkg.access")
 if not access_log.handlers:
     _handler = logging.StreamHandler()
@@ -223,8 +231,9 @@ async def copilot(
         raise HTTPException(status_code=503, detail="Model ids are not configured")
     try:
         ans = await agent.ask(llm, model, world.context(m), req.question)
-    except LLMError:
-        raise HTTPException(status_code=502, detail="The copilot couldn't answer. Try again.") from None
+    except LLMError as exc:
+        detail = failure_message(exc, "The copilot couldn't answer. Try again.")
+        raise HTTPException(status_code=502, detail=detail) from None
     return {
         "answer": ans.text,
         "charts": [c.model_dump() for c in ans.charts],
@@ -243,8 +252,9 @@ async def congratulate(member_id: str, coach: Coach, world: WorldDep, llm: LLMDe
         raise HTTPException(status_code=503, detail="Model ids are not configured")
     try:
         return await agent.congratulation_draft(llm, model, world.context(m))
-    except LLMError:
-        raise HTTPException(status_code=502, detail="Couldn't draft the message. Try again.") from None
+    except LLMError as exc:
+        detail = failure_message(exc, "Couldn't draft the message. Try again.")
+        raise HTTPException(status_code=502, detail=detail) from None
 
 
 @app.get("/api/members/{member_id}/graph")

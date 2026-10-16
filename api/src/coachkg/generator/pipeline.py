@@ -21,7 +21,7 @@ from coachkg.generator import assemble, intent, selection, trace
 from coachkg.generator.programming import journey_reason
 from coachkg.generator.scoring import Focus, Scored, score_candidates
 from coachkg.kg.graph import region_node
-from coachkg.llm import LLM, CallStats, LLMError
+from coachkg.llm import LLM, CallStats, LLMError, failure_message
 from coachkg.member import Clearance, Member
 from coachkg.resolver import Resolution, normalise
 from coachkg.safety import SafetyRequest, Side
@@ -172,7 +172,7 @@ async def run(
     except LLMError as exc:
         # The message is the call's purpose and the API error class only, never request text.
         log.warning("llm call failed: %s", exc)
-        yield {"event": "error", "message": "Couldn't read the request. Try again."}
+        yield {"event": "error", "message": failure_message(exc, "Couldn't read the request. Try again.")}
         return
     calls.append(stats)
     yield {"event": "stage", "stage": "intent", "ms": timer.mark("intent")}
@@ -320,8 +320,9 @@ async def run(
         sel = await selection.select(
             llm, s.llm_model_main, req.prompt, _member_summary(member), pool, budgets, prog
         )
-    except LLMError:
-        yield {"event": "error", "message": "Couldn't order the exercises. Try again."}
+    except LLMError as exc:
+        log.warning("llm call failed: %s", exc)
+        yield {"event": "error", "message": failure_message(exc, "Couldn't order the exercises. Try again.")}
         return
     if sel.stats:
         calls.append(sel.stats)

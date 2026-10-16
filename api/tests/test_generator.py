@@ -361,3 +361,14 @@ def test_shorthand_focus_resolves(world: World) -> None:
     plan = _plan(_run(world, FakeLLM(it, _all_offered), "full-body exercise with isolation around my pecs"))
     understood = {str(row.get("understood_as")).lower() for row in plan["trace"]["read"]}
     assert "chest" in understood, plan["trace"]["read"]
+
+
+def test_a_rejected_key_says_so(world: World) -> None:
+    from coachkg.llm import LLMAuthError
+
+    class NoKey(FakeLLM):
+        async def parse(self, **_: Any) -> tuple[Any, CallStats]:
+            raise LLMAuthError("intent: AuthenticationError")
+
+    events = _run(world, NoKey(_intent(), _all_offered), "upper body")
+    assert any(e["event"] == "error" and "API key" in e["message"] for e in events)

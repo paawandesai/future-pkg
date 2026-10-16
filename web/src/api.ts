@@ -97,7 +97,16 @@ export async function* generate(body: GenerateBody, signal?: AbortSignal): Async
     signal,
   });
   if (res.status === 401) sessionExpired();
-  if (!res.ok || !res.body) throw new Error(`Request failed (${res.status})`);
+  if (!res.ok || !res.body) {
+    let detail = `Request failed (${res.status})`;
+    try {
+      const body = (await res.json()) as { detail?: unknown };
+      if (typeof body.detail === "string") detail = body.detail;
+    } catch {
+      // not JSON
+    }
+    throw new Error(detail);
+  }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
