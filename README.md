@@ -88,7 +88,7 @@ return "ambiguous" anyway (see Known constraints).
 |---|---|---|
 | Intent | Fast model | No. Its output is unioned with a deterministic scan, so it can only add restrictions. |
 | Resolve, safety filter | Code over the graph | Yes, and only from dataset facts and signed rule files. An unresolved injury blocks the draft. |
-| Score, alternatives | Code over the graph | No. Ranking only: focus, goals, journey stage, dislikes, equivalent alternatives for missing equipment. |
+| Score, alternatives | Code over the graph | Only to remove more: exercises the member dislikes are left out (named in the plan, and the coach can ask for one back). Otherwise ranking only: focus, goals, journey stage, equivalent alternatives for missing equipment. |
 | Selection | Main model | No. It sees only safe ids; any other id is dropped. |
 | Assemble | Code | No. Fits sets, reps and rest to the time window. |
 | Copilot | Main model with tools | No writes at all. Tools are read-only and scoped to the member on screen; there is no send tool. |
@@ -113,8 +113,12 @@ is what lets the trace say exactly why every exercise is in or out.
 
 ## Example runs (real, from `eval/results/`)
 
-These ran against the live API with Haiku 5.5 and Sonnet 5.5 on 2026-10-16. The eval also runs
-the brief's three adjustment rows verbatim on members where they change the plan. The member is the fictional Jordan
+These ran with the live Anthropic API (Haiku 5.5 and Sonnet 5.5) on 2026-10-16. `eval/run_eval.py`
+calls the pipeline and copilot in-process, so sign-in and member scoping are covered by the API
+tests, not by the eval. The eval also runs the brief's three adjustment rows verbatim on members
+where they change the plan (Elena, and Sam for the no-barbell row because he is the only member
+who owns a barbell and has no injury; Sam sits under another coach, so that row can't be repeated
+from the demo UI). The member is the fictional Jordan
 (left knee injury, patellofemoral pain, dislikes deadlifts, completion down from 100% to 50%).
 Every plan with its full trace, item by item, is in
 [eval/results/traces.md](eval/results/traces.md).
@@ -168,12 +172,12 @@ there.
 
 Plans come in under the requested time because the warm-up and cool-down pools that pass the
 filter are small. The plan says so in its notes and does not pad with unsafe work. For the same
-reason the journey-stage rule keeps 3 sets for Jordan: at 2 sets the safe exercises can't fill the
+reason the journey-stage rule keeps 3 sets for Jordan: at 2 sets the exercises that passed the filter can't fill the
 time, and the plan says that too.
 
 ## Evaluation
 
-`eval/` runs 11 generator scenarios and 5 adversarial cases on the live API. Checks are graph facts
+`eval/` runs 11 generator scenarios and 5 adversarial cases with the live model API. Checks are graph facts
 and regular expressions, never a model grading a model. Latest run (2026-10-16): **16 of 16 passed**
 ([eval/results/latest.md](eval/results/latest.md)). Checks that an answer must not claim
 something skip sentences that negate it. The run before this one failed on "Nothing in the
@@ -183,7 +187,7 @@ record shows the knee restriction has been lifted", because the negation list di
 - a member chat line impersonating the coach;
 - an instruction hidden in an image caption;
 - a request for another member's data;
-- a SNOMED code planted in a data field.
+- an instruction in a member-record field (`snomedct_hint`) asking for a SNOMED CT lookup.
 
 The test suites hold the deterministic guarantees:
 - 163 API tests: resolver, safety filter, graph edges, alternatives, provenance, member graph and
@@ -229,7 +233,7 @@ The safety filter, scoring and assembly together take under 15 ms; the rest is t
 calls. Opus 5.5 as the selection model measured p95 9.0 s, so Sonnet 5.5 was chosen. On AWS a
 deployed draft took 2.7 s, and a cold start adds about 2 s.
 
-Single runs vary: the deadlift case took 5.0 s in the eval run above, against a p95 of 2.4 s for
+Single runs vary: the deadlift case took 3.1 s in the eval run above, against a p95 of 2.4 s for
 that case in the latency run. Copilot answers aren't in these numbers. A copilot answer can take
 up to six sequential model calls (one per tool round), so it is slower than a draft; it is the
 first thing we'd measure and cap in production.
@@ -271,7 +275,8 @@ through the tool results it asks for, plus at most six earlier turns.
   block, and the plan says why.
 - It doesn't give each reviewer their own data. Every reviewer signs in as the same demo coach,
   so they share the fictional members and each other's draft plans. A member under a different
-  coach exists only to test scoping.
+  coach (Sam) can't be opened from the demo; the API tests use him for scoping and the eval for
+  the no-barbell row.
 
 ## How we used AI
 
@@ -279,9 +284,9 @@ through the tool results it asks for, plus at most six earlier turns.
   from a written plan. Every change ran through the hooks and CI described in
   [docs/ci.md](docs/ci.md).
 - **Claude drafted the rule files** (anatomy, exercise attributes, contraindications, families,
-  authored exercises and the rest). A human reviewer (PD) read and signed each one. The filter
-  ignores a rule file until it is signed. Three files were edited and re-signed after the second
-  review (see Known constraints).
+  authored exercises and the rest). A human reviewer (PD) read and signed each one. Until a file is
+  signed it can only make the filter stricter (each use is marked "unverified"), never allow
+  anything. Four files were edited and re-signed after the second review (see Known constraints).
 - **Claude Design** produced the UI design, which was approved before the UI was built
   ([docs/design.md](docs/design.md)).
 - **At runtime**, Claude extracts intent, picks exercise ids from a pre-filtered list, and answers
@@ -332,7 +337,7 @@ file a person signs, and only the last one changes what the safety filter exclud
 - **The 18 unilateral exercises are all left-side rows** whose `bilateral_pair_id` points at
   missing right-side rows. Plans dose them "each side", so the filter treats each one as loading
   both sides: a right-side injury excludes a left-only row too. The dataset's `is_bilateral` is
-  inverted (true marks the one-sided rows); the code uses the side in the exercise name instead.
+  inverted (true marks the one-sided rows); the code uses the `side` field instead.
 - **Adherence weeks in the data start on Tuesdays**, and the latest one is two days old on the
   as-of date, so its 50% is a partial week. The workout history can't reproduce the stored
   adherence figures; charts show both as given and mark weeks before the history starts as "no
@@ -357,14 +362,24 @@ file a person signs, and only the last one changes what the safety filter exclud
 - **Movement patterns have no external ontology match.** Muscles map to Uberon and equipment to
   Wikidata ([docs/alignment.md](docs/alignment.md)); no openly licensed ontology covers training
   movement patterns.
-- **Three rule files were edited after the second review and signed again** (PD, 2026-10-16):
+- **Four rule files were edited after the second review and signed again** (PD, 2026-10-16):
   `exercise_attributes.yaml` (joint loads for two rows that listed none), `equipment.yaml` (barbell
-  substitutes) and `programming.yaml` (hip hinge in the lower-body focus).
+  substitutes), `programming.yaml` (hip hinge in the lower-body focus) and `contraindications.yaml`
+  (sources for the last three rules).
 - **The journey-stage rule** in `programming.yaml` sets volume, never which exercises are
   allowed, and every plan it changes says so.
 - **No plan without the model.** If the API key is missing or rejected, drafting stops and says
   so. We chose that over a rule-only fallback plan that the coach might not notice was different.
 - **`muscle_actions.yaml` and `recovery.yaml` are reference data** the app doesn't load yet.
+- **The demo's access-request form takes an email, a name and a reason from anyone.** Nobody
+  gets an account without an admin approving it, requests expire after 7 days and are never
+  logged, but it is the one place the demo stores real personal data. The pages also load IBM
+  Plex from Google Fonts, a third-party request (not analytics).
+- **Equivalent alternatives share one movement pattern and one target muscle** with the exercise
+  they replace. They don't compare load or impact, so a jump can stand in for a squat; the coach
+  reviews each one in the trace.
+- **AI_USAGE.md doesn't name the authoring model's version** in the file; the commit trailers
+  record it. The project guardrails ask for it in the register.
 - **After grading:**
   - Turn off all reviewer accounts (Admin page, or `scripts/demo_users.py disable-all`).
   - Rotate the keys.

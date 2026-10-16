@@ -1,6 +1,6 @@
 # Plans and their traces
 
-From the eval run of 2026-10-16 21:40 UTC (`latest.json`). Member: the fictional Jordan.
+From the eval run of 2026-10-16 21:40 UTC (`latest.json`). Member: the fictional Jordan unless the case names another (the `brief-*` adjustment rows run on Elena and Sam).
 
 ## brief-exclude-deadlifts
 

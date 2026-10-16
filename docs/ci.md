@@ -58,4 +58,4 @@ areas. Queue time (140–400 s) came from the runner being busy, not from this p
 ## Recommended project settings (not changed)
 
 - Container registry cleanup policy: keep the last 5 tags, remove tags older than 14 days.
-- A weekly schedule for heavy jobs (adversarial eval, SNOMED live check) once they exist.
+- A weekly schedule for the heavy jobs (`eval:live`, `kg:live`); both already have schedule rules.

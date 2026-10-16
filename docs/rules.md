@@ -1,7 +1,8 @@
 # Rule files and how they are signed
 
 The safety filter may act only on facts from the dataset or from rules a person has signed.
-Everything Claude drafted starts as `model`-attributed and is ignored by the filter until signed.
+Everything Claude drafted starts as `model`-attributed. Until it is signed it can only make the
+filter stricter, never allow anything (see below).
 
 | File | What it holds | Used for safety? |
 |---|---|---|
@@ -36,7 +37,8 @@ Inside `contraindications.yaml`, a signed file is still not enough: each rule ne
 checked source before the filter uses it. A dataset field (for example the coach's injury note in
 `member-context.json`) counts as checked. A paper counts once its DOI has been checked against
 Crossref (`doi_checked`) and its claim has been checked on the source (`claim_checked`). A rule
-without a checked source is skipped and the plan is marked "unverified".
+without a checked source can still exclude or flag, but it is marked "unverified" in the plan
+and never counts as a trusted decision.
 
 ## What happens while files are unsigned
 
