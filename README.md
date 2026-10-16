@@ -250,6 +250,13 @@ NICE guidance is not used: putting its content in an AI product needs a licence 
 Dependency licences are generated in [LICENSES.md](LICENSES.md). CI fails on GPL, AGPL, SSPL,
 BUSL or non-commercial licences.
 
+## Roadmap
+
+[docs/roadmap.md](docs/roadmap.md) plans the next step: about 200 exercises written as our own
+data, six evidence-tagged links between exercises (progressions, knee-load order, pairings,
+warm-ups, contrast pairs, left and right sides) and four new conditions. Each phase ends with a
+file a person signs, and only the last one changes what the safety filter excludes.
+
 ## Known constraints and trade-offs
 
 - **GitLab, not GitHub.** The brief asked for GitHub, and this repository is hosted on GitLab.

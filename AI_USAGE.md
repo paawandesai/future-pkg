@@ -17,6 +17,7 @@ configuration (`.env.example`, `docs/latency.md`).
 | `eval/scenarios/cases.yaml`, `eval/adversarial/cases.yaml` | Claude drafted | Checks are deterministic (graph facts, regexes); cases not yet reviewed by a person | **Unverified** |
 | Application code, tests, CI, infrastructure (`api/`, `web/`, `infra/`, `scripts/`, `.gitlab-ci.yml`) | Claude wrote | Lint, type checks, 139 offline tests (120 API, 11 web, 8 infra) and 58 live identifier checks, license audit, secret scan on every push; deployed stack smoke-tested end to end | Awaiting the final human review (checkpoint C) |
 | Docs (`README.md`, `docs/*.md`, this file) | Claude wrote | Numbers in them come from measured runs (`eval/results/`, `docs/latency.md`) | Awaiting the final human review |
+| `docs/roadmap.md` (planned exercises, links and conditions) | Claude researched and wrote it; sources were opened during the research | Scope and the five decisions in it agreed by PD, 2026-10-16. Planned work only; no rule built from it is used until signed | **Agreed plan, not built** |
 | UI design (`docs/design.md` links the canvas) | Claude Design | Approved by Paawan before the UI was built | **Approved** |
 
 ## At runtime
