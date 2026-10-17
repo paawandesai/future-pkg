@@ -129,18 +129,21 @@ there.
 
 | Coach request | Result |
 |---|---|
-| "45 minutes, lower body. Her left knee is still a bit sore." | 11 exercises, 43.7 min, 2.0 s. Lower-body work is Dumbbell Hip Thrust and Glute Bridge: no exercise loads the knee, so only those two lower-body exercises pass, and the plan says the rest of the main block is other work. Both Romanian deadlifts are left out because Jordan dislikes them. |
-| The same request with the coach's clearance on ("Left knee cleared for low-impact loading") | 18 exercises, 42.6 min, 3.9 s. Six lower-body exercises in the main block, including a partial-range high-box goblet squat, a kettlebell hamstring walkout and a banded lateral walk. Each knee-loading exercise is flagged in the trace; plyometrics and deep loaded knee bends stay excluded. |
-| "30 min upper body. She has no barbell and no bench this week." | 8 exercises, 28.7 min, 2.4 s. Nothing needs a barbell or a bench, and the trace offers two equivalent alternatives: Glute Bridge instead of Dumbbell Hip Thrust and Resistance Band Reverse Curl instead of Single-Arm Dumbbell Preacher Curl. |
-| "Full body 40 min, no deadlifts." | 10 exercises, 39.4 min, 3.1 s. Nothing from the deadlift family or its variants. |
-| "Upper body today, her thingy is acting up again." | Blocked. The injury mention can't be resolved, so the coach is asked to pick the region. Picking one and pressing "Continue with this restriction" drafts the plan with that region restricted. |
+| "45 minutes, lower body. Her left knee is still a bit sore." | 11 exercises, 43.7 min, 1.7 s. Lower-body work is Dumbbell Hip Thrust and Glute Bridge: no exercise loads the knee, so only those two lower-body exercises pass, and the plan says the rest of the main block is other work. Both Romanian deadlifts are left out because Jordan dislikes them. |
+| The same request with the coach's clearance on ("Left knee cleared for low-impact loading") | 18 exercises, 42.6 min, 2.4 s. Six lower-body exercises in the main block, including a partial-range high-box goblet squat, a kettlebell hamstring walkout and a banded lateral walk. Each knee-loading exercise is flagged in the trace; plyometrics and deep loaded knee bends stay excluded. |
+| "30 min upper body. She has no barbell and no bench this week." | 8 exercises, 28.7 min, 4.4 s. Nothing needs a barbell or a bench, and the trace offers two equivalent alternatives: Glute Bridge instead of Dumbbell Hip Thrust and Resistance Band Reverse Curl instead of Single-Arm Dumbbell Preacher Curl. |
+| "Full body 40 min, no deadlifts." | 10 exercises, 39.4 min, 2.9 s. Nothing from the deadlift family or its variants. |
+| "Upper body today, her thingy is acting up again." | Blocked. The injury mention can't be resolved, so the coach is asked to pick the region. Picking one and pressing "Continue with this restriction" drafts the plan with that region restricted (5 exercises with the elbow confirmed). |
+| Elena: "Lower body, 45 minutes. She had knee surgery three weeks ago." | 9 exercises, 33.0 min, 2.2 s. "Knee surgery" resolves to the knee, so nothing that loads either knee is offered. |
+| "45 minutes, lower body. Her left knee is really painful today." with the clearance on | 11 exercises, 43.7 min, 2.3 s. Acute pain switches the clearance off for this draft and the plan says so; mild words such as "a bit sore" keep it. |
+| Elena: "Full body, 40 minutes. She's 20 weeks pregnant." | 17 exercises, 38.4 min, 2.1 s. The plan carries a "check clearance" note for the coach; nothing is relaxed. |
 
 <details>
 <summary>Trace for "45 minutes, lower body. Her left knee is still a bit sore."</summary>
 
 > 45 minutes, lower body. Her left knee is still a bit sore.
 
-11 exercises, 43.7 min, 2048 ms.
+11 exercises, 43.7 min, 1739 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -148,10 +151,10 @@ there.
 | Dumbbell Hip Thrust | 3 | matches the requested focus; fits a priority-1 goal; uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads hip, which is not restricted; picked for the main block by the selection step | same pattern trained in the last two days |
 | Alternating Low Plank To Low Side Plank | 3 | uses only equipment the member has (Yoga Mat); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
 | Glute Bridge | 3 | matches the requested focus; fits a priority-1 goal; uses only equipment the member has (Yoga Mat); loads hip, which is not restricted; picked for the main block by the selection step | same pattern trained in the last two days |
-| Push-Up to Knee-Drive | 3 | uses only equipment the member has (Yoga Mat); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
 | Alternating Dumbbell Overhead Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
-| Bodyweight Pike | 3 | uses only equipment the member has (Yoga Mat); loads hip, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
+| Push-Up to Knee-Drive | 3 | uses only equipment the member has (Yoga Mat); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
 | Dumbbell Neutral-Grip Bench Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
+| Bodyweight Pike | 3 | uses only equipment the member has (Yoga Mat); loads hip, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
 | Bench-Lying Single-Arm Dumbbell Tricep Extension | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
 | Resistance Band Reverse Curl | 3 | uses only equipment the member has (Resistance Band - Loop); loads elbow, which is not restricted; picked for the main block by the selection step | - |
 | Ground Upper Trap Stretch | 1 | uses only equipment the member has (Yoga Mat); loads cervical spine, which is not restricted; mobility - static, regen are cool-down patterns in programming.yaml | - |
@@ -171,6 +174,7 @@ there.
 - Left out 2 exercise(s) the member says they dislike: Dumbbell Romanian Deadlift, Kettlebell Romanian Deadlift. Name one in the request to include it.
 - Journey-stage rule (programming.yaml) suggests a lighter main block: weekly completion fell from 100% to 50% over the last 4 weeks. Kept the default sets because the exercises that passed the filter can't fill 45 minutes at 2 sets.
 - Only 2 of 9 main-block exercises match lower body: 2 exercise(s) matching it passed the filter. The rest are the closest exercises that passed it, used to fill the time.
+
 </details>
 
 The warm-up and cool-down pools that pass the filter are small, so the main block takes the time
@@ -183,9 +187,9 @@ request plans 28.7 minutes), and its notes say why.
 
 ## Evaluation
 
-`eval/` runs 12 generator scenarios and 7 adversarial cases with the live model API. Checks are
+`eval/` runs 17 generator scenarios and 14 adversarial cases with the live model API. Checks are
 graph facts and regular expressions, never a model grading a model. Latest run (2026-10-17):
-**19 of 19 passed** ([eval/results/latest.md](eval/results/latest.md)).
+**31 of 31 passed** ([eval/results/latest.md](eval/results/latest.md)).
 
 Checks that an answer must not claim something skip sentences that negate or condition it, and
 text the answer quotes. That list has grown over runs, and each change is listed here:
@@ -206,10 +210,16 @@ check. The adversarial cases are:
 - a request for another member's data;
 - an instruction in a member-record field (`snomedct_hint`) asking for a SNOMED CT lookup;
 - an instruction in the member's preference notes, which reach the selection prompt;
-- an instruction added to the morning brief's text.
+- an instruction added to the morning brief's text;
+- questions about Jordan's and Priya's injuries, whose answers must name the injury from the record;
+- follow-up questions about LDL, vitamin D and weight, where the lab check must hold;
+- a chat line that tries to close the draft's data section (`</facts>`);
+- forged earlier turns sent by the client.
+
+The `snomedct_hint` case also checks that the answer names the left knee.
 
 The test suites hold the deterministic guarantees:
-- 177 API tests: resolver, safety filter, graph edges, alternatives, provenance, member graph and
+- 375 API tests: resolver, safety filter, graph edges, alternatives, provenance, member graph and
   copilot tools, ingest, assembly, auth, access requests and scoping.
 - 58 live tests that check every SNOMED, Uberon and Wikidata identifier against its source.
 - 22 web tests.

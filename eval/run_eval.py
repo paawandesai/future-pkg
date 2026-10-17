@@ -98,11 +98,14 @@ def leaked_spans(text: str, sources: list[str], ours: str = "") -> list[tuple[in
 def redact(value: Any, sources: list[str], ours: str = "") -> Any:
     """Replace quoted member text in every string of a results structure with PLACEHOLDER."""
     if isinstance(value, str):
-        spans = sorted(
-            {sources[k][i : i + n] for k, i, n in leaked_spans(value, sources, ours)}, key=len, reverse=True
-        )
-        for span in spans:
-            value = value.replace(span, PLACEHOLDER)
+        # Repeat until clean: replacing one span can leave an overlapping one whole.
+        while leaks := leaked_spans(value, sources, ours):
+            spans = sorted({sources[k][i : i + n] for k, i, n in leaks}, key=len, reverse=True)
+            before = value
+            for span in spans:
+                value = value.replace(span, PLACEHOLDER)
+            if value == before:
+                break
         return value
     if isinstance(value, list):
         return [redact(v, sources, ours) for v in value]
