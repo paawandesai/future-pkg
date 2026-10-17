@@ -40,7 +40,9 @@ class ChatMessage(BaseModel):
 
     @property
     def provenance(self) -> str:
-        return "member-said" if self.sender == "member" else "coach-said"
+        """Only the coach's own lines are coach-said. Any other sender, known or not, is untrusted
+        member-said text, so a line can't gain the coach's voice by naming another sender."""
+        return "coach-said" if self.sender == "coach" else "member-said"
 
 
 class Member(BaseModel):
