@@ -5,10 +5,10 @@ review:
   status: signed           # draft | signed
   drafted_by: model        # model-attributed until a human signs (see docs/rules.md)
   reviewer: PD             # initials of the signer
-  signed_on: 2026-10-15
+  signed_on: 2026-10-17   # re-signed after the basis path fix; first signed 2026-10-15
   basis: >-
     Standard gross anatomy (part-of only). Each region is aligned to Uberon in
-    kg/alignment/anatomy.yaml so the tree can be checked against an open ontology.
+    kg/alignment/uberon.yaml so the tree can be checked against an open ontology.
 
 regions:
   - { id: body, label: Body }
