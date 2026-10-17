@@ -64,6 +64,7 @@ export const api = {
       call<AccessRequest>(`/api/admin/requests/${encodeURIComponent(id)}/approve`, post()),
     reject: (id: string) =>
       call<AccessRequest>(`/api/admin/requests/${encodeURIComponent(id)}/reject`, post()),
+    rejectPending: () => call<{ rejected: number }>("/api/admin/requests/reject-pending", post()),
     users: () => call<DemoUser[]>("/api/admin/users"),
     invite: (email: string) => call<{ email: string; status: string }>("/api/admin/users", post({ email })),
     setEnabled: (email: string, enabled: boolean) =>

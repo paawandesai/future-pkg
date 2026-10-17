@@ -1,7 +1,7 @@
 {
   "name": "future-pkg",
   "private": true,
-  "packageManager": "pnpm@10.28.0",
+  "packageManager": "pnpm@10.34.7",
   "scripts": {
     "prepare": "husky"
   },

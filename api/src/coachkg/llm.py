@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Any, Literal, TypeVar
 
 import anthropic
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from coachkg.config import anthropic_api_key
 
@@ -122,6 +122,10 @@ class LLM:
             raise LLMAuthError(f"{purpose}: {type(exc).__name__}") from exc
         except anthropic.APIError as exc:
             raise LLMError(f"{purpose}: {type(exc).__name__}") from exc
+        except ValidationError:
+            # The SDK validates the output before we see stop_reason, so a refusal or a truncated
+            # answer arrives here. Its message quotes the model's text, so it is dropped.
+            raise LLMError(f"{purpose}: no structured output") from None
         ms = int((time.perf_counter() - t0) * 1000)
         if resp.stop_reason == "refusal":
             raise LLMError(f"{purpose}: model declined")

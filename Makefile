@@ -13,10 +13,10 @@ install:
 	pnpm install --frozen-lockfile
 	cd api && uv sync --frozen
 
-# One command, no Docker (needs uv and pnpm): API on :8000, web on :5173.
+# One command, no Docker (needs uv and pnpm): API on :8000, web on :5173, mock sign-in.
 dev: data install
 	(cd api && set -a && { [ -f ../.env ] && . ../.env || true; } && set +a && \
-	  uv run uvicorn coachkg.main:app --port 8000 --no-access-log) & \
+	  AUTH_MODE=$${AUTH_MODE:-mock} uv run uvicorn coachkg.main:app --port 8000 --no-access-log --no-server-header) & \
 	pnpm --filter web exec vite; kill %1 2>/dev/null || true
 
 # All offline suites; works on a fresh clone.

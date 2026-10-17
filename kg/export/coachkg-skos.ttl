@@ -183,6 +183,10 @@
         <urn:coachkg:region/wrist> ;
     skos:prefLabel "regions"@en .
 
+<http://purl.obolibrary.org/obo/uberon.owl> dcterms:license <https://creativecommons.org/licenses/by/3.0/> .
+
+<https://www.wikidata.org/> dcterms:license <https://creativecommons.org/publicdomain/zero/1.0/> .
+
 <urn:coachkg:condition/ankle_sprain> a skos:Concept ;
     skos:altLabel "ankle sprain"@en,
         "rolled ankle"@en,
@@ -1072,6 +1076,9 @@
     skos:prefLabel "Knee"@en .
 
 <urn:coachkg:scheme> a skos:ConceptScheme ;
-    dcterms:source "Future exercise dataset and kg/rules (synthetic demo)" ;
+    dcterms:rights "Concept labels and structure are the future-pkg authors' own, for a synthetic demo. Terms taken from the Future exercise dataset are not relicensed here. External matches are identifiers only: SNOMED CT identifiers (no SNOMED CT content is included; SNOMED CT is a registered trademark of SNOMED International), Uberon IRIs (Uberon, CC BY 3.0) and Wikidata IRIs (CC0)."@en ;
+    dcterms:source <http://purl.obolibrary.org/obo/uberon.owl>,
+        <https://www.wikidata.org/>,
+        "Future exercise dataset and kg/rules (synthetic demo)" ;
     skos:prefLabel "Coach knowledge graph concepts"@en .
 

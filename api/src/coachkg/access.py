@@ -1,9 +1,11 @@
 """Demo access: requests for an account, and the admin actions that invite or disable reviewers.
 
 Nobody gets an account without an admin approving it. A request holds an email, an optional name
-and a short reason; it expires after REQUEST_TTL and is never logged. Requests are rate-limited
-per client (by a salted hash of the address, never the address itself) and capped in total, so
-the public form can't be used to flood the table or the admin.
+and a short reason; it expires after REQUEST_TTL and is never logged. An expired request is gone
+for every purpose: it isn't listed, counted or approvable, even before DynamoDB's TTL removes it.
+Requests are rate-limited per client (by a salted hash of the viewer address, never the address
+itself) and capped in total, so the public form can't be used to flood the table or the admin; an
+admin can reject every pending request at once if the cap fills.
 
 Locally (mock auth) everything lives in memory and "inviting" sends nothing. Deployed, requests
 live in DynamoDB (ACCESS_TABLE) and accounts in the Cognito pool (COGNITO_USER_POOL_ID); Cognito
@@ -13,9 +15,11 @@ emails the temporary password itself, so no password ever passes through this co
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import os
 import re
 import threading
+import unicodedata
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -30,6 +34,24 @@ DEMO_COACH = "coach_01HXSAM"
 EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[A-Za-z]{2,}$")
 
 Status = Literal["pending", "approved", "rejected"]
+# Sparse index on `status`: only request items have one (rate counters don't), so the pending
+# requests can be read with a query instead of a table scan.
+PENDING_INDEX = "by-status"
+
+
+def _no_control_chars(v: str) -> str:
+    """Refuse NUL and other control characters, and format characters such as bidi overrides,
+    which could make an email or reason read differently to the admin than it is stored."""
+    if any(unicodedata.category(c) in ("Cc", "Cf") and c not in "\t\n\r" for c in v):
+        raise ValueError("Remove the control or formatting characters")
+    return v
+
+
+def normalise_email(v: str) -> str:
+    v = _no_control_chars(v).strip().lower()
+    if not EMAIL.match(v):
+        raise ValueError("Enter a valid email address")
+    return v
 
 
 class AccessRequestIn(BaseModel):
@@ -40,15 +62,12 @@ class AccessRequestIn(BaseModel):
     @field_validator("email")
     @classmethod
     def _email(cls, v: str) -> str:
-        v = v.strip().lower()
-        if not EMAIL.match(v):
-            raise ValueError("Enter a valid email address")
-        return v
+        return normalise_email(v)
 
     @field_validator("name", "reason")
     @classmethod
     def _strip(cls, v: str) -> str:
-        return " ".join(v.split())
+        return " ".join(_no_control_chars(v).split())
 
 
 class AccessRequest(BaseModel):
@@ -66,6 +85,17 @@ class RateLimited(Exception):
     """Too many requests from one client, or too many pending in total."""
 
 
+def viewer_network(header: str | None) -> str | None:
+    """The viewer from CloudFront-Viewer-Address ("ip:port", IPv6 without brackets), which CloudFront
+    sets itself. IPv6 is keyed by its /64, since one subscriber usually holds a whole /64."""
+    host = (header or "").strip().rsplit(":", 1)[0].strip("[]")
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return None
+    return str(ipaddress.ip_network(f"{ip}/64", strict=False)) if ip.version == 6 else str(ip)
+
+
 def client_key(address: str | None) -> str:
     salt = os.environ.get("RATE_SALT", "local")
     return hashlib.sha256(f"{salt}:{address or 'unknown'}".encode()).hexdigest()[:32]
@@ -75,11 +105,16 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+def _live(r: AccessRequest) -> bool:
+    return datetime.fromisoformat(r.created_at) + REQUEST_TTL > _now()
+
+
 class AccessStore(Protocol):
     def submit(self, req: AccessRequestIn, client: str) -> None: ...
     def list(self) -> list[AccessRequest]: ...
     def get(self, request_id: str) -> AccessRequest | None: ...
     def decide(self, request_id: str, status: Status, by: str) -> AccessRequest | None: ...
+    def reject_pending(self, by: str) -> int: ...
 
 
 @dataclass
@@ -90,14 +125,15 @@ class MemoryAccessStore:
 
     def submit(self, req: AccessRequestIn, client: str) -> None:
         with self.lock:
-            bucket = f"{client}:{_now():%Y%m%d%H}"
-            self.hits[bucket] = self.hits.get(bucket, 0) + 1
-            if self.hits[bucket] > PER_CLIENT_PER_HOUR:
-                raise RateLimited
-            pending = [r for r in self.requests.values() if r.status == "pending"]
+            # The total cap is checked before the per-client counter, so a full queue costs nothing.
+            pending = [r for r in self.requests.values() if r.status == "pending" and _live(r)]
             if any(r.email == req.email for r in pending):
                 return  # same answer as a new request, so the form doesn't reveal who asked
             if len(pending) >= MAX_PENDING:
+                raise RateLimited
+            bucket = f"{client}:{_now():%Y%m%d%H}"
+            self.hits[bucket] = self.hits.get(bucket, 0) + 1
+            if self.hits[bucket] > PER_CLIENT_PER_HOUR:
                 raise RateLimited
             rid = uuid.uuid4().hex
             self.requests[rid] = AccessRequest(
@@ -105,15 +141,17 @@ class MemoryAccessStore:
             )
 
     def list(self) -> list[AccessRequest]:
-        return sorted(self.requests.values(), key=lambda r: r.created_at, reverse=True)
+        live = (r for r in self.requests.values() if _live(r))
+        return sorted(live, key=lambda r: r.created_at, reverse=True)
 
     def get(self, request_id: str) -> AccessRequest | None:
-        return self.requests.get(request_id)
+        r = self.requests.get(request_id)
+        return r if r is not None and _live(r) else None
 
     def decide(self, request_id: str, status: Status, by: str) -> AccessRequest | None:
         with self.lock:
             r = self.requests.get(request_id)
-            if r is None or r.status != "pending":
+            if r is None or r.status != "pending" or not _live(r):
                 return None
             r = r.model_copy(
                 update={
@@ -125,9 +163,16 @@ class MemoryAccessStore:
             self.requests[request_id] = r
             return r
 
+    def reject_pending(self, by: str) -> int:
+        pending = [r.id for r in self.list() if r.status == "pending"]
+        return sum(self.decide(rid, "rejected", by) is not None for rid in pending)
+
 
 class DynamoAccessStore:
-    """One table: request items (`id` = uuid) and hourly rate counters (`id` = rate#<key>#<hour>)."""
+    """One table: request items (`id` = uuid) and hourly rate counters (`id` = rate#<key>#<hour>).
+
+    Every read filters on `expires_at`, because DynamoDB's TTL deletes expired items only eventually.
+    """
 
     def __init__(self, table: Any) -> None:
         self._t = table
@@ -138,18 +183,42 @@ class DynamoAccessStore:
 
         return cls(boto3.resource("dynamodb").Table(table_name))
 
-    def _requests(self) -> list[dict[str, Any]]:
+    @staticmethod
+    def _pages(call: Any, **kw: Any) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
-        kw: dict[str, Any] = {"FilterExpression": "kind = :k", "ExpressionAttributeValues": {":k": "request"}}
         while True:
-            page = self._t.scan(**kw)
+            page = call(**kw)
             items += page.get("Items", [])
             if "LastEvaluatedKey" not in page:
                 return items
             kw["ExclusiveStartKey"] = page["LastEvaluatedKey"]
 
+    def _requests(self) -> list[dict[str, Any]]:
+        """Every unexpired request (admin list only; the public form never scans)."""
+        return self._pages(
+            self._t.scan,
+            FilterExpression="kind = :k AND expires_at > :now",
+            ExpressionAttributeValues={":k": "request", ":now": int(_now().timestamp())},
+        )
+
+    def _pending(self) -> list[dict[str, Any]]:
+        return self._pages(
+            self._t.query,
+            IndexName=PENDING_INDEX,
+            KeyConditionExpression="#s = :p",
+            FilterExpression="expires_at > :now",
+            ExpressionAttributeNames={"#s": "status"},
+            ExpressionAttributeValues={":p": "pending", ":now": int(_now().timestamp())},
+        )
+
     def submit(self, req: AccessRequestIn, client: str) -> None:
         now = _now()
+        # The total cap is checked before the per-client counter, so a full queue costs nothing.
+        pending = self._pending()
+        if any(i.get("email") == req.email for i in pending):
+            return
+        if len(pending) >= MAX_PENDING:
+            raise RateLimited
         hour = int((now + timedelta(hours=2)).timestamp())
         hits = self._t.update_item(
             Key={"id": f"rate#{client}#{now:%Y%m%d%H}"},
@@ -158,11 +227,6 @@ class DynamoAccessStore:
             ReturnValues="UPDATED_NEW",
         )["Attributes"]["hits"]
         if int(hits) > PER_CLIENT_PER_HOUR:
-            raise RateLimited
-        pending = [i for i in self._requests() if i.get("status") == "pending"]
-        if any(i.get("email") == req.email for i in pending):
-            return
-        if len(pending) >= MAX_PENDING:
             raise RateLimited
         self._t.put_item(
             Item={
@@ -186,14 +250,16 @@ class DynamoAccessStore:
 
     def get(self, request_id: str) -> AccessRequest | None:
         item = self._t.get_item(Key={"id": request_id}, ConsistentRead=True).get("Item")
-        return self._model(item) if item and item.get("kind") == "request" else None
+        if not item or item.get("kind") != "request" or int(item.get("expires_at", 0)) <= _now().timestamp():
+            return None
+        return self._model(item)
 
     def decide(self, request_id: str, status: Status, by: str) -> AccessRequest | None:
         try:
             item = self._t.update_item(
                 Key={"id": request_id},
                 UpdateExpression="SET #s = :s, decided_by = :b, decided_at = :a",
-                ConditionExpression="kind = :k AND #s = :p",
+                ConditionExpression="kind = :k AND #s = :p AND expires_at > :now",
                 ExpressionAttributeNames={"#s": "status"},
                 ExpressionAttributeValues={
                     ":s": status,
@@ -201,12 +267,16 @@ class DynamoAccessStore:
                     ":a": _now().isoformat(timespec="seconds"),
                     ":k": "request",
                     ":p": "pending",
+                    ":now": int(_now().timestamp()),
                 },
                 ReturnValues="ALL_NEW",
             )["Attributes"]
         except self._t.meta.client.exceptions.ConditionalCheckFailedException:
             return None
         return self._model(item)
+
+    def reject_pending(self, by: str) -> int:
+        return sum(self.decide(str(i["id"]), "rejected", by) is not None for i in self._pending())
 
 
 # ---------- accounts ----------

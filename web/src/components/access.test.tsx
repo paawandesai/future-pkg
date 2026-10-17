@@ -55,4 +55,33 @@ describe("AdminPage", () => {
       expect(fetchMock.mock.calls.some(([u]) => String(u) === "/api/admin/requests/r1/approve")).toBe(true),
     );
   });
+
+  it("rejects every pending request after a confirm", async () => {
+    const req = (id: string) => ({
+      id,
+      email: `${id}@example.com`,
+      name: "",
+      reason: "Grading",
+      status: "pending",
+      created_at: "2026-10-15T19:00:00+00:00",
+      decided_by: null,
+      decided_at: null,
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith("/reject-pending")) return json({ rejected: 2 });
+      if (url === "/api/admin/requests") return json([req("a"), req("b")]);
+      return json([]);
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <AdminPage />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Reject all pending (2)" }));
+    await screen.findByText("Rejected 2 requests.");
+    const call = fetchMock.mock.calls.find(([u]) => String(u) === "/api/admin/requests/reject-pending");
+    expect(call?.[1]?.method).toBe("POST");
+  });
 });
