@@ -37,3 +37,14 @@ def test_refusal_fallback_models_are_configuration(monkeypatch: pytest.MonkeyPat
     assert fallback_models() == {"a", "b"}
     monkeypatch.setenv("LLM_FALLBACK_MODELS", "none")
     assert fallback_models() == frozenset()
+
+
+def test_key_falls_back_to_the_sdk_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    from coachkg.config import anthropic_api_key
+
+    monkeypatch.delenv("ANTHROPIC_SECRET_ID", raising=False)
+    monkeypatch.delenv("ANTHROPIC_FUTURE_API_KEY", raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-sdk")
+    assert anthropic_api_key() == "sk-test-sdk"
+    monkeypatch.setenv("ANTHROPIC_FUTURE_API_KEY", "sk-test-ours")
+    assert anthropic_api_key() == "sk-test-ours"

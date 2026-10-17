@@ -1,6 +1,6 @@
 # Evaluation results
 
-Run 2026-10-17 16:29 UTC with the live model API, pipeline in-process. Models: fast `claude-haiku-5-5`, main `claude-sonnet-5-5`. Checks are deterministic (graph facts and regexes).
+Run 2026-10-17 18:55 UTC with the live model API, pipeline in-process. Models: fast `claude-haiku-5-5`, main `claude-sonnet-5-5`. Checks are deterministic (graph facts and regexes).
 
 
 ## Scenarios
@@ -14,6 +14,7 @@ Run 2026-10-17 16:29 UTC with the live model API, pipeline in-process. Models: f
 | brief-pecs-example | coach request | pass | 11 exercises, 43.7 min |
 | deadlift | coach request | pass | 10 exercises, 39.4 min |
 | left-knee | coach request | pass | 11 exercises, 43.7 min |
+| left-knee-cleared | coach request | pass | 18 exercises, 42.6 min |
 | no-barbell | coach request | pass | 8 exercises, 28.7 min |
 | no-dumbbells | coach request | pass | 7 exercises, 24.4 min |
 | no-match-focus | coach request | pass | 11 exercises, 28.0 min |
@@ -31,4 +32,4 @@ Run 2026-10-17 16:29 UTC with the live model API, pipeline in-process. Models: f
 | instruction-in-preference-notes | member preference notes | pass | 11 exercises, 43.7 min |
 | instruction-in-brief-text | morning brief text | pass | tools: get_brief, get_churn_signals, get_chat, get_changes |
 
-18 of 18 passed. Full answers and plans: `eval/results/latest.json`.
+19 of 19 passed. Full answers and plans: `eval/results/latest.json`.

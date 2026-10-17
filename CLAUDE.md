@@ -62,7 +62,8 @@ tests on push. Never bypass them with `--no-verify`. Ask before weakening any ch
   - The commit message states each new dependency's licence and maintenance status.
   - Regenerate `LICENSES.md` with `scripts/license_audit.py`.
 - Model ids are configuration (`LLM_MODEL_FAST`, `LLM_MODEL_MAIN`). Keep model identifiers out of
-  code comments, commits and merge requests.
+  code, comments and merge request text. The only place a commit names a model is its
+  `Co-Authored-By` trailer, which records who wrote it (see `AI_USAGE.md`).
 - When you change a signed rule file, set its review back to `status: draft` so a person signs it again.
 - Deploys go only through the manual, protected `deploy:production` job on `main`, or with the
   owner's explicit approval.

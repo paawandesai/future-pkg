@@ -361,6 +361,16 @@ async def run(
             "to fill the time window, because few exercises passed the filter. No exercise was added."
         )
     by_id = {x.exercise.id: x for x in scored}
+    main_ids = [i.exercise.id for i in fitted["main"]]
+    on_focus = sum(by_id[i].focus_match for i in main_ids)
+    if focus and on_focus and on_focus * 2 < len(main_ids):
+        # The note above covers "none passed"; this covers "too few passed to fill the block".
+        passed = sum(x.focus_match for x in scored)
+        notes.append(
+            f"Only {on_focus} of {len(main_ids)} main-block exercises match {', '.join(focus.labels)}: "
+            f"{passed} exercise(s) matching it passed the filter. The rest are the closest exercises "
+            "that passed it, used to fill the time."
+        )
     blocks = []
     planned_s = 0
     for b in assemble.BLOCKS:

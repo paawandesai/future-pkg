@@ -42,6 +42,7 @@ make test               # installs if needed, then the API, web and infra suites
 path. Both paths need network access to fetch the assessment data (from its GitHub repo, at a
 pinned commit, checksum-verified) and packages, and free ports 5173 and 8000.
 
+The key is read from `ANTHROPIC_FUTURE_API_KEY`, or from `ANTHROPIC_API_KEY` if that is unset.
 Sign-in is mocked locally ("Continue as demo coach"). Without a valid API key the member view,
 charts, churn and the member graph still work. Drafting a plan and
 asking the copilot need the model, and say plainly when the key is missing or rejected.
@@ -128,9 +129,10 @@ there.
 
 | Coach request | Result |
 |---|---|
-| "45 minutes, lower body. Her left knee is still a bit sore." | 11 exercises, 43.7 min, 1.5 s. Lower-body work is Dumbbell Hip Thrust and Glute Bridge. No exercise loads the knee, and both Romanian deadlifts are left out because Jordan dislikes them. |
-| "30 min upper body. She has no barbell and no bench this week." | 8 exercises, 28.7 min, 1.8 s. Nothing needs a barbell or a bench, and the trace offers two equivalent alternatives: Glute Bridge instead of Dumbbell Hip Thrust and Resistance Band Reverse Curl instead of Single-Arm Dumbbell Preacher Curl. |
-| "Full body 40 min, no deadlifts." | 10 exercises, 39.4 min, 2.9 s. Nothing from the deadlift family or its variants. |
+| "45 minutes, lower body. Her left knee is still a bit sore." | 11 exercises, 43.7 min, 2.0 s. Lower-body work is Dumbbell Hip Thrust and Glute Bridge: no exercise loads the knee, so only those two lower-body exercises pass, and the plan says the rest of the main block is other work. Both Romanian deadlifts are left out because Jordan dislikes them. |
+| The same request with the coach's clearance on ("Left knee cleared for low-impact loading") | 18 exercises, 42.6 min, 3.9 s. Six lower-body exercises in the main block, including a partial-range high-box goblet squat, a kettlebell hamstring walkout and a banded lateral walk. Each knee-loading exercise is flagged in the trace; plyometrics and deep loaded knee bends stay excluded. |
+| "30 min upper body. She has no barbell and no bench this week." | 8 exercises, 28.7 min, 2.4 s. Nothing needs a barbell or a bench, and the trace offers two equivalent alternatives: Glute Bridge instead of Dumbbell Hip Thrust and Resistance Band Reverse Curl instead of Single-Arm Dumbbell Preacher Curl. |
+| "Full body 40 min, no deadlifts." | 10 exercises, 39.4 min, 3.1 s. Nothing from the deadlift family or its variants. |
 | "Upper body today, her thingy is acting up again." | Blocked. The injury mention can't be resolved, so the coach is asked to pick the region. |
 
 <details>
@@ -138,7 +140,7 @@ there.
 
 > 45 minutes, lower body. Her left knee is still a bit sore.
 
-11 exercises, 43.7 min, 1537 ms.
+11 exercises, 43.7 min, 2048 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -168,6 +170,7 @@ there.
 **Notes:**
 - Left out 2 exercise(s) the member says they dislike: Dumbbell Romanian Deadlift, Kettlebell Romanian Deadlift. Name one in the request to include it.
 - Journey-stage rule (programming.yaml) suggests a lighter main block: weekly completion fell from 100% to 50% over the last 4 weeks. Kept the default sets because the exercises that passed the filter can't fill 45 minutes at 2 sets.
+- Only 2 of 9 main-block exercises match lower body: 2 exercise(s) matching it passed the filter. The rest are the closest exercises that passed it, used to fill the time.
 </details>
 
 The warm-up and cool-down pools that pass the filter are small, so the main block takes the time
@@ -180,9 +183,9 @@ request plans 28.7 minutes), and its notes say why.
 
 ## Evaluation
 
-`eval/` runs 11 generator scenarios and 7 adversarial cases with the live model API. Checks are
+`eval/` runs 12 generator scenarios and 7 adversarial cases with the live model API. Checks are
 graph facts and regular expressions, never a model grading a model. Latest run (2026-10-17):
-**18 of 18 passed** ([eval/results/latest.md](eval/results/latest.md)).
+**19 of 19 passed** ([eval/results/latest.md](eval/results/latest.md)).
 
 Checks that an answer must not claim something skip sentences that negate or condition it, and
 text the answer quotes. That list has grown over runs, and each change is listed here:
@@ -206,7 +209,7 @@ check. The adversarial cases are:
 - an instruction added to the morning brief's text.
 
 The test suites hold the deterministic guarantees:
-- 174 API tests: resolver, safety filter, graph edges, alternatives, provenance, member graph and
+- 177 API tests: resolver, safety filter, graph edges, alternatives, provenance, member graph and
   copilot tools, ingest, assembly, auth, access requests and scoping.
 - 58 live tests that check every SNOMED, Uberon and Wikidata identifier against its source.
 - 17 web tests.
@@ -244,15 +247,18 @@ says so), and member text trying to clear an injury (only the coach's structured
 
 ## Latency
 
-Measured on 2026-10-17 with the live model API ([docs/latency.md](docs/latency.md)): **p50 2.5 s,
-p95 3.1 s** end to end over 15 drafts. One limited-equipment draft took 5.3 s, over the ~5 s target.
-Everything except the two model calls (resolver, safety filter, scoring, alternatives, assembly
-and trace) measured p50 9 ms and p95 12 ms. Opus 5.5 as the selection model measured p95 9.0 s, so Sonnet 5.5 was chosen. On AWS a
-deployed draft took 2.7 s, and a cold start adds about 2 s.
+Measured on 2026-10-17 with the live model API ([docs/latency.md](docs/latency.md)), p95 by
+nearest rank:
+- **Drafts: p50 2.1 s, p95 3.5 s** end to end over 15 runs. Everything except the two model calls
+  (resolver, safety filter, scoring, alternatives, assembly and trace) measured p50 8 ms; its p95
+  of 61 ms includes the first run's warm-up. Opus 5.5 as the selection model measured p95 9.0 s, so
+  Sonnet 5.5 was chosen. On AWS a deployed draft took 2.7 s, and a cold start adds about 2 s.
+- **Copilot: p50 4.0 s, p95 7.3 s** over 20 answers to the four quick prompts that call the model.
+  "Show me the brief" is over the ~5 s target (p50 7.1 s): it makes three sequential model calls,
+  one per tool round. Answers aren't streamed yet, so the coach waits for the whole answer.
 
-Single runs vary: drafts in the eval run above took up to 2.9 s. Copilot answers aren't in these numbers. A copilot answer can take
-up to six sequential model calls (one per tool round), so it is slower than a draft; it is the
-first thing we'd measure and cap in production.
+Single runs vary: two drafts in the eval run above took 5.5 and 5.6 s. To bring the copilot under
+target we would fetch the brief's tools in one round and stream the answer.
 
 **Token efficiency.** The intent call sends only the request. The selection call sends ids,
 names and patterns for the filtered candidates plus a short member summary (goals, dislikes, the
@@ -345,6 +351,8 @@ file a person signs, and only the last one changes what the safety filter exclud
 
 - **GitLab, not GitHub.** The brief asked for GitHub. This repository is hosted on GitLab by
   choice.
+- **Longer than one day.** The brief sets one day. The commits span 2026-10-15 17:13 UTC to
+  2026-10-17, and the later ones fix findings from our own reviews. The history is unedited.
 - **`data/` is not committed.** It is fetched at build time from a pinned commit of the assessment
   repo, which carries no licence.
 - **The SNOMED live check needs NCI EVS to be reachable.** It runs when alignments change and on a

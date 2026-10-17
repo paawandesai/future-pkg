@@ -441,3 +441,20 @@ def test_coach_and_member_text_cannot_close_their_prompt_tags(world: World) -> N
     asyncio.run(selection.select(Capture(), "m", "x", summary, pool, budgets, world.programming))  # type: ignore[arg-type]
     assert seen[0].count("</request>") == 1 and "<system>" not in seen[0]
     assert seen[1].count("</member>") == 1 and "<system>" not in seen[1]
+
+
+def test_focus_shortfall_is_noted(world: World) -> None:
+    # Jordan's knee leaves few lower-body exercises, so most of the main block is other work.
+    it = _intent(focus=["lower body"], injury_mentions=["left knee"], minutes=45)
+    plan = _plan(_run(world, FakeLLM(it, _all_offered), "45 minutes, lower body. Her left knee is sore."))
+    main = next(b for b in plan["blocks"] if b["name"] == "main")["items"]
+    on_focus = [i for i in main if "matches the requested focus" in i["why"]]
+    assert 0 < len(on_focus) * 2 < len(main)
+    assert any(
+        n.startswith(f"Only {len(on_focus)} of {len(main)} main-block") for n in plan["trace"]["notes"]
+    )
+
+
+def test_no_shortfall_note_when_focus_fills_the_block(world: World) -> None:
+    plan = _plan(_run(world, FakeLLM(_intent(focus=["upper body"]), _all_offered), "upper body"))
+    assert not any("main-block exercises match" in n for n in plan["trace"]["notes"])
