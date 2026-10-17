@@ -37,7 +37,7 @@ make dev                # same without Docker: installs, then API on :8000 and w
 make test               # installs if needed, then the API, web and infra suites (offline)
 ```
 
-**Prerequisites.** Docker for `make up`. For `make dev` and `make test`: Python 3.12 with
+**Prerequisites.** Docker, `make` and `python3` for `make up` (the data fetch runs on the host). For `make dev` and `make test`: Python 3.12 with
 [uv](https://docs.astral.sh/uv/), Node 22 with pnpm 10 (`corepack enable`), and `python3` on the
 path. Both paths need network access to fetch the assessment data (from its GitHub repo, at a
 pinned commit, checksum-verified) and packages, and free ports 5173 and 8000.
@@ -354,7 +354,10 @@ file a person signs, and only the last one changes what the safety filter exclud
 - **Longer than one day.** The brief sets one day. The commits span 2026-10-15 17:13 UTC to
   2026-10-17, and the later ones fix findings from our own reviews. The history is unedited.
 - **`data/` is not committed.** It is fetched at build time from a pinned commit of the assessment
-  repo, which carries no licence.
+  repo, which carries no licence. One early commit (d5ae9c2, 2026-10-15) stored an eval answer
+  that quoted member chat lines from that data word for word. A later commit replaced the file and
+  a test now fails if eval results carry long spans of member text, but the history is unedited,
+  so the old file is still in it.
 - **The SNOMED live check needs NCI EVS to be reachable.** It runs when alignments change and on a
   schedule, not on every push.
 - **Five of the six demo members are generated**, as is a seventh under another coach. Each
