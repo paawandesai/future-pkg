@@ -26,7 +26,7 @@ configuration (`.env.example`, `docs/latency.md`).
 
 | Output | Model role | Guardrail |
 |---|---|---|
-| Intent from the coach's request | Fast model, structured output | A deterministic scan unions in any injury mention the model missed; an exclusion or missing item that doesn't resolve stops the draft |
+| Intent from the coach's request | Fast model, structured output | A deterministic scan adds body words that have an injury cue next to them (it catches most phrasings, not all); an exclusion or missing item that doesn't resolve stops the draft |
 | Exercise selection and order | Main model picks ids from a filtered list | Ids not offered are dropped; the model never sees excluded exercises or writes edges |
 | Copilot answers and charts | Main model with read-only tools | Member fixed by the server; chart data filled by the server; answers carry an AI disclosure |
 | Congratulation draft | Main model | Labelled "Drafted by AI for the coach to review and edit. Not sent."; no send path exists |
