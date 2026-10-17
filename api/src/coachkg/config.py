@@ -24,7 +24,7 @@ class Settings:
 
     @property
     def llm_configured(self) -> bool:
-        has_key = os.environ.get("ANTHROPIC_FUTURE_API_KEY") or os.environ.get("ANTHROPIC_SECRET_ID")
+        has_key = any(os.environ.get(v) for v in (*KEY_VARS, "ANTHROPIC_SECRET_ID"))
         return bool(has_key) and bool(self.llm_model_main)
 
 
@@ -40,13 +40,17 @@ def load_settings() -> Settings:
     )
 
 
+# Our own name first; the SDK's usual name is accepted so a reviewer's existing key works locally.
+KEY_VARS = ("ANTHROPIC_FUTURE_API_KEY", "ANTHROPIC_API_KEY")
+
+
 def anthropic_api_key() -> str | None:
     """The key from the environment locally, or from Secrets Manager when deployed.
 
     The deployed function gets only the secret's id (ANTHROPIC_SECRET_ID); the value never
     appears in IaC, stack outputs or the function's configuration.
     """
-    key = os.environ.get("ANTHROPIC_FUTURE_API_KEY")
+    key = next((os.environ[v] for v in KEY_VARS if os.environ.get(v)), None)
     if key:
         return key
     secret_id = os.environ.get("ANTHROPIC_SECRET_ID")

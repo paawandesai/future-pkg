@@ -3,8 +3,9 @@
 The UI was designed in Claude Design. Paawan approved the design on 2026-10-15 (checkpoint D).
 No design system was used.
 
-Canvas: https://claude.ai/artifact/LFAMMfCguDPbdCxpcrBaL9 (artboards: Login, Main, GeneratorStates,
-Copilot).
+The canvas (artboards: Login, Main, GeneratorStates, Copilot) is a private Claude Design artifact,
+so this link opens only for its owner: https://claude.ai/artifact/LFAMMfCguDPbdCxpcrBaL9. The
+deployed demo and `web/` are the reviewable result.
 
 The React app (`web/`) rebuilds those artboards as components. The canvas HTML is a reference
 only and was not copied in. Its colors and type became CSS variables in `web/src/styles.css`

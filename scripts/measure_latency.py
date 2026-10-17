@@ -1,4 +1,4 @@
-"""Measure end-to-end generator latency on the real API (the three README examples).
+"""Measure end-to-end generator and copilot latency on the real API.
 
 Usage: cd api && uv run python ../scripts/measure_latency.py [runs-per-example] > ../docs/latency.md
 Needs ANTHROPIC_FUTURE_API_KEY, LLM_MODEL_FAST and LLM_MODEL_MAIN. Prints a Markdown table only;
@@ -8,11 +8,14 @@ no prompts, plans or model output are written anywhere.
 from __future__ import annotations
 
 import asyncio
+import math
 import os
 import statistics
 import sys
+import time
 from datetime import UTC, datetime
 
+from coachkg.copilot import agent
 from coachkg.generator.pipeline import GenerateRequest, run
 from coachkg.llm import LLM
 from coachkg.world import get_world
@@ -22,11 +25,19 @@ EXAMPLES = {
     "limited equipment": "30 min upper body. No bench this week, she's travelling.",
     "deadlift": "Full body 40 min, no deadlifts.",
 }
+# The copilot's quick prompts that call the model (the chart prompts make no model call).
+QUESTIONS = [
+    "Show me the brief",
+    "How's adherence trending?",
+    "How has sleep been this week?",
+    "What changed since last week?",
+]
 
 
 def pct(xs: list[int], p: float) -> int:
+    """Nearest rank: the smallest value with at least p of the runs at or below it."""
     xs = sorted(xs)
-    return xs[min(len(xs) - 1, round(p * (len(xs) - 1)))]
+    return xs[max(0, math.ceil(p * len(xs)) - 1)]
 
 
 async def main(n: int) -> None:
@@ -59,6 +70,20 @@ async def main(n: int) -> None:
         f"\nEverything other than the model calls (resolver, safety filter, scoring, alternatives, assembly, "
         f"trace) measured p50 {pct(allc, .5)} ms and p95 {pct(allc, .95)} ms per draft."
     )
+    print("\n## Copilot\n")
+    print("| Quick prompt | p50 total | p95 total | model calls (median) |")
+    print("|---|---|---|---|")
+    every = []
+    for q in QUESTIONS:
+        totals, rounds = [], []
+        for _ in range(n):
+            t0 = time.perf_counter()
+            ans = await agent.ask(llm, os.environ["LLM_MODEL_MAIN"], world.context(member), q)
+            totals.append(round((time.perf_counter() - t0) * 1000))
+            rounds.append(len(ans.model_ms))
+        every += totals
+        print(f"| {q} | {pct(totals, .5)} ms | {pct(totals, .95)} ms | {statistics.median(rounds):.0f} |")
+    print(f"| all | {pct(every, .5)} ms | {pct(every, .95)} ms | |")
 
 
 if __name__ == "__main__":

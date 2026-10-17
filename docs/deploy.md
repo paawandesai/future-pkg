@@ -33,4 +33,10 @@ uv run --no-project --with boto3==1.43.105 python scripts/demo_users.py disable-
 # or, signed in as an admin: Admin → "Turn off all reviewer accounts"
 ```
 
+The Admin button turns off reviewer accounts and leaves admin accounts on. `disable-all` turns off
+every account in the pool, admins included, so run it last.
+
+Invites come from Cognito's default sender, which can land in spam, and the temporary password
+expires after 7 days. There is no resend: `delete EMAIL`, then `invite EMAIL` again.
+
 Tear down: `scripts/cdk.sh destroy FuturePkgDemo` removes everything, including the data.

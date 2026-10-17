@@ -56,7 +56,7 @@ class LLMAuthError(LLMError):
 
 
 KEY_PROBLEM = (
-    "The model API key is missing or was rejected (ANTHROPIC_FUTURE_API_KEY). "
+    "The model API key is missing or was rejected (ANTHROPIC_FUTURE_API_KEY or ANTHROPIC_API_KEY). "
     "Drafting and the copilot need a valid key; everything else still works."
 )
 
@@ -80,7 +80,7 @@ class LLM:
         if client is None:
             key = anthropic_api_key()
             if not key:
-                raise LLMAuthError("ANTHROPIC_FUTURE_API_KEY is not set")
+                raise LLMAuthError("ANTHROPIC_FUTURE_API_KEY (or ANTHROPIC_API_KEY) is not set")
             client = anthropic.AsyncAnthropic(api_key=key, timeout=timeout_s, max_retries=1)
         self.client = client
         self.fallback_models = fallback_models()
