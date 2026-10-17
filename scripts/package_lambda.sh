@@ -7,8 +7,9 @@ cd "$(dirname "$0")/.."
 out=infra/build/lambda
 rm -rf "$out" && mkdir -p "$out"
 [ -f data/exercises.json ] || python3 scripts/fetch_data.py data
-(cd api && uv export --frozen --no-dev --no-hashes --no-emit-project -q -o ../infra/build/requirements.txt)
-uv pip install -q --target "$out" -r infra/build/requirements.txt \
+(cd api && uv export --frozen --no-dev --no-emit-project -q -o ../infra/build/requirements.txt)
+# Every wheel is checked against the lockfile's hashes.
+uv pip install -q --require-hashes --target "$out" -r infra/build/requirements.txt \
   --python-platform x86_64-manylinux_2_34 --python-version 3.12 --only-binary :all:
 cp -r api/src/coachkg "$out/"
 cp -r kg fixtures data "$out/"

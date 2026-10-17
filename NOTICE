@@ -2,10 +2,21 @@ future-pkg: coach decision support prototype
 
 Third-party knowledge sources (referenced by identifier; see docs/alignment.md):
 
-- Uberon multi-species anatomy ontology, CC BY 3.0. http://uberon.org
+- Uberon multi-species anatomy ontology, CC BY 3.0
+  (https://creativecommons.org/licenses/by/3.0/). http://uberon.org
 - Wikidata item identifiers and labels for equipment, CC0. https://www.wikidata.org
-- NCI Thesaurus (NCIt), CC BY 4.0. National Cancer Institute.
 - SNOMED CT: identifiers only, no SNOMED content is distributed. See README.
+  The NCI EVS REST API is used only in tests to check that those identifiers
+  resolve; no NCI Thesaurus content is used or distributed.
+
+The SKOS export (kg/export/coachkg-skos.ttl) states the same in dcterms:rights.
+
+Fonts bundled in the web app:
+
+- IBM Plex Sans and IBM Plex Mono (via @fontsource), Copyright IBM Corp.,
+  SIL Open Font License 1.1. The licence text ships with the site in
+  /third-party-notices.txt, together with the notices of every other bundled
+  open-source package (generated at build; see LICENSES.md for all dependencies).
 
 Input data (data/exercises.json, data/member-context.json) is fetched at build
 time from github.com/future-research/candidate-assessment and is not
