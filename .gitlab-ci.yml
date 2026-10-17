@@ -143,8 +143,9 @@ kg:live:
     - uv run --frozen pytest -m live -n 2 -p no:cacheprovider
     - *peak
 
-# Live model evaluation (eval/): heavy lane, manual on MRs, every scheduled run.
-# Needs the masked CI variable ANTHROPIC_FUTURE_API_KEY; without it the job fails and says so.
+# Live model evaluation (eval/): heavy lane, every scheduled run on main.
+# Needs ANTHROPIC_FUTURE_API_KEY, a masked and protected variable, so it can't run on MR branches;
+# run it locally before merging (see README). Without the key the job fails and says so.
 eval:live:
   extends: .py
   stage: check
@@ -155,9 +156,6 @@ eval:live:
     LLM_MODEL_MAIN: claude-sonnet-5-5
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      when: manual
-      allow_failure: true
   script:
     - test -n "$ANTHROPIC_FUTURE_API_KEY" || { echo "ANTHROPIC_FUTURE_API_KEY CI variable is not set"; exit 1; }
     - uv run --frozen python ../eval/run_eval.py

@@ -38,7 +38,7 @@ make test               # installs if needed, then the API, web and infra suites
 ```
 
 **Prerequisites.** Docker, `make` and `python3` for `make up` (the data fetch runs on the host). For `make dev` and `make test`: Python 3.12 with
-[uv](https://docs.astral.sh/uv/), Node 22 with pnpm 10 (`corepack enable`), and `python3` on the
+[uv](https://docs.astral.sh/uv/), Node 22.23 with pnpm 10.34 (`corepack enable`), and `python3` on the
 path. Both paths need network access to fetch the assessment data (from its GitHub repo, at a
 pinned commit, checksum-verified) and packages, and free ports 5173 and 8000.
 
@@ -212,8 +212,9 @@ The test suites hold the deterministic guarantees:
 - 177 API tests: resolver, safety filter, graph edges, alternatives, provenance, member graph and
   copilot tools, ingest, assembly, auth, access requests and scoping.
 - 58 live tests that check every SNOMED, Uberon and Wikidata identifier against its source.
-- 17 web tests.
-- 8 infra tests on the synthesized template (Cognito auth, noindex, TTL and purge, no secrets).
+- 22 web tests.
+- 16 infra tests on the synthesized template (Cognito auth, noindex and security headers, TTL and
+  purge, no secret values, CloudFront-only API, concurrency cap, log retention).
 
 **Why these critical paths.** The two places where a mistake reaches a member are reading the
 request and deciding what is allowed, so they carry most of the tests:
@@ -289,7 +290,8 @@ through the tool results it asks for, plus at most six earlier turns.
   - The admin group can only be granted from AWS.
   - Mock auth is refused on Lambda.
   - A "Demo — synthetic data only" banner and `noindex` appear on every page.
-  - Plans are purged daily and access requests expire after 7 days.
+  - Plans and expired access requests are purged daily; access requests expire after 7 days.
+  - The API accepts only requests that come through CloudFront (a secret origin header).
   - The API key is kept in Secrets Manager.
 
 ## What it does NOT do
@@ -339,7 +341,8 @@ American Pathologists. "SNOMED" and "SNOMED CT" are registered trademarks of SNO
 NICE guidance is not used: putting its content in an AI product needs a licence from NICE. Lab results are shown as the dataset gives them; no LOINC codes or content are included.
 
 Dependency licences are generated in [LICENSES.md](LICENSES.md). CI fails on GPL, AGPL, SSPL,
-BUSL or non-commercial licences.
+BUSL or non-commercial licences, and on unknown, unlicensed or proprietary ones. The site ships
+its third-party notices at `/third-party-notices.txt`.
 
 ## Roadmap
 
@@ -386,7 +389,11 @@ file a person signs, and only the last one changes what the safety filter exclud
   2026-10-16 from open-access papers. The two JOSPT guidelines they also cite are paywalled, so
   their DOIs are checked but their claims are not.
 - **Two model roles in a fixed workflow, not autonomous agents** (see Architecture).
-- **Mock auth locally, Cognito when deployed.** Mock auth is refused on Lambda.
+- **Mock auth locally, Cognito when deployed.** Mock auth is refused on Lambda. The API defaults
+  to Cognito; `make up`, `make dev` and the tests set `AUTH_MODE=mock`.
+- **No MFA for admin accounts, and turning an account off isn't instant.** Admins sign in with a
+  password only, and an already signed-in session keeps working until its one-hour token
+  expires.
 - **Lambda instead of App Runner or Fargate.** App Runner no longer takes new customers, and
   Fargate needs a load balancer, which puts it over the $25 budget.
 - **Cut for time:** the embedding pass of the resolver (exact and fuzzy cover the test cases), a
