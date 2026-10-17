@@ -325,7 +325,7 @@ through the tool results it asks for, plus at most six earlier turns.
   authored exercises and the rest). A human reviewer (PD) read and signed each one. Until a file is
   signed it can only make the filter stricter (each use is marked "unverified"), never allow
   anything. Four files were edited and re-signed after the second review, and `programming.yaml`
-  was edited and re-signed on 2026-10-17 (see Known constraints).
+  was edited and re-signed on 2026-10-17, as was `anatomy.yaml` (see Known constraints).
 - **Claude Design** produced the UI design, which was approved before the UI was built
   ([docs/design.md](docs/design.md)).
 - **At runtime**, Claude extracts intent, picks exercise ids from a pre-filtered list, and answers
@@ -432,6 +432,8 @@ file a person signs, and only the last one changes what the safety filter exclud
   - They don't compare load, so the coach reviews each one in the trace.
 - **`programming.yaml` was edited on 2026-10-17** (`max_sets`) and signed again by PD the same
   day. It is not a safety input.
+- **`anatomy.yaml` was signed again by PD on 2026-10-17.** Its review note pointed at the wrong
+  alignment file; only that path changed (now `kg/alignment/uberon.yaml`).
 - **Jordan's record disagrees with itself in two places.**
   - Jordan writes "Skipped Thursday", but the missed session is Friday 2026-05-29.
   - The week of 05-26 says 75% from 2 of 3 logged sessions.
