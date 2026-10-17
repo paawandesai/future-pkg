@@ -6,6 +6,10 @@ with the exercise it replaces, and is found by walking the graph:
     excluded --has-pattern--> pattern <--has-pattern-- alternative
     excluded --targets------> muscle  <--targets------ alternative
 
+A stand-in never has a higher impact level than the exercise it replaces (`impact` from
+`exercise_attributes.yaml`, with any plyometric pattern counted as high), so a jump never stands
+in for a squat.
+
 When the signed equipment file has a `substitutes-for` edge from the alternative's equipment to
 the missing item, for that pattern, the alternative ranks first and the edge is shown. This is
 ranking only: the safety filter has already decided what is allowed, and this never adds to it.
@@ -61,6 +65,17 @@ def _label(store: NetworkXStore, node: str) -> str:
     return str(store.node(node).get("label", node.split(":", 1)[-1]))
 
 
+_IMPACT = {"none": 0, "low": 1, "high": 2}
+
+
+def impact_level(store: NetworkXStore, ex: Exercise) -> int:
+    """0 none, 1 low, 2 high. Plyometric patterns are high whatever the attribute file says."""
+    if any("plyometric" in p for p in ex.movement_patterns):
+        return 2
+    attrs = store.node(ex_node(ex.id)).get("attributes")
+    return _IMPACT.get(getattr(attrs, "impact", None) or "none", 0)
+
+
 def _equipment_only(safety: SafetyResult) -> dict[str, list[str]]:
     """Exercise id -> missing equipment, for exercises whose every exclusion is missing equipment."""
     needs: dict[str, list[str]] = {}
@@ -86,8 +101,8 @@ def find(
     """Alternatives for exercises left out for equipment the request said is missing, or, when the
     request named a focus, for on-focus exercises the member lacks equipment for.
 
-    `edge_patterns` are the warm-up and cool-down patterns: a main-block exercise is only replaced
-    by another main-block exercise, so a press is never "replaced" by a neck circle."""
+    `edge_patterns` are the warm-up and cool-down patterns: only main-block exercises get
+    stand-ins, and only from other main-block exercises, so nothing is "replaced" by a neck circle."""
     missing_ids = _equipment_only(safety)
     if not missing_ids:
         return []
@@ -114,10 +129,15 @@ def find(
         musc = _dst(store, ex, "targets")
         ranked: list[tuple[tuple[int, int, int, str], Alternative]] = []
         main = not set(ex.movement_patterns) & edge_patterns
+        if edge_patterns and not main:
+            continue  # warm-up and cool-down moves are interchangeable; offering stand-ins is noise
+        impact = impact_level(store, ex)
         for cand in safe:
             if cand.id in used:
                 continue
             if main and set(cand.movement_patterns) & edge_patterns:
+                continue
+            if impact_level(store, cand) > impact:
                 continue
             shared_p = sorted(pats & safe_pats[cand.id])
             shared_m = sorted(musc & safe_musc[cand.id])

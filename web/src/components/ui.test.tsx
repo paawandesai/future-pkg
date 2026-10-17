@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MemberView, Plan } from "../types";
 import { Chart } from "./Chart";
-import { CopilotPage, recentTurns } from "./CopilotPage";
+import { CopilotPage, recentTurns, withMemberDisclosure } from "./CopilotPage";
 import { dose, GeneratorPage } from "./GeneratorPage";
 
 const member: MemberView = {
@@ -249,6 +249,15 @@ describe("CopilotPage", () => {
     render(wrap(<CopilotPage member={member} />));
     fireEvent.click(screen.getByRole("button", { name: "Draft a congratulations" }));
     expect(await screen.findByText(/not yesterday/)).toBeTruthy();
+  });
+});
+
+describe("withMemberDisclosure", () => {
+  it("adds the member-facing AI line once", () => {
+    const line = "(Written with help from AI and reviewed by your coach.)";
+    expect(withMemberDisclosure(" Great job. ", line)).toBe(`Great job.\n\n${line}`);
+    expect(withMemberDisclosure(`Great job.\n\n${line}`, line)).toBe(`Great job.\n\n${line}`);
+    expect(withMemberDisclosure("Great job.")).toBe("Great job.");
   });
 });
 

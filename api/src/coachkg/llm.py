@@ -6,6 +6,8 @@ logged either; only model id, latency and token counts are kept for the trace.
 
 from __future__ import annotations
 
+import json
+import os
 import time
 from dataclasses import dataclass
 from typing import Any, Literal, TypeVar
@@ -18,9 +20,31 @@ from coachkg.config import anthropic_api_key
 T = TypeVar("T", bound=BaseModel)
 Effort = Literal["low", "medium", "high"]
 
-# Models that accept the server-side refusal fallback (`fallbacks: "default"`).
-_FALLBACK_MODELS = {"claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5"}
+
+# Which models get the server-side refusal fallback (`fallbacks: "default"`) is configuration:
+# LLM_FALLBACK_MODELS is a comma-separated list, "none" turns it off, and when it is unset the
+# main model (LLM_MODEL_MAIN) gets it. Check the provider's docs for which models accept it.
+def fallback_models() -> frozenset[str]:
+    raw = os.environ.get("LLM_FALLBACK_MODELS")
+    if raw is None:
+        main = os.environ.get("LLM_MODEL_MAIN")
+        return frozenset({main} if main else set())
+    if raw.strip().lower() == "none":
+        return frozenset()
+    return frozenset(m.strip() for m in raw.split(",") if m.strip())
+
+
 _FALLBACK_BETA = "server-side-fallback-2026-07-01"
+
+
+def quote(text: str) -> str:
+    """Escape text placed inside a prompt's data tags, so it can't close the tag or open another."""
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def json_data(value: object) -> str:
+    """JSON for a prompt's data section, with < and > escaped so no string can close the tag."""
+    return json.dumps(value, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e")
 
 
 class LLMError(RuntimeError):
@@ -59,6 +83,7 @@ class LLM:
                 raise LLMAuthError("ANTHROPIC_FUTURE_API_KEY is not set")
             client = anthropic.AsyncAnthropic(api_key=key, timeout=timeout_s, max_retries=1)
         self.client = client
+        self.fallback_models = fallback_models()
 
     async def parse(
         self,
@@ -73,7 +98,7 @@ class LLM:
     ) -> tuple[T, CallStats]:
         t0 = time.perf_counter()
         try:
-            if model in _FALLBACK_MODELS:
+            if model in self.fallback_models:
                 resp = await self.client.beta.messages.parse(
                     model=model,
                     max_tokens=max_tokens,
@@ -126,7 +151,7 @@ class LLM:
             "output_config": {"effort": effort},
         }
         try:
-            if model in _FALLBACK_MODELS:
+            if model in self.fallback_models:
                 resp: Any = await self.client.beta.messages.create(
                     **kw, betas=[_FALLBACK_BETA], fallbacks="default"
                 )

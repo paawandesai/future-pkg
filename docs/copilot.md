@@ -15,7 +15,11 @@ at most 6 turns (`api/src/coachkg/copilot/agent.py`).
   resting HR and HRV without a date, so they are reported as of AS_OF.
 - `get_chat` returns messages as quoted data marked `member-said` or `coach-said`. Image
   attachments come through as their caption only and are never sent to the model.
-- `get_labs` returns values as recorded. The system prompt forbids interpreting labs or DEXA.
+- `get_labs` returns values as recorded. The system prompt forbids interpreting labs or DEXA, and
+  code checks the answer too: when an answer used `get_labs` or `get_biomarkers` and contains a
+  reading word ("elevated", "normal range", "suggests", "at risk" and similar,
+  `copilot/agent.py: _INTERPRETS`), it is replaced with a values-only listing written by code, and
+  the response carries `guarded: true`. The check errs toward replacing a good answer.
 - `make_chart` takes metric names from an allow-list and the server fills in the data, so the
   model can't make up a value. Quick-prompt charts
   (`GET /api/members/{id}/charts/{adherence|sleep|messages|compare}`) make no model call.
@@ -31,7 +35,9 @@ at most 6 turns (`api/src/coachkg/copilot/agent.py`).
   session with its date, when it was ("yesterday" only if it is the day before AS_OF), and what
   the member said about it in their own words, marked `member-said`. The brief's task text is not
   passed as a fact. If the session is not from yesterday the response says so in `note`, and the
-  UI shows it. It returns a draft with a disclosure line. There is no send endpoint.
+  UI shows it. It returns a draft with a disclosure line for the coach and a `member_disclosure`
+  line ("Written with help from AI and reviewed by your coach.") that the Copy button appends, so
+  the member also sees that AI helped. There is no send endpoint.
 
 ## Churn score
 

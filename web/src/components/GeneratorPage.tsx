@@ -623,7 +623,7 @@ function TraceCard({ plan }: { plan: Plan }) {
           <strong>Safety filter.</strong> {excludedCount} exercises excluded for {t.excluded.length} reasons.
         </li>
         <li>
-          <strong>Selection.</strong> {picked} picked from the safe candidates by{" "}
+          <strong>Selection.</strong> {picked} picked from the candidates that passed the filter by{" "}
           {t.model_calls.find((c) => c.purpose === "selection")?.model ?? "the model"}, then fitted to{" "}
           {plan.minutes_requested} minutes by the server.
         </li>

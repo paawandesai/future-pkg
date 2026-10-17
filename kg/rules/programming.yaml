@@ -5,10 +5,8 @@
 # Units: seconds unless a key says otherwise. The dataset's estimated_rep_duration has no
 # documented unit (values 0-1.9 do not fit seconds or minutes per rep), so timing uses tempo_s.
 review:
-  status: signed
+  status: draft
   drafted_by: model
-  reviewer: PD
-  signed_on: 2026-10-16
 
 tempo_s: 4              # one controlled repetition, both phases
 transition_s: 20        # moving to the next exercise
@@ -25,6 +23,7 @@ blocks:
     dose_reps: { sets: 3, reps: 10, rest_s: 60 }
     dose_duration: { sets: 3, work_s: 40, rest_s: 45 }
     min_sets: 2         # last exercise may drop to this to fit the time budget
+    max_sets: 4         # when too few exercises pass the filter, sets may rise to this to fill the time
   cooldown:
     share: 0.10
     min_minutes: 2

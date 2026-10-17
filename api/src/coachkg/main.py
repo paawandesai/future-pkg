@@ -248,6 +248,7 @@ async def copilot(
         "answer": ans.text,
         "charts": [c.model_dump() for c in ans.charts],
         "tools_used": ans.tools_used,
+        "guarded": ans.guarded,
         "disclosure": ans.disclosure,
         "model_ms": ans.model_ms,
     }

@@ -113,6 +113,8 @@ CI fails if this file is stale or if a GPL/AGPL/SSPL/BUSL/non-commercial license
 | @eslint/object-schema | 3.0.5 | Apache-2.0 |
 | @eslint/plugin-kit | 0.7.3 | Apache-2.0 |
 | @exodus/bytes | 1.16.0 | MIT |
+| @fontsource/ibm-plex-mono | 5.3.0 | OFL-1.1 |
+| @fontsource/ibm-plex-sans | 5.3.0 | OFL-1.1 |
 | @humanfs/core | 0.19.2 | Apache-2.0 |
 | @humanfs/node | 0.16.8 | Apache-2.0 |
 | @humanfs/types | 0.15.0 | Apache-2.0 |

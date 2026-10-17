@@ -326,3 +326,50 @@ def test_congratulation_says_when_the_session_was_not_yesterday(ctx: data.Member
     assert out["is_yesterday"] is False
     assert out["facts_used"]["session_when"] == "on 2026-06-03"
     assert "not yesterday" in out["note"]
+
+
+def test_congratulation_carries_a_member_facing_disclosure(ctx: data.MemberContext) -> None:
+    out = asyncio.run(agent.congratulation_draft(DraftLLM(), "m", ctx))  # type: ignore[arg-type]
+    assert "AI" in out["member_disclosure"]
+
+
+class LabsThenText:
+    """Asks for one tool, then answers with the given text."""
+
+    def __init__(self, tool: str, text: str) -> None:
+        self.tool, self.text, self.n = tool, text, 0
+
+    async def create(self, **_: Any) -> tuple[Any, int]:
+        self.n += 1
+        if self.n == 1:
+            use = SimpleNamespace(type="tool_use", id="t1", name=self.tool, input={})
+            return SimpleNamespace(stop_reason="tool_use", content=[use]), 1
+        text = SimpleNamespace(type="text", text=self.text)
+        return SimpleNamespace(stop_reason="end_turn", content=[text]), 1
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Her LDL is elevated, which suggests a cardiovascular risk.",
+        "Vitamin D is below the normal range.",
+        "Body fat looks healthy for her age.",
+    ],
+)
+def test_an_answer_that_reads_labs_is_replaced_by_the_values(ctx: data.MemberContext, text: str) -> None:
+    ans = asyncio.run(agent.ask(LabsThenText("get_labs", text), "m", ctx, "Are her labs ok?"))  # type: ignore[arg-type]
+    assert ans.guarded is True
+    assert text not in ans.text and "as recorded" in ans.text and "clinician" in ans.text
+    assert not agent._INTERPRETS.search(ans.text.replace("licensed clinician", ""))
+
+
+def test_a_values_only_lab_answer_passes_through(ctx: data.MemberContext) -> None:
+    text = "The blood panel from 2026-05-15 lists LDL 128 mg/dL. A clinician interprets labs."
+    ans = asyncio.run(agent.ask(LabsThenText("get_labs", text), "m", ctx, "What are her labs?"))  # type: ignore[arg-type]
+    assert ans.guarded is False and ans.text == text
+
+
+def test_the_lab_guard_ignores_answers_that_used_no_health_tool(ctx: data.MemberContext) -> None:
+    text = "Adherence is below the normal range for her."
+    ans = asyncio.run(agent.ask(LabsThenText("get_adherence", text), "m", ctx, "Adherence?"))  # type: ignore[arg-type]
+    assert ans.guarded is False

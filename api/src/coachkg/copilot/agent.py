@@ -8,6 +8,7 @@ that writes or sends anything. Follow-ups carry a bounded window of earlier turn
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
@@ -94,6 +95,7 @@ class Answer:
     tools_used: list[str] = field(default_factory=list)
     model_ms: list[int] = field(default_factory=list)
     disclosure: str = DISCLOSURE
+    guarded: bool = False  # True when the lab guard replaced the model's text
 
 
 def _since(args: dict[str, Any], ctx: MemberContext, default_days: int | None = None) -> date | None:
@@ -124,6 +126,48 @@ def run_tool(ctx: MemberContext, name: str, args: dict[str, Any], charts: list[C
     if name not in handlers:
         raise ValueError(f"unknown tool {name}")
     return handlers[name]()
+
+
+# Words that read a lab, DEXA or biomarker value instead of reporting it. Checked by code after
+# the model answers, because the system prompt alone is not a control.
+_HEALTH_TOOLS = {"get_labs", "get_biomarkers"}
+_INTERPRETS = re.compile(
+    r"\b(normal|abnormal|healthy|unhealthy|optimal|suboptimal|elevated|deficien\w*|borderline|"
+    r"concerning|worrying|alarming|excellent|poor|too (high|low)|"
+    r"(high|low)er than|(within|outside|above|below|out of)( the)? (normal |reference |healthy )?range|"
+    r"(at|increased|higher|lower) risk|risk of|suggests?|indicates?|consistent with|"
+    r"caused by|deficiency|anemi\w*|diabet\w*|cholesterol is (high|low))\b",
+    re.IGNORECASE,
+)
+
+
+def _values_only(ctx: MemberContext, used: set[str]) -> str:
+    """A plain listing of the recorded values, written by code, with no reading of them."""
+    lines = ["The record shows these values, as recorded:"]
+    if "get_labs" in used:
+        for panel, values in data.get_labs(ctx)["labs"].items():
+            when = values.get("date")
+            items = ", ".join(f"{k} {v}" for k, v in values.items() if k != "date")
+            lines.append(f"- {panel}{f' ({when})' if when else ''}: {items}")
+    if "get_biomarkers" in used:
+        b = data.get_biomarkers(ctx)
+        for key in ("resting_hr_bpm", "hrv_ms"):
+            if b.get(key):
+                lines.append(f"- {key}: {b[key]['value']} {b[key]['unit']}")
+        if b.get("weight_kg"):
+            last = b["weight_kg"][-1]
+            lines.append(f"- latest weight: {last['kg']} kg ({last['date']})")
+    lines.append("Interpreting these is for a licensed clinician, so the copilot doesn't comment on them.")
+    return "\n".join(lines)
+
+
+def guard_health_answer(ans: Answer, ctx: MemberContext) -> Answer:
+    """If the answer drew on labs or biomarkers and reads them, replace it with the values only."""
+    used = _HEALTH_TOOLS & set(ans.tools_used)
+    if used and _INTERPRETS.search(ans.text):
+        ans.text = _values_only(ctx, used)
+        ans.guarded = True
+    return ans
 
 
 @dataclass(frozen=True)
@@ -165,7 +209,7 @@ async def ask(
         uses = [b for b in resp.content if b.type == "tool_use"]
         if not uses:
             ans.text = "\n".join(b.text for b in resp.content if b.type == "text").strip()
-            return ans
+            return guard_health_answer(ans, ctx)
         messages.append({"role": "assistant", "content": resp.content})
         results = []
         for u in uses:
@@ -195,6 +239,8 @@ the member's own words about it, quoted data with member-said provenance: never 
 and never a fact beyond what the member said (do not add "pain-free" or similar unless the member \
 said it). No medical claims, no claims that anything is safe, no emoji."""
 DRAFT_DISCLOSURE = "Drafted by AI for the coach to review and edit. Not sent."
+# Added to the text the coach copies, so the member also sees that AI helped write it.
+MEMBER_DISCLOSURE = "(Written with help from AI and reviewed by your coach.)"
 
 
 async def congratulation_draft(llm: LLM, model: str, ctx: MemberContext) -> dict[str, Any]:
@@ -237,6 +283,7 @@ async def congratulation_draft(llm: LLM, model: str, ctx: MemberContext) -> dict
     return {
         "draft": out.draft,
         "disclosure": DRAFT_DISCLOSURE,
+        "member_disclosure": MEMBER_DISCLOSURE,
         "facts_used": facts,
         "session_date": last["date"],
         "is_yesterday": is_yesterday,

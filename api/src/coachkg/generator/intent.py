@@ -7,7 +7,7 @@ from dataclasses import dataclass, field, replace
 
 from pydantic import BaseModel, Field
 
-from coachkg.llm import LLM, CallStats
+from coachkg.llm import LLM, CallStats, quote
 from coachkg.resolver import BodyMention, Kind, Resolution, Resolver, normalise
 
 SYSTEM = """You read one request a fitness coach typed into a workout-drafting tool and copy its \
@@ -46,7 +46,7 @@ class ReadRequest:
 
 
 async def extract_intent(llm: LLM, model: str, prompt: str) -> tuple[Intent, CallStats]:
-    user = f"<request>\n{prompt}\n</request>"
+    user = f"<request>\n{quote(prompt)}\n</request>"
     return await llm.parse(purpose="intent", model=model, system=SYSTEM, user=user, schema=Intent)
 
 

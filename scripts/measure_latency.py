@@ -34,7 +34,7 @@ async def main(n: int) -> None:
     member = next(iter(world.members.values()))
     rows = []
     for name, prompt in EXAMPLES.items():
-        totals, intents, selects = [], [], []
+        totals, intents, selects, code = [], [], [], []
         for _ in range(n):
             req = GenerateRequest(member_id=member.id, prompt=prompt)
             async for ev in run(world, llm, req, member, "coach_01HXSAM"):
@@ -44,16 +44,21 @@ async def main(n: int) -> None:
                     totals.append(t["total"])
                     intents.append(calls["intent"])
                     selects.append(calls["selection"])
-        rows.append((name, totals, intents, selects))
+                    code.append(t["total"] - sum(calls.values()))  # everything that isn't a model call
+        rows.append((name, totals, intents, selects, code))
     print(f"# Generator latency\n\nMeasured {datetime.now(UTC):%Y-%m-%d} on the live API, {n} runs per example.")
     print(f"Models: fast `{os.environ['LLM_MODEL_FAST']}`, main `{os.environ['LLM_MODEL_MAIN']}`.\n")
     print("| Example | p50 total | p95 total | p50 intent call | p50 selection call |")
     print("|---|---|---|---|---|")
-    for name, t, i, s in rows:
+    for name, t, i, s, _ in rows:
         print(f"| {name} | {pct(t, .5)} ms | {pct(t, .95)} ms | {statistics.median(i):.0f} ms | {statistics.median(s):.0f} ms |")
-    allt = [x for _, t, _, _ in rows for x in t]
+    allt = [x for _, t, _, _, _ in rows for x in t]
+    allc = [x for *_, c in rows for x in c]
     print(f"| all | {pct(allt, .5)} ms | {pct(allt, .95)} ms | | |")
-    print("\nThe safety filter, scoring and assembly together take under 15 ms; the rest is the two model calls.")
+    print(
+        f"\nEverything other than the model calls (resolver, safety filter, scoring, alternatives, assembly, "
+        f"trace) measured p50 {pct(allc, .5)} ms and p95 {pct(allc, .95)} ms per draft."
+    )
 
 
 if __name__ == "__main__":

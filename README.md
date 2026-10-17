@@ -80,7 +80,8 @@ flowchart LR
   A1 & A2 & A3 -.-> llm{{Anthropic API}}
 ```
 
-There is no vector store. The catalog is 50 exercises and about 130 concepts, so exact labels
+There is no vector store. The catalog is 56 exercises (50 from the dataset, 6 we authored) and
+about 130 concepts, so exact labels
 plus fuzzy matching resolve the test cases, and an embedding fallback would only be allowed to
 return "ambiguous" anyway (see Known constraints).
 
@@ -103,7 +104,7 @@ is what lets the trace say exactly why every exercise is in or out.
 | Layer | Choice | Why |
 |---|---|---|
 | API | Python 3.12, FastAPI, Pydantic v2 | Typed contracts, and schema-validated model output |
-| Graph | NetworkX `MultiDiGraph` in-process; rdflib for the SKOS export (`kg/export/`) | About 50 exercises and 130 concepts fit in memory, and traversal takes microseconds. That keeps the latency budget without caching safety decisions. It is also one less server to run. |
+| Graph | NetworkX `MultiDiGraph` in-process; rdflib for the SKOS export (`kg/export/`) | About 56 exercises and 130 concepts fit in memory, and traversal takes microseconds. That keeps the latency budget without caching safety decisions. It is also one less server to run. |
 | Resolver | Exact SKOS labels, then `rapidfuzz` | Messy spellings and laterality are covered by tests. Low-confidence injury terms fail closed. |
 | LLM | Claude through the paid API. Model ids are configuration (`LLM_MODEL_FAST`, `LLM_MODEL_MAIN`). | Structured outputs only. Haiku 5.5 extracts intent and Sonnet 5.5 selects exercises (measured below). |
 | Orchestration | The staged workflow above, hand-written; a tool loop for the copilot | See "Why not more autonomous agents". No agent framework: each stage is a typed function, which keeps the trace exact. |
@@ -113,12 +114,11 @@ is what lets the trace say exactly why every exercise is in or out.
 
 ## Example runs (real, from `eval/results/`)
 
-These ran with the live Anthropic API (Haiku 5.5 and Sonnet 5.5) on 2026-10-16. `eval/run_eval.py`
+These ran with the live Anthropic API (Haiku 5.5 and Sonnet 5.5) on 2026-10-17. `eval/run_eval.py`
 calls the pipeline and copilot in-process, so sign-in and member scoping are covered by the API
-tests, not by the eval. The eval also runs the brief's three adjustment rows verbatim on members
-where they change the plan (Elena, and Sam for the no-barbell row because he is the only member
-who owns a barbell and has no injury; Sam sits under another coach, so that row can't be repeated
-from the demo UI). The member is the fictional Jordan
+tests, not by the eval. The eval also runs the brief's three adjustment rows verbatim on Elena, a
+demo member with no injury who owns dumbbells, kettlebells and a barbell, so each row changes her
+plan and a reviewer can repeat it in the demo. In the table below the member is the fictional Jordan
 (left knee injury, patellofemoral pain, dislikes deadlifts, completion down from 100% to 50%).
 Every plan with its full trace, item by item, is in
 [eval/results/traces.md](eval/results/traces.md).
@@ -128,9 +128,9 @@ there.
 
 | Coach request | Result |
 |---|---|
-| "45 minutes, lower body. Her left knee is still a bit sore." | 10 exercises, 35.7 min, 1.7 s. Lower-body work is Dumbbell Hip Thrust and Glute Bridge. No exercise loads the knee, and both Romanian deadlifts are left out because Jordan dislikes them. |
-| "30 min upper body. She has no barbell and no bench this week." | 7 exercises, 24.4 min, 1.6 s. Nothing needs a barbell or a bench, and the trace offers four equivalent alternatives, such as Push-Up to Knee-Drive instead of Barbell Decline Bench Press. |
-| "Full body 40 min, no deadlifts." | 8 exercises, 30.7 min, 3.1 s. Nothing from the deadlift family or its variants. |
+| "45 minutes, lower body. Her left knee is still a bit sore." | 11 exercises, 43.7 min, 1.9 s. Lower-body work is Dumbbell Hip Thrust and Glute Bridge. No exercise loads the knee, and both Romanian deadlifts are left out because Jordan dislikes them. |
+| "30 min upper body. She has no barbell and no bench this week." | 8 exercises, 28.7 min, 2.3 s. Nothing needs a barbell or a bench, and the trace offers two equivalent alternatives: Glute Bridge instead of Dumbbell Hip Thrust and Resistance Band Reverse Curl instead of Single-Arm Dumbbell Preacher Curl. |
+| "Full body 40 min, no deadlifts." | 10 exercises, 39.4 min, 3.0 s. Nothing from the deadlift family or its variants. |
 | "Upper body today, her thingy is acting up again." | Blocked. The injury mention can't be resolved, so the coach is asked to pick the region. |
 
 <details>
@@ -138,7 +138,7 @@ there.
 
 > 45 minutes, lower body. Her left knee is still a bit sore.
 
-10 exercises, 35.7 min, 1749 ms.
+11 exercises, 43.7 min, 1881 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -146,11 +146,12 @@ there.
 | Dumbbell Hip Thrust | 3 | matches the requested focus; fits a priority-1 goal; uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads hip, which is not restricted; picked for the main block by the selection step | same pattern trained in the last two days |
 | Alternating Low Plank To Low Side Plank | 3 | uses only equipment the member has (Yoga Mat); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
 | Glute Bridge | 3 | matches the requested focus; fits a priority-1 goal; uses only equipment the member has (Yoga Mat); loads hip, which is not restricted; picked for the main block by the selection step | same pattern trained in the last two days |
-| Alternating Dumbbell Overhead Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
-| Dumbbell Neutral-Grip Bench Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
 | Push-Up to Knee-Drive | 3 | uses only equipment the member has (Yoga Mat); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
+| Alternating Dumbbell Overhead Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
 | Bodyweight Pike | 3 | uses only equipment the member has (Yoga Mat); loads hip, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
-| Resistance Band Reverse Curl | 2 | uses only equipment the member has (Resistance Band - Loop); loads elbow, which is not restricted; picked for the main block by the selection step | - |
+| Dumbbell Neutral-Grip Bench Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
+| Resistance Band Reverse Curl | 3 | uses only equipment the member has (Resistance Band - Loop); loads elbow, which is not restricted; picked for the main block by the selection step | - |
+| Bench-Lying Single-Arm Dumbbell Tricep Extension | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
 | Ground Upper Trap Stretch | 1 | uses only equipment the member has (Yoga Mat); loads cervical spine, which is not restricted; mobility - static, regen are cool-down patterns in programming.yaml | - |
 
 **Request read:** knee -> Knee (left) (accepted, exact); lower body -> lower body (accepted, exact)
@@ -166,34 +167,49 @@ there.
 
 **Notes:**
 - Left out 2 exercise(s) the member says they dislike: Dumbbell Romanian Deadlift, Kettlebell Romanian Deadlift. Name one in the request to include it.
-- Journey-stage rule (programming.yaml) suggests a lighter main block: weekly completion fell from 100% to 50% over the last 4 weeks. Kept the default sets because the exercises that passed the filter can't fill 45 minutes at 2 sets.
-- Planned 36 of 45 minutes: not enough exercises passed the filter to fill the time.
+- Journey-stage rule (programming.yaml, not yet signed) suggests a lighter main block: weekly completion fell from 100% to 50% over the last 4 weeks. Kept the default sets because the exercises that passed the filter can't fill 45 minutes at 2 sets.
 </details>
 
-Plans come in under the requested time because the warm-up and cool-down pools that pass the
-filter are small. The plan says so in its notes and does not pad with unsafe work. For the same
-reason the journey-stage rule keeps 3 sets for Jordan: at 2 sets the exercises that passed the filter can't fill the
-time, and the plan says that too.
+The warm-up and cool-down pools that pass the filter are small, so the main block takes the time
+they can't use. When the main block still can't fill the window, exercises already in the plan
+get extra sets, up to 4 (`programming.yaml`), and the plan says so; no exercise is added to pad it.
+Members on the journey-stage rule (Jordan and Elena) never get extra sets. The rule keeps 3 sets
+for Jordan rather than 2 because at 2 sets the exercises that passed the filter can't fill the
+time, and the plan says that too. A plan can still come in short (Jordan's 30-minute upper-body
+request plans 28.7 minutes), and its notes say why.
 
 ## Evaluation
 
-`eval/` runs 11 generator scenarios and 5 adversarial cases with the live model API. Checks are graph facts
-and regular expressions, never a model grading a model. Latest run (2026-10-16): **16 of 16 passed**
-([eval/results/latest.md](eval/results/latest.md)). Checks that an answer must not claim
-something skip sentences that negate it. The run before this one failed on "Nothing in the
-record shows the knee restriction has been lifted", because the negation list didn't include
-"nothing"; we added it (with "none", "neither" and "nor") and reran rather than dropping the check. The adversarial cases are:
+`eval/` runs 11 generator scenarios and 7 adversarial cases with the live model API. Checks are
+graph facts and regular expressions, never a model grading a model. Latest run (2026-10-17):
+**18 of 18 passed** ([eval/results/latest.md](eval/results/latest.md)).
+
+Checks that an answer must not claim something skip sentences that negate or condition it, and
+text the answer quotes. That list has grown over runs, and each change is listed here:
+- A run on 2026-10-16 failed on "Nothing in the record shows the knee restriction has been
+  lifted". We added "nothing", "none", "neither" and "nor".
+- Runs on 2026-10-17 failed on:
+  - "until you confirm the restriction is lifted";
+  - "Whether the knee is healed ... is your call";
+  - an answer that quoted the injected line in order to say it was ignoring it.
+
+  We added "unless", "until", "whether" and "if", and stopped counting quoted text as a claim.
+
+Each time we read the answers, confirmed they were correct, and reran rather than dropping the
+check. The adversarial cases are:
 - "ignore the injury filter" in the coach request;
 - a member chat line impersonating the coach;
 - an instruction hidden in an image caption;
 - a request for another member's data;
-- an instruction in a member-record field (`snomedct_hint`) asking for a SNOMED CT lookup.
+- an instruction in a member-record field (`snomedct_hint`) asking for a SNOMED CT lookup;
+- an instruction in the member's preference notes, which reach the selection prompt;
+- an instruction added to the morning brief's text.
 
 The test suites hold the deterministic guarantees:
-- 163 API tests: resolver, safety filter, graph edges, alternatives, provenance, member graph and
+- 174 API tests: resolver, safety filter, graph edges, alternatives, provenance, member graph and
   copilot tools, ingest, assembly, auth, access requests and scoping.
 - 58 live tests that check every SNOMED, Uberon and Wikidata identifier against its source.
-- 16 web tests.
+- 17 web tests.
 - 8 infra tests on the synthesized template (Cognito auth, noindex, TTL and purge, no secrets).
 
 **Why these critical paths.** The two places where a mistake reaches a member are reading the
@@ -228,13 +244,13 @@ says so), and member text trying to clear an injury (only the coach's structured
 
 ## Latency
 
-Measured on the live API ([docs/latency.md](docs/latency.md)): **p50 2.3 s, p95 3.2 s** end to end.
-The safety filter, scoring and assembly together take under 15 ms; the rest is the two model
-calls. Opus 5.5 as the selection model measured p95 9.0 s, so Sonnet 5.5 was chosen. On AWS a
+Measured on 2026-10-17 with the live model API ([docs/latency.md](docs/latency.md)): **p50 2.5 s,
+p95 3.1 s** end to end over 15 drafts. One limited-equipment draft took 5.3 s, over the ~5 s target.
+Everything except the two model calls (resolver, safety filter, scoring, alternatives, assembly
+and trace) measured p50 9 ms and p95 12 ms. Opus 5.5 as the selection model measured p95 9.0 s, so Sonnet 5.5 was chosen. On AWS a
 deployed draft took 2.7 s, and a cold start adds about 2 s.
 
-Single runs vary: the deadlift case took 3.1 s in the eval run above, against a p95 of 2.4 s for
-that case in the latency run. Copilot answers aren't in these numbers. A copilot answer can take
+Single runs vary: the no-dumbbells case took 3.1 s in the eval run above. Copilot answers aren't in these numbers. A copilot answer can take
 up to six sequential model calls (one per tool round), so it is slower than a draft; it is the
 first thing we'd measure and cap in production.
 
@@ -252,11 +268,15 @@ through the tool results it asks for, plus at most six earlier turns.
   "unverified" in the plan.
 - **Copilot tools are read-only** and scoped to the member on screen, and no tool takes a member
   id. There is no send tool. Drafts are labelled "Drafted by AI for the coach to review and edit.
-  Not sent."
-- **Labs and DEXA are shown as values only.** They are never churn inputs and the copilot doesn't
-  interpret them.
+  Not sent." Copying a draft adds a line for the member: "(Written with help from AI and reviewed
+  by your coach.)"
+- **Labs and DEXA are shown as values only.** They are never churn inputs. The copilot's prompt
+  says not to interpret them. Code also checks every answer that used the labs or biomarker tools:
+  if the answer reads a value (for example "elevated", "normal range" or "suggests"), it is
+  replaced with a values-only listing written by code.
 - **No cross-member caching** of safety decisions.
-- **Logs** hold method, route template, status and milliseconds, never bodies or member text.
+- **Logs** hold method, route template, status and milliseconds. When a model call fails they also
+  hold its purpose and the error class. They never hold bodies or member text.
 - **Deployed:**
   - Accounts are invite-only through Cognito, and access requests need an admin's approval.
   - The admin group can only be granted from AWS.
@@ -275,8 +295,7 @@ through the tool results it asks for, plus at most six earlier turns.
   block, and the plan says why.
 - It doesn't give each reviewer their own data. Every reviewer signs in as the same demo coach,
   so they share the fictional members and each other's draft plans. A member under a different
-  coach (Sam) can't be opened from the demo; the API tests use him for scoping and the eval for
-  the no-barbell row.
+  coach (Sam) can't be opened from the demo; the API tests use him for scoping.
 
 ## How we used AI
 
@@ -286,7 +305,8 @@ through the tool results it asks for, plus at most six earlier turns.
 - **Claude drafted the rule files** (anatomy, exercise attributes, contraindications, families,
   authored exercises and the rest). A human reviewer (PD) read and signed each one. Until a file is
   signed it can only make the filter stricter (each use is marked "unverified"), never allow
-  anything. Four files were edited and re-signed after the second review (see Known constraints).
+  anything. Four files were edited and re-signed after the second review, and `programming.yaml`
+  is back to draft awaiting signature (see Known constraints).
 - **Claude Design** produced the UI design, which was approved before the UI was built
   ([docs/design.md](docs/design.md)).
 - **At runtime**, Claude extracts intent, picks exercise ids from a pre-filtered list, and answers
@@ -373,11 +393,22 @@ file a person signs, and only the last one changes what the safety filter exclud
 - **`muscle_actions.yaml` and `recovery.yaml` are reference data** the app doesn't load yet.
 - **The demo's access-request form takes an email, a name and a reason from anyone.** Nobody
   gets an account without an admin approving it, requests expire after 7 days and are never
-  logged, but it is the one place the demo stores real personal data. The pages also load IBM
-  Plex from Google Fonts, a third-party request (not analytics).
-- **Equivalent alternatives share one movement pattern and one target muscle** with the exercise
-  they replace. They don't compare load or impact, so a jump can stand in for a squat; the coach
-  reviews each one in the trace.
+  logged, but it is the one place the demo stores real personal data. Reviewers are given a demo
+  account directly. Fonts are bundled (IBM Plex, SIL OFL 1.1), so the pages make no third-party
+  requests.
+- **Equivalent alternatives**:
+  - Each one shares a movement pattern and a target muscle with the exercise it replaces.
+  - It never has a higher impact level.
+  - Only main-block exercises get them.
+  - They don't compare load, so the coach reviews each one in the trace.
+- **`programming.yaml` is back to draft** (2026-10-17) after adding `max_sets`. Until PD signs it
+  again, every plan says its sets, reps and rest are model-drafted defaults. It is not a safety
+  input.
+- **Jordan's record disagrees with itself in two places.**
+  - Jordan writes "Skipped Thursday", but the missed session is Friday 2026-05-29.
+  - The week of 05-26 says 75% from 2 of 3 logged sessions.
+
+  Charts and churn show the data as given.
 - **AI_USAGE.md doesn't name the authoring model's version** in the file; the commit trailers
   record it. The project guardrails ask for it in the register.
 - **After grading:**
