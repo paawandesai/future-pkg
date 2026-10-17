@@ -18,6 +18,14 @@ export function DemoBanner() {
   );
 }
 
+export function SiteFooter() {
+  return (
+    <footer className="site-footer xsmall muted">
+      Open-source software in this site: <a href="/third-party-notices.txt">third-party notices</a>
+    </footer>
+  );
+}
+
 function Workspace({ onSignOut }: { onSignOut: () => void }) {
   const [tab, setTab] = useState<Tab>("draft");
   const [picked, setPicked] = useState<string | null>(null);
@@ -123,6 +131,7 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <DemoBanner />
       {signedIn ? <Workspace onSignOut={signOut} /> : <Login onSignedIn={() => setSignedIn(true)} />}
+      <SiteFooter />
     </QueryClientProvider>
   );
 }
