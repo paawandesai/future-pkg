@@ -128,9 +128,9 @@ there.
 
 | Coach request | Result |
 |---|---|
-| "45 minutes, lower body. Her left knee is still a bit sore." | 11 exercises, 43.7 min, 1.9 s. Lower-body work is Dumbbell Hip Thrust and Glute Bridge. No exercise loads the knee, and both Romanian deadlifts are left out because Jordan dislikes them. |
-| "30 min upper body. She has no barbell and no bench this week." | 8 exercises, 28.7 min, 2.3 s. Nothing needs a barbell or a bench, and the trace offers two equivalent alternatives: Glute Bridge instead of Dumbbell Hip Thrust and Resistance Band Reverse Curl instead of Single-Arm Dumbbell Preacher Curl. |
-| "Full body 40 min, no deadlifts." | 10 exercises, 39.4 min, 3.0 s. Nothing from the deadlift family or its variants. |
+| "45 minutes, lower body. Her left knee is still a bit sore." | 11 exercises, 43.7 min, 1.5 s. Lower-body work is Dumbbell Hip Thrust and Glute Bridge. No exercise loads the knee, and both Romanian deadlifts are left out because Jordan dislikes them. |
+| "30 min upper body. She has no barbell and no bench this week." | 8 exercises, 28.7 min, 1.8 s. Nothing needs a barbell or a bench, and the trace offers two equivalent alternatives: Glute Bridge instead of Dumbbell Hip Thrust and Resistance Band Reverse Curl instead of Single-Arm Dumbbell Preacher Curl. |
+| "Full body 40 min, no deadlifts." | 10 exercises, 39.4 min, 2.9 s. Nothing from the deadlift family or its variants. |
 | "Upper body today, her thingy is acting up again." | Blocked. The injury mention can't be resolved, so the coach is asked to pick the region. |
 
 <details>
@@ -138,7 +138,7 @@ there.
 
 > 45 minutes, lower body. Her left knee is still a bit sore.
 
-11 exercises, 43.7 min, 1881 ms.
+11 exercises, 43.7 min, 1537 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -150,8 +150,8 @@ there.
 | Alternating Dumbbell Overhead Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
 | Bodyweight Pike | 3 | uses only equipment the member has (Yoga Mat); loads hip, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
 | Dumbbell Neutral-Grip Bench Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
-| Resistance Band Reverse Curl | 3 | uses only equipment the member has (Resistance Band - Loop); loads elbow, which is not restricted; picked for the main block by the selection step | - |
 | Bench-Lying Single-Arm Dumbbell Tricep Extension | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
+| Resistance Band Reverse Curl | 3 | uses only equipment the member has (Resistance Band - Loop); loads elbow, which is not restricted; picked for the main block by the selection step | - |
 | Ground Upper Trap Stretch | 1 | uses only equipment the member has (Yoga Mat); loads cervical spine, which is not restricted; mobility - static, regen are cool-down patterns in programming.yaml | - |
 
 **Request read:** knee -> Knee (left) (accepted, exact); lower body -> lower body (accepted, exact)
@@ -167,7 +167,7 @@ there.
 
 **Notes:**
 - Left out 2 exercise(s) the member says they dislike: Dumbbell Romanian Deadlift, Kettlebell Romanian Deadlift. Name one in the request to include it.
-- Journey-stage rule (programming.yaml, not yet signed) suggests a lighter main block: weekly completion fell from 100% to 50% over the last 4 weeks. Kept the default sets because the exercises that passed the filter can't fill 45 minutes at 2 sets.
+- Journey-stage rule (programming.yaml) suggests a lighter main block: weekly completion fell from 100% to 50% over the last 4 weeks. Kept the default sets because the exercises that passed the filter can't fill 45 minutes at 2 sets.
 </details>
 
 The warm-up and cool-down pools that pass the filter are small, so the main block takes the time
@@ -250,7 +250,7 @@ Everything except the two model calls (resolver, safety filter, scoring, alterna
 and trace) measured p50 9 ms and p95 12 ms. Opus 5.5 as the selection model measured p95 9.0 s, so Sonnet 5.5 was chosen. On AWS a
 deployed draft took 2.7 s, and a cold start adds about 2 s.
 
-Single runs vary: the no-dumbbells case took 3.1 s in the eval run above. Copilot answers aren't in these numbers. A copilot answer can take
+Single runs vary: drafts in the eval run above took up to 2.9 s. Copilot answers aren't in these numbers. A copilot answer can take
 up to six sequential model calls (one per tool round), so it is slower than a draft; it is the
 first thing we'd measure and cap in production.
 
@@ -306,7 +306,7 @@ through the tool results it asks for, plus at most six earlier turns.
   authored exercises and the rest). A human reviewer (PD) read and signed each one. Until a file is
   signed it can only make the filter stricter (each use is marked "unverified"), never allow
   anything. Four files were edited and re-signed after the second review, and `programming.yaml`
-  is back to draft awaiting signature (see Known constraints).
+  was edited and re-signed on 2026-10-17 (see Known constraints).
 - **Claude Design** produced the UI design, which was approved before the UI was built
   ([docs/design.md](docs/design.md)).
 - **At runtime**, Claude extracts intent, picks exercise ids from a pre-filtered list, and answers
@@ -401,16 +401,13 @@ file a person signs, and only the last one changes what the safety filter exclud
   - It never has a higher impact level.
   - Only main-block exercises get them.
   - They don't compare load, so the coach reviews each one in the trace.
-- **`programming.yaml` is back to draft** (2026-10-17) after adding `max_sets`. Until PD signs it
-  again, every plan says its sets, reps and rest are model-drafted defaults. It is not a safety
-  input.
+- **`programming.yaml` was edited on 2026-10-17** (`max_sets`) and signed again by PD the same
+  day. It is not a safety input.
 - **Jordan's record disagrees with itself in two places.**
   - Jordan writes "Skipped Thursday", but the missed session is Friday 2026-05-29.
   - The week of 05-26 says 75% from 2 of 3 logged sessions.
 
   Charts and churn show the data as given.
-- **AI_USAGE.md doesn't name the authoring model's version** in the file; the commit trailers
-  record it. The project guardrails ask for it in the register.
 - **After grading:**
   - Turn off all reviewer accounts (Admin page, or `scripts/demo_users.py disable-all`).
   - Rotate the keys.

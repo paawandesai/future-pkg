@@ -53,5 +53,6 @@ Unsigned facts may make the filter stricter, never looser:
 - Injury regions that cannot be linked to a dataset joint through trusted edges block drafting and
   ask the coach to confirm the region (fail closed).
 - Programming defaults (`programming.yaml`) are not safety facts. The file was signed by PD on
-  2026-10-16 and set back to draft on 2026-10-17 when `max_sets` was added. While it is a draft,
-  every plan says its sets, reps and rest are model-drafted defaults for the coach to adjust.
+  2026-10-16, edited on 2026-10-17 to add `max_sets`, and signed again by PD that day. If it is set
+  back to draft, every plan says its sets, reps and rest are model-drafted defaults for the coach
+  to adjust.

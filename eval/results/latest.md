@@ -1,6 +1,6 @@
 # Evaluation results
 
-Run 2026-10-17 16:21 UTC with the live model API, pipeline in-process. Models: fast `claude-haiku-5-5`, main `claude-sonnet-5-5`. Checks are deterministic (graph facts and regexes).
+Run 2026-10-17 16:29 UTC with the live model API, pipeline in-process. Models: fast `claude-haiku-5-5`, main `claude-sonnet-5-5`. Checks are deterministic (graph facts and regexes).
 
 
 ## Scenarios
