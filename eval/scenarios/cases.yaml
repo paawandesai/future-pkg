@@ -45,3 +45,27 @@
 - id: no-match-injury
   prompt: Upper body today, her thingy is acting up again.
   expect: { blocked: true }
+# The same request after "Continue with this restriction": the coach's region answers the mention.
+- id: no-match-injury-confirmed
+  prompt: Upper body today, her thingy is acting up again.
+  confirmed_regions: [{ region: elbow, mention: thingy }]
+  expect: { plan: true, no_region: [region:elbow] }
+# Everyday injury words resolve to the region inside them instead of blocking.
+- id: knee-surgery
+  member: mbr_01HXGEN0005
+  prompt: Lower body, 45 minutes. She had knee surgery three weeks ago.
+  expect: { plan: true, no_region: [region:knee] }
+- id: tennis-elbow
+  member: mbr_01HXGEN0005
+  prompt: Upper body. She has tennis elbow on the right.
+  expect: { plan: true, no_region: [region:elbow] }
+# A condition the filter can't adjust for drafts with a clearance note.
+- id: pregnant-clearance-note
+  member: mbr_01HXGEN0005
+  prompt: Full body, 40 minutes. She's 20 weeks pregnant.
+  expect: { plan: true, note_contains: Check clearance }
+# Fresh pain in the request switches the knee clearance off for this draft.
+- id: left-knee-cleared-but-painful
+  prompt: 45 minutes, lower body. Her left knee is really painful today.
+  cleared_low_impact: [inj_knee_left]
+  expect: { plan: true, no_region: [region:knee], note_contains: not applied }

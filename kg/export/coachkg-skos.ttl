@@ -528,6 +528,7 @@
 
 <urn:coachkg:muscle/calves> a skos:Concept ;
     skos:altLabel "calf"@en,
+        "calf muscle"@en,
         "gastrocnemius"@en,
         "soleus"@en ;
     skos:closeMatch <http://purl.obolibrary.org/obo/UBERON_0001665> ;
@@ -587,6 +588,7 @@
 <urn:coachkg:muscle/hamstrings> a skos:Concept ;
     skos:altLabel "back of thigh"@en,
         "hammies"@en,
+        "hammy"@en,
         "hamstring"@en ;
     skos:closeMatch <http://purl.obolibrary.org/obo/UBERON_0002463> ;
     skos:inScheme <urn:coachkg:scheme> ;
@@ -826,7 +828,8 @@
 <urn:coachkg:region/cervical_spine> a skos:Concept ;
     skos:altLabel "c-spine"@en,
         "cervical"@en,
-        "neck"@en ;
+        "neck"@en,
+        "whiplash"@en ;
     skos:broader <urn:coachkg:region/spine> ;
     skos:closeMatch <http://snomed.info/id/122494005> ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0006072> ;
@@ -835,7 +838,9 @@
 
 <urn:coachkg:region/elbow> a skos:Concept ;
     skos:altLabel "elbow joint"@en,
-        "elbows"@en ;
+        "elbows"@en,
+        "epicondyle"@en,
+        "epicondylitis"@en ;
     skos:broader <urn:coachkg:region/upper_limb> ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0001490>,
         <http://snomed.info/id/16953009> ;
@@ -850,11 +855,29 @@
     skos:prefLabel "Glenohumeral joint"@en .
 
 <urn:coachkg:region/lumbar_spine> a skos:Concept ;
-    skos:altLabel "low back"@en,
+    skos:altLabel "L4"@en,
+        "L5"@en,
+        "L5-S1"@en,
+        "S1"@en,
+        "SI joint"@en,
+        "bulging disc"@en,
+        "coccyx"@en,
+        "disc"@en,
+        "discs"@en,
+        "disk"@en,
+        "herniated disc"@en,
+        "low back"@en,
         "lower back"@en,
         "lumbar"@en,
         "lumbar back"@en,
-        "lumbar region"@en ;
+        "lumbar region"@en,
+        "sacroiliac"@en,
+        "sacroiliac joint"@en,
+        "sacrum"@en,
+        "sciatic nerve"@en,
+        "sciatica"@en,
+        "slipped disc"@en,
+        "tailbone"@en ;
     skos:broader <urn:coachkg:region/spine> ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0006074>,
         <http://snomed.info/id/122496007> ;
@@ -869,7 +892,10 @@
     skos:prefLabel "Meniscus"@en .
 
 <urn:coachkg:region/patella> a skos:Concept ;
-    skos:altLabel "kneecap"@en ;
+    skos:altLabel "kneecap"@en,
+        "patella tendon"@en,
+        "patellar"@en,
+        "patellar tendon"@en ;
     skos:broader <urn:coachkg:region/knee> ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0002446> ;
     skos:inScheme <urn:coachkg:scheme> ;
@@ -887,6 +913,9 @@
 
 <urn:coachkg:region/thoracic_spine> a skos:Concept ;
     skos:altLabel "mid back"@en,
+        "rib"@en,
+        "rib cage"@en,
+        "ribs"@en,
         "t-spine"@en,
         "thoracic"@en,
         "upper back"@en ;
@@ -903,7 +932,13 @@
     skos:prefLabel "Tibiofemoral joint"@en .
 
 <urn:coachkg:region/wrist> a skos:Concept ;
-    skos:altLabel "wrist joint"@en,
+    skos:altLabel "carpal tunnel"@en,
+        "finger"@en,
+        "fingers"@en,
+        "hand"@en,
+        "hands"@en,
+        "thumb"@en,
+        "wrist joint"@en,
         "wrists"@en ;
     skos:broader <urn:coachkg:region/upper_limb> ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0001491>,
@@ -921,7 +956,15 @@
     skos:prefLabel "Hip lift"@en .
 
 <urn:coachkg:region/shoulder> a skos:Concept ;
-    skos:altLabel "shoulder joint"@en,
+    skos:altLabel "AC joint"@en,
+        "clavicle"@en,
+        "collar bone"@en,
+        "collarbone"@en,
+        "impingement"@en,
+        "labrum"@en,
+        "scapula"@en,
+        "shoulder blade"@en,
+        "shoulder joint"@en,
         "shoulders"@en ;
     skos:broader <urn:coachkg:region/upper_limb> ;
     skos:closeMatch <http://purl.obolibrary.org/obo/UBERON_0001467>,
@@ -936,8 +979,22 @@
     skos:prefLabel "Hip hinge"@en .
 
 <urn:coachkg:region/ankle> a skos:Concept ;
-    skos:altLabel "ankle joint"@en,
-        "ankles"@en ;
+    skos:altLabel "achilles"@en,
+        "achilles tendon"@en,
+        "ankle joint"@en,
+        "ankles"@en,
+        "feet"@en,
+        "foot"@en,
+        "heel"@en,
+        "heels"@en,
+        "lower leg"@en,
+        "plantar fascia"@en,
+        "plantar fasciitis"@en,
+        "shin"@en,
+        "shin splints"@en,
+        "shins"@en,
+        "toe"@en,
+        "toes"@en ;
     skos:broader <urn:coachkg:region/lower_limb> ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0001488>,
         <http://snomed.info/id/70258002> ;
@@ -945,8 +1002,10 @@
     skos:prefLabel "Ankle"@en .
 
 <urn:coachkg:region/hip> a skos:Concept ;
-    skos:altLabel "hip joint"@en,
-        "hips"@en ;
+    skos:altLabel "hip bone"@en,
+        "hip joint"@en,
+        "hips"@en,
+        "pelvis"@en ;
     skos:broader <urn:coachkg:region/lower_limb> ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0001486>,
         <http://snomed.info/id/24136001> ;
@@ -993,7 +1052,18 @@
     skos:prefLabel "Squat pattern (knee-dominant)"@en .
 
 <urn:coachkg:region/knee> a skos:Concept ;
-    skos:altLabel "knee joint"@en,
+    skos:altLabel "ACL"@en,
+        "IT band"@en,
+        "IT band syndrome"@en,
+        "ITB"@en,
+        "LCL"@en,
+        "MCL"@en,
+        "PCL"@en,
+        "anterior cruciate ligament"@en,
+        "cruciate"@en,
+        "cruciate ligament"@en,
+        "iliotibial band"@en,
+        "knee joint"@en,
         "knees"@en ;
     skos:broader <urn:coachkg:region/lower_limb> ;
     skos:exactMatch <http://purl.obolibrary.org/obo/UBERON_0001485>,

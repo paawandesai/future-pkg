@@ -11,9 +11,9 @@ muscle:
   core: [abs, abdominals, ab, six pack, midsection, trunk]
   obliques: [side abs, oblique]
   quads: [quadriceps, quad, thighs, front of thigh]
-  hamstrings: [hammies, hamstring, back of thigh]
+  hamstrings: [hammies, hammy, hamstring, back of thigh]
   glutes: [glute, butt, bum, gluteus, gluteus maximus, glute max, gluteals]
-  calves: [calf, gastrocnemius, soleus]
+  calves: [calf, calf muscle, gastrocnemius, soleus]
   biceps: [bicep, bis, guns]
   triceps: [tricep, tris]
   deltoids: [delts, delt, deltoid, shoulder muscles]
@@ -46,9 +46,73 @@ equipment:
   Rack: [squat rack, power rack]
   Box: [plyo box, step, step box]
 
+# Region labels also cover common injury and coach words that name a place without naming the
+# joint ("ACL", "achilles", "sciatica"). They only point text at a region, so an injury mention
+# that uses them restricts that region; nothing here can lift a restriction. A word with no
+# joint in the catalog (foot, shin) points at the nearest joint the catalog loads.
 region:
-  Lumbar spine: [lumbar, lumbar back]
-  Thoracic spine: [thoracic, t-spine]
-  Cervical spine: [c-spine, cervical]
+  Lumbar spine:
+    - lumbar
+    - lumbar back
+    - sciatica
+    - sciatic nerve
+    - disc
+    - discs
+    - disk
+    - herniated disc
+    - slipped disc
+    - bulging disc
+    - L4
+    - L5
+    - S1
+    - L5-S1
+    - SI joint
+    - sacroiliac
+    - sacroiliac joint
+    - sacrum
+    - tailbone
+    - coccyx
+  Thoracic spine: [thoracic, t-spine, rib, ribs, rib cage]
+  Cervical spine: [c-spine, cervical, whiplash]
   Lower limb: [lower-body, lower half]
   Upper limb: [upper-body]
+  Knee:
+    - ACL
+    - MCL
+    - PCL
+    - LCL
+    - anterior cruciate ligament
+    - cruciate
+    - cruciate ligament
+    - IT band
+    - ITB
+    - iliotibial band
+    - IT band syndrome
+  Patella: [patellar, patellar tendon, patella tendon]
+  Ankle:
+    - achilles
+    - achilles tendon
+    - heel
+    - heels
+    - foot
+    - feet
+    - toe
+    - toes
+    - plantar fascia
+    - plantar fasciitis
+    - shin
+    - shins
+    - shin splints
+    - lower leg
+  Wrist: [carpal tunnel, hand, hands, thumb, finger, fingers]
+  Elbow: [epicondylitis, epicondyle]
+  Shoulder:
+    - impingement
+    - AC joint
+    - collarbone
+    - collar bone
+    - clavicle
+    - shoulder blade
+    - scapula
+    - labrum
+  Hip: [pelvis, hip bone]

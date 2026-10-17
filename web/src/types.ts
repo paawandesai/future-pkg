@@ -138,6 +138,8 @@ export interface Plan {
   label: string;
   minutes_requested: number;
   minutes_planned: number;
+  /** Conditions to check clearance for before using the plan (also listed in trace.notes). */
+  checks?: string[];
   blocks: PlanBlock[];
   trace: {
     read: ReadRow[];
@@ -165,12 +167,21 @@ export interface Blocker {
   mention: string;
   reason: string;
   candidates: { concept: string; label: string; score?: number }[];
+  /** True when the candidates are the full region list (no close match): the coach picks one. */
+  pick_one?: boolean;
+}
+
+export interface ConfirmedRegion {
+  region: string;
+  side: string | null;
+  /** The blocker mention this answers. */
+  mention: string;
 }
 
 export type GenerateEvent =
   | { event: "stage"; stage: string; ms: number }
   | { event: "read"; rows: ReadRow[] }
-  | { event: "blocked"; blockers: Blocker[]; read: ReadRow[] }
+  | { event: "blocked"; blockers: Blocker[]; read: ReadRow[]; checks?: string[] }
   | { event: "plan"; plan: Plan }
   | { event: "error"; message: string };
 

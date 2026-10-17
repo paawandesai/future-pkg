@@ -95,7 +95,7 @@ export interface GenerateBody {
   prompt: string;
   minutes: number | null;
   cleared_low_impact: string[];
-  confirmed_regions: { region: string; side: string | null }[];
+  confirmed_regions: { region: string; side: string | null; mention?: string }[];
 }
 
 /** POST /api/generate and yield server-sent events as they arrive. */

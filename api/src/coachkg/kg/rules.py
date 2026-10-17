@@ -152,6 +152,13 @@ class RuleSet(BaseModel):
     authored: list[Exercise]
     # Extra labels by concept kind and preferred label (kg/vocab/labels.yaml). Text mapping only.
     labels: dict[str, dict[str, list[str]]] = {}
+    # Muscle group -> joints it acts on (kg/rules/muscle_actions.yaml). The safety filter uses it
+    # only to restrict more (an injured muscle restricts the joints it acts on), never to allow.
+    muscle_review: Review = Review()
+    muscle_joints: dict[str, list[str]] = {}
+    # Conditions the filter can't adjust for (kg/vocab/clearance_terms.yaml): a mention adds a
+    # "check clearance" note to the plan. Text matching only; it relaxes nothing.
+    clearance_terms: dict[str, list[str]] = {}
 
 
 def _read(path: Path) -> dict[str, Any]:
@@ -169,6 +176,9 @@ def load_rules(kg_dir: Path, catalog: list[Exercise]) -> RuleSet:
     fams = _read(rules_dir / "families.yaml")
     equip = _read(rules_dir / "equipment.yaml")
     authored_raw = _read(kg_dir / "authored" / "exercises.yaml")
+    muscles_path = rules_dir / "muscle_actions.yaml"
+    muscles = _read(muscles_path) if muscles_path.exists() else {"review": {}, "muscles": {}}
+    vocab = kg_dir / "vocab"
 
     authored = [
         Exercise.model_validate({k: v for k, v in row.items() if k != "alt_labels"} | {"origin": "authored"})
@@ -188,7 +198,14 @@ def load_rules(kg_dir: Path, catalog: list[Exercise]) -> RuleSet:
         substitutes=[Substitute.model_validate(s) for s in equip["substitutes"]],
         authored_review=Review.model_validate(authored_raw["review"]),
         authored=authored,
-        labels=_read(kg_dir / "vocab" / "labels.yaml") if (kg_dir / "vocab" / "labels.yaml").exists() else {},
+        labels=_read(vocab / "labels.yaml") if (vocab / "labels.yaml").exists() else {},
+        muscle_review=Review.model_validate(muscles["review"]),
+        muscle_joints={m: list(v.get("joints", [])) for m, v in muscles["muscles"].items()},
+        clearance_terms=(
+            {k: list(v) for k, v in _read(vocab / "clearance_terms.yaml")["conditions"].items()}
+            if (vocab / "clearance_terms.yaml").exists()
+            else {}
+        ),
     )
     _cross_check(rs, catalog)
     return rs
@@ -212,6 +229,9 @@ def _cross_check(rs: RuleSet, catalog: list[Exercise]) -> None:
     mapped = {r.dataset_joint for r in rs.regions if r.dataset_joint}
     if missing := dataset_joints - mapped:
         raise ValueError(f"dataset joints without a region: {sorted(missing)}")
+    for muscle, joints in rs.muscle_joints.items():
+        if unknown := set(joints) - mapped:
+            raise ValueError(f"muscle_actions {muscle!r}: joints without a region: {sorted(unknown)}")
     for name, a in rs.attributes.items():
         if name not in names:
             raise ValueError(f"exercise_attributes: unknown exercise {name!r}")

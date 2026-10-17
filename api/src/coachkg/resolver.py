@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from rapidfuzz import fuzz, process
@@ -58,6 +58,7 @@ _FILLER = {
 # Words that turn a body-part mention into an injury or pain mention.
 PAIN_CUES = {
     "pain",
+    "pains",
     "painful",
     "hurt",
     "hurts",
@@ -70,19 +71,72 @@ PAIN_CUES = {
     "aching",
     "bothering",
     "bugging",
+    "acting",
     "injured",
     "injury",
+    "injuries",
     "tweaked",
     "strained",
     "strain",
+    "strains",
     "sprained",
     "sprain",
+    "sprains",
+    "pulled",
+    "twisted",
+    "rolled",
+    "tear",
+    "torn",
+    "tore",
+    "ruptured",
+    "rupture",
+    "broken",
+    "broke",
+    "fracture",
+    "fractured",
+    "dislocated",
+    "dislocation",
+    "surgery",
+    "surgeries",
+    "operation",
+    "operated",
+    "op",
+    "post-op",
+    "postop",
+    "replacement",
+    "replaced",
+    "reconstruction",
+    "repair",
+    "repaired",
     "flare",
     "flared",
+    "flaring",
+    "flare-up",
     "tender",
     "swollen",
+    "swelling",
+    "inflamed",
+    "inflammation",
+    "unstable",
+    "instability",
+    "stiff",
+    "stiffness",
+    "irritated",
+    "cranky",
+    "tendinitis",
+    "tendonitis",
+    "tendinopathy",
+    "bursitis",
+    "arthritis",
+    "osteoarthritis",
+    "arthritic",
+    "impingement",
+    "impinged",
+    "clicks",
+    "clicking",
     "recovering",
     "rehab",
+    "rehabbing",
     "bad",
     "dodgy",
     "tight",
@@ -98,9 +152,41 @@ PAIN_CUES = {
     "aggravating",
     "aggravated",
     "spare",
+    # Injury names whose other words are body words ("sciatica", "herniated disc", "shin splints").
+    "sciatica",
+    "whiplash",
+    "fasciitis",
+    "splints",
+    "herniated",
+    "bulging",
+    "slipped",
+    "carpal",
+    "syndrome",
+    "frozen",
+}
+# Cue words that name an exercise when followed by these words ("stiff leg deadlift").
+_NOT_CUES = {("stiff", "leg"), ("stiff", "legged"), ("rolled", "up")}
+# Two-word cues that are only cues together ("tennis elbow", "her back went out").
+_CUE_PHRASES = {
+    ("tennis", "elbow"),
+    ("golfer's", "elbow"),
+    ("golfers", "elbow"),
+    ("jumper's", "knee"),
+    ("jumpers", "knee"),
+    ("groin", "pull"),
+    ("hamstring", "pull"),
+    ("calf", "pull"),
+    ("muscle", "pull"),
+    ("gave", "out"),
+    ("gave", "way"),
+    ("gives", "way"),
+    ("giving", "way"),
+    ("went", "out"),
 }
 # Cues that point at what follows them ("avoid aggravating a knee injury", "careful with her knee").
 _FORWARD_CUES = {"avoid", "careful", "protect", "aggravate", "aggravating", "spare"}
+# Words that may follow a forward cue without naming what it points at ("knee, be careful with it").
+_CUE_TAIL = {"with", "it", "them", "that", "this", "there", "please", "today", "on", "of", "and", "be"}
 _COORDINATION = {
     "and",
     "or",
@@ -142,7 +228,7 @@ class Candidate:
 class Resolution:
     text: str
     status: Status
-    method: Literal["exact", "fuzzy", "none"]
+    method: Literal["exact", "fuzzy", "contained", "none"]
     concept: str | None
     label: str | None
     score: float
@@ -222,8 +308,46 @@ class Resolver:
             return Resolution(text, "ambiguous", "fuzzy", None, None, top.score, close)
         return Resolution(text, "no_match", "none", None, None, top.score, tuple(ranked[:3]))
 
+    def _exact_body(self, phrase: str) -> Resolution | None:
+        """An exact region or condition name; failing that, an exact muscle name ("hamstring")."""
+        body: list[list[Kind]] = [["region", "condition"], ["muscle"]]
+        for kinds in body:
+            r = self.resolve(phrase, kinds)
+            if r.method == "exact":
+                return r
+        return None
+
+    def _contained(self, text: str, words: list[str]) -> Resolution | None:
+        """Body names inside a phrase that doesn't resolve as a whole: "knee surgery three weeks
+        ago" -> knee, "tennis elbow" -> elbow. Longest names first; one name -> accepted, several
+        -> ambiguous (the safety filter then restricts all of them)."""
+        found: dict[str, Candidate] = {}
+        taken: set[int] = set()
+        for n in (4, 3, 2, 1):
+            for i in range(len(words) - n + 1):
+                span = set(range(i, i + n))
+                if span & taken:
+                    continue
+                r = self._exact_body(" ".join(words[i : i + n]))
+                if r is None:
+                    continue
+                taken |= span
+                for c in r.candidates:
+                    found.setdefault(c.concept, c)
+        if not found:
+            return None
+        cands = tuple(sorted(found.values(), key=lambda c: c.concept))
+        if len(cands) == 1:
+            c = cands[0]
+            return Resolution(text, "accepted", "contained", c.concept, c.label, 1.0, cands)
+        return Resolution(text, "ambiguous", "contained", None, None, 1.0, cands)
+
     def parse_body_mention(self, text: str) -> BodyMention:
-        """'her left knee' -> side=left, region=knee. Side words are removed before resolving."""
+        """'her left knee' -> side=left, region=knee. Side words are removed before resolving.
+
+        Order: the phrase as written, then without cue words ("bad lower back" -> "lower back"),
+        exact names first; then a body name inside the phrase ("ACL tear" -> knee, "pulled
+        hamstring" -> the hamstrings muscle); then fuzzy matching of the whole phrase."""
         words = normalise(text).split()
         side: Side | None = None
         rest = []
@@ -232,61 +356,103 @@ class Resolver:
                 side = _SIDE_WORDS[w]  # type: ignore[assignment]
             elif w not in _FILLER:
                 rest.append(w)
-        # A condition name may contain a cue word ("lower back pain", "sprained ankle"): try the
-        # phrase as written first, then without cue words ("bad lower back" -> "lower back").
+        stripped_words = [w for w in rest if w not in PAIN_CUES]
+        stripped = " ".join(stripped_words)
+        for phrase in (" ".join(rest), stripped):
+            exact = self._exact_body(phrase)
+            if exact is not None:
+                return BodyMention(text, side, replace(exact, text=phrase))
+        inside = self._contained(text, rest)
+        if inside is not None:
+            return BodyMention(text, side, inside)
         full = self.resolve(" ".join(rest), ["region", "condition"])
         if full.status == "accepted":
             return BodyMention(text, side, full)
-        stripped = " ".join(w for w in rest if w not in PAIN_CUES)
         return BodyMention(text, side, self.resolve(stripped, ["region", "condition"]))
 
-    def find_body_mentions(self, text: str) -> list[BodyMention]:
-        """Deterministic scan for region or condition names (n-grams up to 4 words) in text.
+    def _name_spans(self, words: list[str]) -> set[int]:
+        """Word positions inside an exercise or family name ("shoulder press", "single leg
+        deadlift"): a body word there names the exercise, not a body part."""
+        out: set[int] = set()
+        for n in (4, 3, 2):
+            for i in range(len(words) - n + 1):
+                key = _squash(" ".join(words[i : i + n]))
+                if self._exact["exercise"].get(key) or self._exact["family"].get(key):
+                    out |= set(range(i, i + n))
+        return out
 
-        A pain cue ("sore", "bothering", ...) marks the body mention it belongs to as an injury: a
-        forward cue ("avoid", "careful with", "protect") marks the next mention after it, any other
-        cue marks the nearest one. Mentions joined by "and"/"or" share the mark ("her right knee
-        and left shoulder hurt"). A condition name always counts. Other regions are returned with
-        injury=False: they are probably a training focus ("lower-body exercises that avoid
-        aggravating a knee injury" restricts the knee, not the lower body).
+    def find_body_mentions(self, text: str) -> list[BodyMention]:
+        """Deterministic scan for region, condition or muscle names (n-grams up to 4 words) in text.
+
+        A pain cue ("sore", "surgery", "torn", "swollen", ...) marks the body mention it belongs
+        to as an injury: a forward cue ("avoid", "careful with", "protect") marks the next mention
+        after it, any other cue marks the nearest one. A forward cue followed by something that
+        isn't a body word ("avoid deadlifts") marks nothing. Mentions joined by "and"/"or" share the
+        mark ("her right knee and left shoulder hurt"). A condition name always counts. Other
+        regions are returned with injury=False: they are probably a training focus ("lower-body
+        exercises that avoid aggravating a knee injury" restricts the knee, not the lower body).
+        Muscle names count only with a cue ("pulled her hamstring"); without one they are focus
+        words and are left to the focus reader. Body words inside an exercise name are skipped.
         """
         found: list[BodyMention] = []
         for clause in re.split(r"[.;,!?]|\bbut\b", text.lower()):
             words = normalise(clause).split()
-            spans: list[tuple[int, int, str, bool]] = []  # start, end (exclusive), phrase, condition
-            taken: set[int] = set()
+            names = self._name_spans(words)
+            # start, end (exclusive), phrase, condition, muscle
+            spans: list[tuple[int, int, str, bool, bool]] = []
+            taken: set[int] = set(names)
             for n in (4, 3, 2, 1):
                 for i in range(len(words) - n + 1):
                     span = set(range(i, i + n))
                     if span & taken:
                         continue
                     phrase = " ".join(words[i : i + n])
-                    regions = self._exact["region"].get(_squash(phrase), set())
-                    conditions = self._exact["condition"].get(_squash(phrase), set())
-                    if not regions and not conditions:
+                    key = _squash(phrase)
+                    regions = self._exact["region"].get(key, set())
+                    conditions = self._exact["condition"].get(key, set())
+                    muscles = set() if regions or conditions else self._exact["muscle"].get(key, set())
+                    if not regions and not conditions and not muscles:
                         continue
                     taken |= span
-                    spans.append((i, i + n, phrase, bool(conditions)))
+                    spans.append((i, i + n, phrase, bool(conditions), bool(muscles)))
             spans.sort()
             marked = {k for k, sp in enumerate(spans) if sp[3]}
-            for p, w in enumerate(words):
-                if w not in PAIN_CUES or p in taken or not spans:
+            cues = [
+                p
+                for p, w in enumerate(words)
+                if w in PAIN_CUES
+                and p not in names
+                and (w, words[p + 1] if p + 1 < len(words) else "") not in _NOT_CUES
+            ]
+            cues += [p for p in range(len(words) - 1) if (words[p], words[p + 1]) in _CUE_PHRASES]
+            for p in sorted(set(cues)):
+                w = words[p]
+                if not spans:
+                    break
+                inside = [k for k, sp in enumerate(spans) if sp[0] <= p < sp[1]]
+                if inside:  # the cue is part of the name ("sciatica", "shin splints")
+                    marked.add(inside[0])
                     continue
                 after = [k for k, sp in enumerate(spans) if sp[0] > p]
-                if w in _FORWARD_CUES and after:
-                    marked.add(after[0])
-                    continue
+                if w in _FORWARD_CUES:
+                    if after:
+                        marked.add(after[0])
+                        continue
+                    if set(words[p + 1 :]) - _CUE_TAIL - _FILLER:
+                        continue  # "avoid deadlifts": the cue points at something else
                 dist = [max(sp[0] - p, p - sp[1] + 1) for sp in spans]
                 marked.add(min(range(len(spans)), key=lambda k: (dist[k], spans[k][0])))
             for k in range(len(spans) - 1):  # coordination: "knee and shoulder", "hip or back"
                 between = set(words[spans[k][1] : spans[k + 1][0]])
                 if between and between <= _COORDINATION and ({k, k + 1} & marked):
                     marked |= {k, k + 1}
-            for k, (i, _end, phrase, _cond) in enumerate(spans):
+            for k, (i, _end, phrase, _cond, muscle) in enumerate(spans):
+                if muscle and k not in marked:
+                    continue
                 side: Side | None = None
                 for j in range(max(0, i - 2), i):
                     if words[j] in _SIDE_WORDS:
                         side = _SIDE_WORDS[words[j]]  # type: ignore[assignment]
-                res = self.resolve(phrase, ["region", "condition"])
+                res = self.resolve(phrase, ["muscle"] if muscle else ["region", "condition"])
                 found.append(BodyMention(phrase, side, res, injury=k in marked))
         return found

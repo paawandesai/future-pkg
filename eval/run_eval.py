@@ -143,7 +143,10 @@ async def run_case(world: World, llm: RecordingLLM, case: dict[str, Any]) -> dic
     if case.get("surface", "generator") in ("generator", "both"):
         plan, blocked = None, False
         req = GenerateRequest(
-            member_id=member.id, prompt=case["prompt"], cleared_low_impact=case.get("cleared_low_impact", [])
+            member_id=member.id,
+            prompt=case["prompt"],
+            cleared_low_impact=case.get("cleared_low_impact", []),
+            confirmed_regions=case.get("confirmed_regions", []),
         )
         async for ev in run(world, llm, req, member, "coach_01HXSAM"):
             if ev["event"] == "plan":

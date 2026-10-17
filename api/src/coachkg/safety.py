@@ -24,7 +24,7 @@ from coachkg.data import Exercise
 from coachkg.kg.graph import Edge, NetworkXStore, ex_node, is_trusted, region_node
 from coachkg.kg.rules import ContraRule, RuleSet
 from coachkg.member import Clearance, Injury, Member
-from coachkg.resolver import BodyMention, Resolver
+from coachkg.resolver import BodyMention, Resolver, normalise
 
 Side = Literal["left", "right", "both"]
 _BEND = {
@@ -66,6 +66,17 @@ class Blocker:
     mention: str
     reason: str
     candidates: list[dict[str, Any]]
+    # True when the candidates are the full region list (no close match): the coach picks one.
+    pick_one: bool = False
+
+
+@dataclass(frozen=True)
+class Confirmation:
+    """The coach's answer to a blocker: protect this region for that mention."""
+
+    region: str  # region:* node id
+    side: Side | None = None
+    mention: str | None = None  # the blocker's mention; None restricts but answers no blocker
 
 
 @dataclass
@@ -75,7 +86,7 @@ class SafetyRequest:
     exclude_concepts: list[str] = field(default_factory=list)  # family:* or ex:* node ids
     unavailable_equipment: list[str] = field(default_factory=list)  # equipment:* removed by request
     clearances: list[Clearance] = field(default_factory=list)
-    confirmed_regions: list[tuple[str, Side | None]] = field(default_factory=list)  # coach answers
+    confirmed_regions: list[Confirmation] = field(default_factory=list)  # coach answers
 
 
 @dataclass
@@ -86,6 +97,7 @@ class SafetyResult:
     restrictions: list[Restriction]
     unverified: list[str]
     prov: list[dict[str, Any]]
+    notes: list[str] = field(default_factory=list)  # for the coach, e.g. a clearance not applied
 
     @property
     def blocked(self) -> bool:
@@ -177,10 +189,67 @@ class SafetyFilter:
     def _condition_regions(self, condition: str) -> list[str]:
         return [e.dst for e in self.store.out_edges(condition, "affects")]
 
+    def _muscle_regions(self, muscle: str) -> list[str]:
+        """The joints a muscle group acts on (kg/rules/muscle_actions.yaml). Used only to restrict:
+        a strained hamstring restricts the knee and hip."""
+        label = self.store.node(muscle)["label"] if muscle in self.store.g else None
+        by_joint = {r.dataset_joint: region_node(r.id) for r in self.rules.regions if r.dataset_joint}
+        return [by_joint[j] for j in self.rules.muscle_joints.get(str(label), []) if j in by_joint]
+
+    def _concept_regions(self, concept: str) -> set[str]:
+        if concept.startswith("condition:"):
+            return set(self._condition_regions(concept))
+        if concept.startswith("muscle:"):
+            return set(self._muscle_regions(concept))
+        return {concept}
+
+    def region_choices(self) -> list[dict[str, Any]]:
+        """Every region the filter can restrict, for a mention with no close match: offering the
+        coach the whole list beats three unrelated fuzzy matches."""
+        return [
+            {"concept": n, "label": self.store.node(n)["label"]}
+            for n in sorted(self.store.nodes("region"), key=lambda n: str(self.store.node(n)["label"]))
+            if n not in _TOO_BROAD and self._trusted_link(n)
+        ]
+
+    @staticmethod
+    def _mention_key(text: str) -> str:
+        words = normalise(text).split()
+        return " ".join(w for w in words if w not in {"her", "his", "their", "my", "the", "a", "an"})
+
+    def _answered(self, mention: str, confirmations: list[Confirmation]) -> list[Confirmation]:
+        """Confirmations that answer this mention. The model may word the same mention a little
+        differently on the next run ("knee surgery" / "knee surgery three weeks ago"), so one
+        phrase containing the other counts; anything else stays blocked."""
+        key = self._mention_key(mention)
+        out = []
+        for c in confirmations:
+            if not c.mention:
+                continue
+            ck = self._mention_key(c.mention)
+            if ck and key and (ck == key or f" {ck} " in f" {key} " or f" {key} " in f" {ck} "):
+                out.append(c)
+        return out
+
     def build_restrictions(
-        self, req: SafetyRequest, blockers: list[Blocker], unverified: list[str]
+        self,
+        req: SafetyRequest,
+        blockers: list[Blocker],
+        unverified: list[str],
+        notes: list[str] | None = None,
     ) -> list[Restriction]:
+        notes = notes if notes is not None else []
         out: list[Restriction] = []
+        answered: dict[Confirmation, Side | None] = {}  # confirmation -> side of the mention it answers
+
+        def block(mention: str, side: Side | None, blocker: Blocker) -> None:
+            """Fail closed unless the coach already confirmed a region for this mention."""
+            hits = self._answered(mention, req.confirmed_regions)
+            if not hits:
+                blockers.append(blocker)
+            for c in hits:
+                answered.setdefault(c, side)
+
         # 1. The member record (dataset): every injury that is not resolved.
         for inj in req.member.injuries:
             if not inj.active:
@@ -192,10 +261,15 @@ class SafetyFilter:
                 if m.resolution.concept and m.resolution.concept.startswith("condition:"):
                     condition = m.resolution.concept
             if region is None:
-                blockers.append(
+                block(
+                    inj.region,
+                    side,
                     Blocker(
-                        inj.region, "The injury on the member record doesn't match a known body region.", []
-                    )
+                        inj.region,
+                        "The injury on the member record doesn't match a known body region.",
+                        self.region_choices(),
+                        pick_one=True,
+                    ),
                 )
                 continue
             out.append(
@@ -209,49 +283,52 @@ class SafetyFilter:
                     inj.id,
                 )
             )
-        # 2. Coach-confirmed regions (answers to an earlier blocker).
-        for i, (region, side) in enumerate(req.confirmed_regions):
-            out.append(
-                Restriction(f"r-confirmed-{i}", frozenset({region}), side, None, "coach-confirmed", 1.0)
-            )
-        # 3. Injury mentions in the request: fail closed.
+        # 2. Injury mentions in the request: fail closed.
         for i, m in enumerate(req.injury_mentions):
             res = m.resolution
             if res.status == "accepted" and res.concept:
-                regions: set[str] = set()
-                condition = None
-                if res.concept.startswith("condition:"):
-                    condition = res.concept
-                    regions = set(self._condition_regions(res.concept))
-                else:
-                    regions = {res.concept}
+                condition = res.concept if res.concept.startswith("condition:") else None
+                regions = self._concept_regions(res.concept)
                 if regions and not all(self._trusted_link(r) for r in regions):
-                    blockers.append(
+                    block(
+                        m.text,
+                        m.side,
                         Blocker(
                             m.text,
                             "This body region can't be tied to the exercise data through signed anatomy "
                             "rules. Confirm which joint to protect.",
                             [{"concept": r, "label": self.store.node(r)["label"]} for r in sorted(regions)],
-                        )
+                        ),
                     )
                     continue
                 if not regions:
-                    blockers.append(Blocker(m.text, "The request mentions pain without a body region.", []))
+                    block(
+                        m.text,
+                        m.side,
+                        Blocker(
+                            m.text,
+                            "The request mentions pain without a body region. Pick the region to protect.",
+                            self.region_choices(),
+                            pick_one=True,
+                        ),
+                    )
                     continue
+                if res.concept.startswith("muscle:"):
+                    unverified += self._muscle_unverified()
                 out.append(
                     Restriction(f"r-request-{i}", frozenset(regions), m.side, condition, "request", res.score)
                 )
             elif res.status == "ambiguous":
                 regions = set()
                 for c in res.candidates:
-                    regions |= (
-                        {c.concept}
-                        if c.concept.startswith("region:")
-                        else set(self._condition_regions(c.concept))
-                    )
+                    regions |= self._concept_regions(c.concept)
+                if any(c.concept.startswith("muscle:") for c in res.candidates):
+                    unverified += self._muscle_unverified()
                 usable = {r for r in regions if self._trusted_link(r)}
                 if not usable:
-                    blockers.append(
+                    block(
+                        m.text,
+                        m.side,
                         Blocker(
                             m.text,
                             "The body region in the request is unclear.",
@@ -259,7 +336,7 @@ class SafetyFilter:
                                 {"concept": c.concept, "label": c.label, "score": round(c.score, 2)}
                                 for c in res.candidates
                             ],
-                        )
+                        ),
                     )
                     continue
                 unverified.append(f'"{m.text}" was ambiguous; every candidate region is restricted.')
@@ -267,23 +344,70 @@ class SafetyFilter:
                     Restriction(f"r-request-{i}", frozenset(usable), m.side, None, "request", res.score)
                 )
             else:
-                blockers.append(
+                block(
+                    m.text,
+                    m.side,
                     Blocker(
                         m.text,
-                        "The request mentions an injury or pain that doesn't match a body region.",
-                        [
-                            {"concept": c.concept, "label": c.label, "score": round(c.score, 2)}
-                            for c in res.candidates
-                        ],
-                    )
+                        "The request mentions an injury or pain that doesn't match a body region. "
+                        "Pick the region to protect.",
+                        self.region_choices(),
+                        pick_one=True,
+                    ),
                 )
-        # A request that repeats an injury already restricted adds nothing; keep one restriction.
+        # 3. Coach-confirmed regions (answers to an earlier blocker), with the mention's side when
+        # the coach didn't give one.
+        for i, conf in enumerate(req.confirmed_regions):
+            conf_side = conf.side or answered.get(conf)
+            out.append(
+                Restriction(
+                    f"r-confirmed-{i}", frozenset({conf.region}), conf_side, None, "coach-confirmed", 1.0
+                )
+            )
+
+        # 4. Fresh pain in the request at a region the coach cleared turns that clearance off for
+        # this draft: the request's restriction is kept (it has no clearance) and the coach is told.
+        cleared_ids = {c.injury_id for c in req.clearances if c.cleared_low_impact}
+        overlaps: dict[str, list[Restriction]] = {}
+        for rec in out:
+            if rec.injury_id not in cleared_ids:
+                continue
+            for r in out:
+                if r.origin in ("request", "coach-confirmed") and self._overlaps(r, rec):
+                    overlaps.setdefault(rec.id, []).append(r)
+        for rec in out:
+            if rec.id in overlaps:
+                inj_label = next(
+                    (x.region for x in req.member.injuries if x.id == rec.injury_id), "the injury"
+                )
+                notes.append(
+                    f"The request mentions pain or injury at the {inj_label}, so the coach's low-impact "
+                    "clearance for it was not applied to this draft. Every exercise that loads it is "
+                    "left out."
+                )
+
+        # A request that repeats an injury already restricted adds nothing; keep one restriction,
+        # unless it switched a clearance off.
         kept: list[Restriction] = []
         for r in out:
-            if r.origin == "request" and any(self._covers(k, r) for k in kept):
+            absorbing = [k for k in kept if self._covers(k, r) and r not in overlaps.get(k.id, [])]
+            if r.origin == "request" and absorbing:
                 continue
             kept.append(r)
         return kept
+
+    def _muscle_unverified(self) -> list[str]:
+        if self.rules.muscle_review.trusted:
+            return []
+        return ["kg/rules/muscle_actions.yaml is not signed yet; the muscle's joints are restricted anyway."]
+
+    def _overlaps(self, a: Restriction, b: Restriction) -> bool:
+        """Do the two restrictions touch the same place (a region, its parts or what it is part of)?"""
+        for reg in a.regions:
+            related, _ = self._related(reg)
+            if related & b.regions:
+                return True
+        return False
 
     @staticmethod
     def _covers(a: Restriction, b: Restriction) -> bool:
@@ -313,7 +437,8 @@ class SafetyFilter:
         started = datetime.now(UTC).isoformat(timespec="milliseconds")
         blockers: list[Blocker] = []
         unverified: list[str] = []
-        restrictions = self.build_restrictions(req, blockers, unverified)
+        notes: list[str] = []
+        restrictions = self.build_restrictions(req, blockers, unverified, notes)
         decisions: list[Decision] = []
         candidates: list[Exercise] = []
         clear_by_injury = {c.injury_id: c for c in req.clearances if c.cleared_low_impact}
@@ -420,7 +545,9 @@ class SafetyFilter:
             unverified.append(f"{label} is not signed yet, so the filter cannot use it to allow anything.")
 
         prov = self._prov(started, req, restrictions, decisions, blockers)
-        return SafetyResult(candidates, decisions, blockers, restrictions, sorted(set(unverified)), prov)
+        return SafetyResult(
+            candidates, decisions, blockers, restrictions, sorted(set(unverified)), prov, notes
+        )
 
     # ---------- helpers ----------
     def _dec(

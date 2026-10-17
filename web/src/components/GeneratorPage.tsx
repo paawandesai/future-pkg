@@ -3,6 +3,7 @@ import { api, generate } from "../api";
 import type {
   Alternative,
   Blocker,
+  ConfirmedRegion,
   ExcludedGroup,
   GraphEdge,
   MemberView,
@@ -15,7 +16,7 @@ import type {
 type State =
   | { kind: "idle" }
   | { kind: "running"; stage: string }
-  | { kind: "blocked"; blockers: Blocker[] }
+  | { kind: "blocked"; blockers: Blocker[]; checks: string[]; confirmed: ConfirmedRegion[] }
   | { kind: "plan"; plan: Plan }
   | { kind: "error"; message: string };
 
@@ -38,13 +39,15 @@ export function dose(i: PlanItem): string {
 
 export function GeneratorPage({ member }: { member: MemberView }) {
   const [prompt, setPrompt] = useState("");
-  const [minutes, setMinutes] = useState<string>(String(member.preferences.preferred_session_minutes ?? 45));
+  // Empty by default: minutes written in the request apply, then the member's preferred length.
+  const [minutes, setMinutes] = useState<string>("");
+  const preferred = member.preferences.preferred_session_minutes ?? 45;
   const [cleared, setCleared] = useState<Record<string, string>>({});
   const [state, setState] = useState<State>({ kind: "idle" });
   const abort = useRef<AbortController | null>(null);
   const activeInjuries = member.injuries.filter((i) => i.active && i.clearable);
 
-  async function run(confirmedRegions: { region: string; side: string | null }[] = []) {
+  async function run(confirmedRegions: ConfirmedRegion[] = []) {
     abort.current?.abort();
     const ctl = new AbortController();
     abort.current = ctl;
@@ -54,14 +57,20 @@ export function GeneratorPage({ member }: { member: MemberView }) {
         {
           member_id: member.id,
           prompt,
-          minutes: Number(minutes),
+          minutes: minutes.trim() ? Number(minutes) : null,
           cleared_low_impact: Object.keys(cleared),
           confirmed_regions: confirmedRegions,
         },
         ctl.signal,
       )) {
         if (ev.event === "stage") setState({ kind: "running", stage: ev.stage });
-        else if (ev.event === "blocked") setState({ kind: "blocked", blockers: ev.blockers });
+        else if (ev.event === "blocked")
+          setState({
+            kind: "blocked",
+            blockers: ev.blockers,
+            checks: ev.checks ?? [],
+            confirmed: confirmedRegions,
+          });
         else if (ev.event === "plan") setState({ kind: "plan", plan: ev.plan });
         else if (ev.event === "error") setState({ kind: "error", message: ev.message });
       }
@@ -73,7 +82,7 @@ export function GeneratorPage({ member }: { member: MemberView }) {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (prompt.trim() && minutes) void run();
+    if (prompt.trim()) void run();
   };
 
   return (
@@ -93,7 +102,7 @@ export function GeneratorPage({ member }: { member: MemberView }) {
           />
         </div>
         <div className="field">
-          <label htmlFor="minutes">Time available (minutes)</label>
+          <label htmlFor="minutes">Time available (minutes, optional)</label>
           <input
             id="minutes"
             className="input"
@@ -101,13 +110,14 @@ export function GeneratorPage({ member }: { member: MemberView }) {
             type="number"
             min={10}
             max={120}
-            required
             value={minutes}
+            placeholder={`${preferred} (member's preference)`}
             aria-describedby="minutes-hint"
             onChange={(e) => setMinutes(e.target.value)}
           />
           <div id="minutes-hint" className="xsmall muted">
-            Starts at the member&apos;s preferred session length. The plan fits inside it.
+            Leave empty to use the minutes in the request, or else the member&apos;s preferred length (
+            {preferred} min). A number here wins over both. The plan fits inside it.
           </div>
         </div>
         {activeInjuries.length > 0 && (
@@ -169,7 +179,8 @@ export function GeneratorPage({ member }: { member: MemberView }) {
         {state.kind === "blocked" && (
           <BlockerCard
             blockers={state.blockers}
-            onContinue={(r) => void run(r)}
+            checks={state.checks}
+            onContinue={(r) => void run([...state.confirmed, ...r])}
             onEdit={() => setState({ kind: "idle" })}
           />
         )}
@@ -211,31 +222,68 @@ function ReviewMention({ quote, ts }: { quote: string; ts: string | null }) {
 
 function BlockerCard({
   blockers,
+  checks,
   onContinue,
   onEdit,
 }: {
   blockers: Blocker[];
-  onContinue: (regions: { region: string; side: string | null }[]) => void;
+  checks: string[];
+  onContinue: (regions: ConfirmedRegion[]) => void;
   onEdit: () => void;
 }) {
   const [choice, setChoice] = useState<Record<number, string>>({});
-  const all = (b: Blocker) => b.candidates.map((c) => c.concept);
-  const answer = () =>
+  const regionsOf = (b: Blocker) => b.candidates.filter((c) => c.concept.startsWith("region:"));
+  // A blocker with close matches defaults to restricting all of them; one offering the full region
+  // list needs the coach to pick.
+  const pick = (b: Blocker, i: number) => choice[i] ?? (b.pick_one ? undefined : "all");
+  const answer = (): ConfirmedRegion[] =>
     blockers.flatMap((b, i) => {
-      const pick = choice[i] ?? "all";
-      const regions = pick === "all" ? all(b) : [pick];
-      return regions.filter((r) => r.startsWith("region:")).map((region) => ({ region, side: null }));
+      const p = pick(b, i);
+      const regions = p === "all" ? regionsOf(b).map((c) => c.concept) : p ? [p] : [];
+      return regions.map((region) => ({ region, side: null, mention: b.mention }));
     });
-  const canContinue = blockers.every((b) => b.candidates.some((c) => c.concept.startsWith("region:")));
+  const canContinue = blockers.every((b, i) => regionsOf(b).length > 0 && pick(b, i) !== undefined);
   return (
     <section className="card" role="alert" aria-labelledby="blk-h">
       <h2 id="blk-h">Drafting paused: confirm the body region</h2>
+      {checks.length > 0 && (
+        <div className="notice warn" role="status">
+          <ul style={{ margin: 0 }}>
+            {checks.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {blockers.map((b, i) => (
         <div key={i} style={{ marginTop: 12 }}>
           <p style={{ margin: "0 0 8px" }}>
             Your request mentions “{b.mention}”. {b.reason} No plan was drafted.
           </p>
-          {b.candidates.length > 0 && (
+          {b.pick_one && regionsOf(b).length > 0 && (
+            <div className="field">
+              <label className="label" htmlFor={`blk-${i}`}>
+                Region to protect for “{b.mention}”
+              </label>
+              <select
+                id={`blk-${i}`}
+                className="input"
+                style={{ width: 260 }}
+                value={choice[i] ?? ""}
+                onChange={(e) => setChoice((s) => ({ ...s, [i]: e.target.value }))}
+              >
+                <option value="" disabled>
+                  Choose a region
+                </option>
+                {regionsOf(b).map((c) => (
+                  <option key={c.concept} value={c.concept}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {!b.pick_one && b.candidates.length > 0 && (
             <div className="field">
               <span className="label">Closest matches</span>
               {b.candidates.map((c) => (
@@ -297,7 +345,8 @@ function PlanCard({ plan, onDiscard }: { plan: Plan; onDiscard: () => void }) {
       setStatus({ status: "draft", error: e instanceof Error ? e.message : String(e) });
     }
   };
-  const notes = plan.trace.notes;
+  const checks = plan.checks ?? [];
+  const notes = plan.trace.notes.filter((n) => !checks.includes(n));
   return (
     <section className="card" aria-labelledby="plan-h">
       <div className="row" style={{ justifyContent: "space-between" }}>
@@ -311,6 +360,15 @@ function PlanCard({ plan, onDiscard }: { plan: Plan; onDiscard: () => void }) {
         </div>
         <span className="small muted">Drafted with AI from the knowledge graph · {secs} s</span>
       </div>
+      {checks.length > 0 && (
+        <div className="notice warn" role="status" aria-label="Check clearance">
+          <ul style={{ margin: 0 }}>
+            {checks.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {plan.trace.unverified.length > 0 && (
         <div className="notice warn" role="status">
           <span>
@@ -397,7 +455,7 @@ function PlanCard({ plan, onDiscard }: { plan: Plan; onDiscard: () => void }) {
           </div>
         ) : (
           <span className="small muted" style={{ maxWidth: 520 }}>
-            {plan.label} Confirming records your review. Only confirmed plans are shared with the member.
+            {plan.label} Confirming records the plan as coach-approved; nothing is sent to the member.
           </span>
         )}
         {status.error && (
