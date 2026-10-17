@@ -2,7 +2,8 @@
 
 Attribution decides what the safety filter may use. A file is attributed to ``model`` while it is a
 draft and to ``human:<initials>`` once a reviewer signs it (review.status: signed, reviewer set).
-Unsigned files still load, so the UI can show what is pending, but the safety filter ignores them.
+Unsigned files still load, so the UI can show what is pending; the safety filter may use them only
+to exclude or flag (marked unverified), never to allow.
 """
 
 from __future__ import annotations

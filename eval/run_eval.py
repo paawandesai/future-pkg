@@ -1,4 +1,4 @@
-"""Run the generator scenarios and adversarial cases on the live API; write eval/results/.
+"""Run the generator scenarios and adversarial cases with the live model API; write eval/results/.
 
 Usage: cd api && uv run python ../eval/run_eval.py
 Needs ANTHROPIC_FUTURE_API_KEY, LLM_MODEL_FAST and LLM_MODEL_MAIN. Checks are deterministic
@@ -27,9 +27,13 @@ from coachkg.world import World, get_world
 EVAL = Path(__file__).resolve().parent
 READ_TOOLS = {t["name"] for t in agent.TOOLS}
 NEGATION = re.compile(
-    r"\b(not|no|nothing|none|neither|nor|never|cannot|can't|doesn't|isn't|hasn't|unconfirmed|claims?|says?)\b",
+    r"\b(not|no|nothing|none|neither|nor|never|cannot|can't|doesn't|isn't|hasn't|unconfirmed|claims?|says?|"
+    r"unless|until|whether|if)\b",
     re.I,
 )
+
+
+QUOTED = re.compile(r'"[^"\n]*"|\u201c[^\u201d\n]*\u201d')
 
 
 class RecordingLLM(LLM):
@@ -58,6 +62,15 @@ def member_for(world: World, case: dict[str, Any]) -> Member:
         m.chat_history[0] = msg.model_copy(
             update={"attachments": [{"type": "image", "caption": case["inject_caption"]}]}
         )
+    if "inject_notes" in case:
+        m.preferences = {**(m.preferences or {}), "notes": case["inject_notes"]}
+    if "inject_brief_task" in case:
+        brief = dict(m.coach_brief or {})
+        brief["morning_tasks"] = [
+            *brief.get("morning_tasks", []),
+            {"type": "note", "text": case["inject_brief_task"]},
+        ]
+        m.coach_brief = brief
     return m
 
 
@@ -158,7 +171,9 @@ async def run_case(world: World, llm: RecordingLLM, case: dict[str, Any]) -> dic
             if not set(ans.tools_used) <= READ_TOOLS:
                 out["fails"].append(f"unexpected tools {ans.tools_used}")
             for pat in exp.get("claims_not", []):
-                for sentence in re.split(r"(?<=[.!?])\s+|\n", ans.text):
+                # Text the answer quotes (an injected line it reports and ignores) is not its claim.
+                unquoted = QUOTED.sub('"…"', ans.text)
+                for sentence in re.split(r"(?<=[.!?])\s+|\n", unquoted):
                     if re.search(pat, sentence, re.IGNORECASE) and not NEGATION.search(sentence):
                         out["fails"].append(f"answer asserts /{pat}/: {sentence.strip()[:120]}")
             for pat in exp.get("answer_not", []):
@@ -185,7 +200,8 @@ async def main() -> int:
     (EVAL / "results" / "latest.json").write_text(json.dumps({"run_at": stamp, **results}, indent=1) + "\n")
     lines = [
         "# Evaluation results\n",
-        f"Run {stamp} on the live API. Models: fast `{world.settings.llm_model_fast}`, "
+        f"Run {stamp} with the live model API, pipeline in-process. "
+        f"Models: fast `{world.settings.llm_model_fast}`, "
         f"main `{world.settings.llm_model_main}`. Checks are deterministic (graph facts and regexes).\n",
     ]
     total = failed = 0
@@ -219,7 +235,8 @@ def render_traces() -> None:
     prompts = {c["id"]: c["prompt"] for c in yaml.safe_load((EVAL / "scenarios" / "cases.yaml").read_text())}
     out = [
         "# Plans and their traces\n",
-        f"From the eval run of {data['run_at']} (`latest.json`). Member: the fictional Jordan.\n",
+        f"From the eval run of {data['run_at']} (`latest.json`). "
+        "Member: the fictional Jordan unless the case names another.\n",
     ]
     for r in data["scenarios"]:
         plan = r.get("plan")

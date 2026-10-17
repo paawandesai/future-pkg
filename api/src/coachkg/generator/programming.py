@@ -30,6 +30,8 @@ class MainBlock(BaseModel):
     dose_reps: Dose
     dose_duration: Dose
     min_sets: int
+    # Extra sets a main-block exercise may get when the filtered pool can't fill the time window.
+    max_sets: int | None = None
 
 
 class Blocks(BaseModel):
@@ -67,6 +69,7 @@ class Programming(BaseModel):
                 "dose_reps": self.blocks.main.dose_reps.model_copy(update={"sets": sets}),
                 "dose_duration": self.blocks.main.dose_duration.model_copy(update={"sets": sets}),
                 "min_sets": min(self.blocks.main.min_sets, sets),
+                "max_sets": None,  # a lighter block is never topped up
             }
         )
         return self.model_copy(update={"blocks": self.blocks.model_copy(update={"main": main})})

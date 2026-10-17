@@ -1,7 +1,7 @@
 # Roadmap: more exercises and connections
 
 This is planned work, not built. The graph today has 56 exercises (50 from the dataset, 6
-authored) and 532 edges. Only one edge kind (`variant-of`) links an exercise to anything like
+authored) and 549 edges. Only one edge kind (`variant-of`) links an exercise to anything like
 another exercise, so alternatives come from shared patterns and muscles alone, and a strict
 restriction leaves few main-block options (with the left-knee scenario, 45-minute plans stop at
 about 35 minutes).

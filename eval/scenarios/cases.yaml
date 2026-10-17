@@ -1,7 +1,7 @@
 # Generator scenarios. Checks are deterministic and run against the plan the API returns.
 # `member` defaults to Jordan. The brief's three adjustment rows run on members where they change
-# the plan: Elena (no injury, owns dumbbells and kettlebells, no deadlift dislike) and Sam (owns
-# a barbell and a bench).
+# the plan, all on Elena, a demo-coach member a reviewer can open: no injury, no deadlift dislike,
+# and she owns dumbbells, kettlebells and a barbell with plates and a rack.
 - id: brief-exclude-deadlifts
   member: mbr_01HXGEN0005
   prompt: Exclude deadlifts
@@ -11,7 +11,7 @@
   prompt: Her left knee is bothering her
   expect: { plan: true, no_region: [region:knee] }
 - id: brief-no-barbell
-  member: mbr_01HXGEN0002
+  member: mbr_01HXGEN0005
   prompt: She has no barbell, only dumbbells and a kettlebell
   expect: { plan: true, no_equipment: [Barbell, Flat Bench, Rack, Plate] }
 - id: brief-knee-example

@@ -334,16 +334,16 @@ async def run(
     yield {"event": "stage", "stage": "selection", "ms": timer.mark("selection")}
 
     # Time budget is enforced after selection.
-    fitted = assemble.fit(sel.chosen, pool, budgets, prog)
+    fitted, extra_sets, used_budgets = assemble.fit(sel.chosen, pool, budgets, prog)
     if lighter and world.programming.journey:
         # Fewer sets must not leave the coach's time window half empty: when the safe pool is too
         # small to fill it at the lighter dose, keep the default sets instead and say so.
         unsigned = "" if world.programming.review.trusted else ", not yet signed"
         light_s = sum(i.seconds for b in fitted.values() for i in b)
-        full = assemble.fit(sel.chosen, pool, budgets, world.programming)
+        full, _, full_budgets = assemble.fit(sel.chosen, pool, budgets, world.programming, extra_sets=False)
         full_s = sum(i.seconds for b in full.values() for i in b)
         if light_s < (minutes - 3) * 60 and full_s > light_s + 60:
-            fitted = full
+            fitted, extra_sets, used_budgets = full, 0, full_budgets
             notes.append(
                 f"Journey-stage rule (programming.yaml{unsigned}) suggests a lighter main block: "
                 f"{lighter}. Kept the default sets because the exercises that passed the filter can't "
@@ -354,6 +354,12 @@ async def run(
                 f"Lighter main block ({world.programming.journey.main_sets} sets each): {lighter}. "
                 f"Journey-stage rule in programming.yaml{unsigned}."
             )
+    if extra_sets:
+        cap = prog.blocks.main.max_sets
+        notes.append(
+            f"Added {extra_sets} set(s) to main-block exercises (up to {cap} each, programming.yaml) "
+            "to fill the time window, because few exercises passed the filter. No exercise was added."
+        )
     by_id = {x.exercise.id: x for x in scored}
     blocks = []
     planned_s = 0
@@ -363,7 +369,7 @@ async def run(
         blocks.append(
             {
                 "name": b,
-                "budget_minutes": round(budgets[b] / 60, 1),
+                "budget_minutes": round(used_budgets[b] / 60, 1),
                 "minutes": round(sum(i.seconds for i in items) / 60, 1),
                 "items": [
                     _item_json(

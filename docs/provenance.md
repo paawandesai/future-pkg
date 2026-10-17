@@ -12,8 +12,8 @@ not certify a workout, and the coach still confirms every plan.
 
 ## Why PROV-O
 
-The brief asks for a trace of why each exercise was chosen, which graph path justified it and
-what was filtered out. PROV-O already has the three things that answer this: activities (the
+The brief asks every plan to explain its choices: the reason for each exercise, the graph edges
+behind it, and what the safety filter removed. PROV-O already has the three things that answer this: activities (the
 pipeline stages), entities (the request, the readings, the decisions, the plan and its items) and
 agents (who or what acted). Using the W3C vocabulary means the download loads into any RDF tool
 and can be joined with the SKOS export (`kg/export/coachkg-skos.ttl`), because both use the same

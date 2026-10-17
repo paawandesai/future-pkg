@@ -188,12 +188,14 @@ export interface CopilotAnswer {
   answer: string;
   charts: ChartSpec[];
   tools_used: string[];
+  guarded?: boolean;
   disclosure: string;
 }
 
 export interface CongratsDraft {
   draft: string | null;
   disclosure?: string;
+  member_disclosure?: string;
   reason?: string;
   session_date?: string;
   is_yesterday?: boolean;

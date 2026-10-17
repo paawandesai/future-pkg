@@ -42,6 +42,13 @@ export function recentTurns(thread: Exchange[], max = MAX_HISTORY): CopilotTurn[
   return turns.slice(-max);
 }
 
+/** The text the coach copies: the draft plus the member-facing AI line, never duplicated. */
+export function withMemberDisclosure(text: string, line?: string): string {
+  const body = text.trim();
+  if (!line || body.includes(line)) return body;
+  return `${body}\n\n${line}`;
+}
+
 export function CopilotPage({ member }: { member: MemberView }) {
   const first = member.name.split(" ")[0];
   const [question, setQuestion] = useState("");
@@ -211,11 +218,18 @@ export function CopilotPage({ member }: { member: MemberView }) {
                 <div className="row" style={{ justifyContent: "space-between", marginTop: 8 }}>
                   <span className="small muted">
                     {draft.disclosure} Sending happens from your messaging tool, not here.
+                    {draft.member_disclosure && (
+                      <> Copying adds this line for the member: {draft.member_disclosure}</>
+                    )}
                   </span>
                   <button
                     type="button"
                     className="btn small"
-                    onClick={() => void navigator.clipboard?.writeText(draftText)}
+                    onClick={() =>
+                      void navigator.clipboard?.writeText(
+                        withMemberDisclosure(draftText, draft.member_disclosure),
+                      )
+                    }
                   >
                     Copy draft
                   </button>
