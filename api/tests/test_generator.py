@@ -458,3 +458,125 @@ def test_focus_shortfall_is_noted(world: World) -> None:
 def test_no_shortfall_note_when_focus_fills_the_block(world: World) -> None:
     plan = _plan(_run(world, FakeLLM(_intent(focus=["upper body"]), _all_offered), "upper body"))
     assert not any("main-block exercises match" in n for n in plan["trace"]["notes"])
+
+
+def _knee_items(world: World, plan: dict[str, Any]) -> list[str]:
+    return [
+        str(world.store.node(f"ex:{i}")["exercise"].name)
+        for i in _ids(plan)
+        if any(e.dst == "region:knee" for e in world.store.out_edges(f"ex:{i}", "stresses"))
+    ]
+
+
+def test_continue_with_this_restriction_drafts_the_plan(world: World) -> None:
+    """The blocker's "Continue" sends the chosen region with the mention it answers."""
+    prompt = "Upper body today, her thingy is acting up again."
+    llm = FakeLLM(_intent(injury_mentions=["her thingy"]), _all_offered)
+    blocked = _run(world, llm, prompt, who="Elena Petrova")
+    assert blocked[-1]["event"] == "blocked"
+    b = blocked[-1]["blockers"][0]
+    assert b["pick_one"] and "region:knee" in {c["concept"] for c in b["candidates"]}
+    answer = [{"region": "region:knee", "side": None, "mention": b["mention"]}]
+    plan = _plan(_run(world, llm, prompt, who="Elena Petrova", confirmed_regions=answer))
+    assert ("region:knee",) in {tuple(r["regions"]) for r in plan["trace"]["restrictions"]}
+    assert not _knee_items(world, plan)
+
+
+def test_unknown_confirmed_region_is_an_error(world: World) -> None:
+    llm = FakeLLM(_intent(injury_mentions=["her thingy"]), _all_offered)
+    events = _run(world, llm, "her thingy", confirmed_regions=[{"region": "spleen", "mention": "her thingy"}])
+    assert events[-1]["event"] == "error" and "spleen" in events[-1]["message"]
+
+
+def test_knee_surgery_missed_by_the_model_is_still_restricted(world: World) -> None:
+    prompt = "45 minutes, lower body. She had knee surgery three weeks ago."
+    plan = _plan(_run(world, FakeLLM(_intent(), _all_offered), prompt, who="Elena Petrova"))
+    assert not _knee_items(world, plan)
+
+
+def test_knee_surgery_from_the_model_resolves_instead_of_blocking(world: World) -> None:
+    it = _intent(injury_mentions=["knee surgery three weeks ago"])
+    plan = _plan(
+        _run(
+            world, FakeLLM(it, _all_offered), "Lower body. Knee surgery three weeks ago.", who="Elena Petrova"
+        )
+    )
+    assert not _knee_items(world, plan)
+
+
+@pytest.mark.parametrize(
+    ("prompt", "model_mentions", "condition"),
+    [
+        ("Upper body. She's 20 weeks pregnant.", None, "pregnancy"),
+        ("Full body, she has high blood pressure", None, "blood pressure"),
+        ("She felt dizzy last session, lower body", None, "dizziness"),
+        ("Upper body, she has asthma", ["asthma"], "breathing"),
+        ("Lower body, concussion last week", ["concussion last week"], "head injury"),
+        ("Full body, she has a heart condition", ["heart condition"], "heart"),
+        ("She has osteoporosis", ["osteoporosis"], "bone density"),
+    ],
+)
+def test_systemic_conditions_add_a_clearance_note_and_draft(
+    world: World, prompt: str, model_mentions: list[str] | None, condition: str
+) -> None:
+    plain = _plan(_run(world, FakeLLM(_intent(), _all_offered), "Full body", who="Elena Petrova"))
+    events = _run(
+        world, FakeLLM(_intent(injury_mentions=model_mentions), _all_offered), prompt, who="Elena Petrova"
+    )
+    plan = _plan(events)
+    assert plan["checks"] and any(condition in c for c in plan["checks"])
+    assert all("check that the member is cleared" in c and "safe" not in c.lower() for c in plan["checks"])
+    assert set(plan["checks"]) <= set(plan["trace"]["notes"])
+    # Nothing is relaxed or added for the condition itself.
+    assert plan["trace"]["restrictions"] == plain["trace"]["restrictions"]
+
+
+def test_condition_with_a_pain_word_still_fails_closed(world: World) -> None:
+    events = _run(world, FakeLLM(_intent(injury_mentions=["dizzy and sore"]), _all_offered), "dizzy and sore")
+    assert events[-1]["event"] == "blocked"
+    assert events[-1]["checks"]
+
+
+def test_fresh_knee_pain_turns_the_clearance_off(world: World) -> None:
+    def run_with(prompt: str, mentions: list[str] | None) -> dict[str, Any]:
+        llm = FakeLLM(_intent(injury_mentions=mentions), _all_offered)
+        return _plan(_run(world, llm, prompt, who="Jordan Rivera", cleared_low_impact=["inj_knee_left"]))
+
+    cleared = run_with("45 minutes, lower body.", None)
+    assert any("coach cleared" in f for b in cleared["blocks"] for i in b["items"] for f in i["flags"])
+    for prompt, mentions in [
+        ("45 minutes, lower body. Her left knee is really painful today.", ["left knee"]),
+        ("45 minutes, lower body. Her knee is swollen and flared up.", None),
+    ]:
+        plan = run_with(prompt, mentions)
+        assert not _knee_items(world, plan), prompt
+        assert any("clearance" in n and "not applied" in n for n in plan["trace"]["notes"])
+
+
+@pytest.mark.parametrize(("said", "used"), [(100000, 120), (-30, 10), (5, 10)])
+def test_model_minutes_are_clamped(world: World, said: int, used: int) -> None:
+    plan = _plan(_run(world, FakeLLM(_intent(minutes=said), _all_offered), "upper body"))
+    assert plan["minutes_requested"] == used
+    assert any(f"read as {said} minutes" in n for n in plan["trace"]["notes"])
+
+
+def test_request_lists_and_strings_are_bounded(world: World) -> None:
+    app.dependency_overrides[get_llm] = lambda: FakeLLM(_intent(), _all_offered)
+    app.dependency_overrides[get_world] = lambda: world
+    try:
+        client = TestClient(app)
+        member_id = client.get("/api/members").json()[0]["id"]
+        base = {"member_id": member_id, "prompt": "upper body"}
+        too_many = [{"region": "knee", "mention": f"m{i}"} for i in range(11)]
+        for body in [
+            {**base, "confirmed_regions": too_many},
+            {**base, "cleared_low_impact": [f"inj_{i}" for i in range(11)]},
+            {**base, "cleared_low_impact": ["x" * 65]},
+            {**base, "confirmed_regions": [{"region": "k" * 65}]},
+            {**base, "confirmed_regions": [{"region": "knee", "mention": "m" * 301}]},
+        ]:
+            assert client.post("/api/generate", json=body).status_code == 422
+        ok = {**base, "confirmed_regions": too_many[:10]}
+        assert client.post("/api/generate", json=ok).status_code == 200
+    finally:
+        app.dependency_overrides.clear()

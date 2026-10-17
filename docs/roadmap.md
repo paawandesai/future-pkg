@@ -3,8 +3,8 @@
 This is planned work, not built. The graph today has 56 exercises (50 from the dataset, 6
 authored) and 549 edges. Only one edge kind (`variant-of`) links an exercise to anything like
 another exercise, so alternatives come from shared patterns and muscles alone, and a strict
-restriction leaves few main-block options (with the left-knee scenario, 45-minute plans stop at
-about 35 minutes).
+restriction leaves few main-block options (with the left-knee scenario, a 45-minute plan fills its
+time only by adding sets to the few exercises that pass).
 
 Decisions taken (2026-10-16, reviewer PD):
 

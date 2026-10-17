@@ -29,6 +29,11 @@ export function AdminPage() {
     act.mutate(() => api.admin.disableAll().then((r) => setMessage(`Turned off ${r.disabled} accounts.`)));
   };
 
+  const rejectAll = () => {
+    if (!window.confirm("Reject every pending request? Nobody is invited.")) return;
+    act.mutate(() => api.admin.rejectPending().then((r) => setMessage(`Rejected ${r.rejected} requests.`)));
+  };
+
   const pending = (requests.data ?? []).filter((r) => r.status === "pending");
   const decided = (requests.data ?? []).filter((r) => r.status !== "pending");
 
@@ -43,6 +48,11 @@ export function AdminPage() {
           </p>
           {requests.isError && <p role="alert">Couldn't load requests: {requests.error.message}</p>}
           {requests.data && pending.length === 0 && <p className="muted">No pending requests.</p>}
+          {pending.length > 1 && (
+            <button type="button" className="btn small" disabled={act.isPending} onClick={rejectAll}>
+              Reject all pending ({pending.length})
+            </button>
+          )}
           <ul className="list">
             {pending.map((r) => (
               <li key={r.id}>

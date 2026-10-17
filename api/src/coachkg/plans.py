@@ -103,7 +103,8 @@ class DynamoPlanStore:
 
     def get(self, plan_id: str) -> dict[str, Any] | None:
         item = self._table.get_item(Key={"id": plan_id}, ConsistentRead=True).get("Item")
-        if item is None:
+        # TTL deletes expired items only eventually, so an expired plan is treated as gone.
+        if item is None or int(item.get("expires_at", 0)) <= datetime.now(UTC).timestamp():
             return None
         plan: dict[str, Any] = json.loads(item["body"])
         return plan

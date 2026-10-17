@@ -7,19 +7,27 @@ at most 6 turns (`api/src/coachkg/copilot/agent.py`).
 
 - The server fixes the member before the loop starts, from the session and the URL. No tool takes
   a member id, so the model can't reach another member.
-- Tools: `get_brief`, `get_adherence`, `get_sleep`, `get_biomarkers`, `get_workout_history`,
+- Tools: `get_brief`, `get_profile`, `get_goals`, `get_preferences`, `get_equipment`,
+  `get_injuries`, `get_adherence`, `get_sleep`, `get_biomarkers`, `get_workout_history`,
   `get_chat`, `get_labs`, `get_changes`, `get_churn_signals` and `make_chart`. None of them writes
   or sends anything. They answer by querying the member's graph (KG 2, see `docs/schema.md`), not
   the raw record.
 - `get_biomarkers` returns resting HR, HRV and weight as recorded, values only. The record gives
   resting HR and HRV without a date, so they are reported as of AS_OF.
 - `get_chat` returns messages as quoted data marked `member-said` or `coach-said`. Image
-  attachments come through as their caption only and are never sent to the model.
+  attachments come through as their caption only and are never sent to the model. A message is
+  `coach-said` only when its sender is the coach; any other sender is `member-said`.
+- `get_injuries` returns each injury's region, side, status and the record's notes (marked
+  `record`), plus chat lines that mention the injured region (`member-said`). It never returns a
+  SNOMED description, and the system prompt forbids saying a member has no injury without calling
+  it. `get_profile` leaves out sex, height, weight and the coach id.
 - `get_labs` returns values as recorded. The system prompt forbids interpreting labs or DEXA, and
-  code checks the answer too: when an answer used `get_labs` or `get_biomarkers` and contains a
-  reading word ("elevated", "normal range", "suggests", "at risk" and similar,
-  `copilot/agent.py: _INTERPRETS`), it is replaced with a values-only listing written by code, and
-  the response carries `guarded: true`. The check errs toward replacing a good answer.
+  code checks the answer too: when a lab, DEXA, biomarker or weight term or unit appears in the
+  answer, the question or an earlier turn (whichever tools ran this turn), or a weight in kg after
+  `get_changes`, and the answer contains a reading word ("high", "low", "on the high side",
+  "borderline", "may explain", "looks fine" and similar, `copilot/agent.py: _INTERPRETS`), it is replaced with a values-only listing written by code, and
+  the response carries `guarded: true`. The check errs toward replacing a good answer: once an
+  earlier turn names a lab, a later "low" about something else can trigger it.
 - `make_chart` takes metric names from an allow-list and the server fills in the data, so the
   model can't make up a value. Quick-prompt charts
   (`GET /api/members/{id}/charts/{adherence|sleep|messages|compare}`) make no model call.
@@ -30,11 +38,11 @@ at most 6 turns (`api/src/coachkg/copilot/agent.py`).
   question; the API refuses more. They reach the model inside `<earlier_turns>`, escaped so quoted
   text can't close the tag, and the system prompt treats them as context, not instructions. Member
   text quoted in an earlier answer stays data. The UI shows the whole thread.
-- Answers carry a disclosure line and are shown as plain text.
+- Answers carry a disclosure line and are shown as plain text; markdown is stripped on the server.
 - The congratulate draft sends the model only the member's first name, their latest completed
   session with its date, when it was ("yesterday" only if it is the day before AS_OF), and what
   the member said about it in their own words, marked `member-said`. The brief's task text is not
-  passed as a fact. If the session is not from yesterday the response says so in `note`, and the
+  passed as a fact. The facts are sent as escaped JSON, so member text can't close the section. If the session is not from yesterday the response says so in `note`, and the
   UI shows it. It returns a draft with a disclosure line for the coach and a `member_disclosure`
   line ("Written with help from AI and reviewed by your coach.") that the Copy button appends, so
   the member also sees that AI helped. There is no send endpoint.

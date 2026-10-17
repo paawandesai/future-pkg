@@ -1,0 +1,22 @@
+# Conditions the safety filter can't adjust exercises for. A request that mentions one gets a
+# plan note asking the coach to check the member's clearance for exercise before using the plan.
+# The plan is still drafted, and nothing is relaxed: any body-region restriction applies as usual.
+#
+# Not a rule file and not signed: these terms only match text (whole words, any case). Keyed by
+# the name the note uses.
+conditions:
+  pregnancy: [pregnant, pregnancy, expecting a baby, trimester]
+  recent childbirth: [postpartum, post-partum, postnatal, post-natal, gave birth, had a baby, c-section, caesarean, cesarean]
+  blood pressure: [high blood pressure, low blood pressure, blood pressure, hypertension, hypertensive, hypotension]
+  dizziness or fainting: [dizzy, dizziness, lightheaded, light-headed, faint, fainted, fainting, passed out, blacked out, vertigo]
+  a breathing condition: [asthma, asthmatic, inhaler, copd, short of breath, shortness of breath]
+  a heart condition: [heart condition, heart problem, heart problems, heart disease, heart attack, cardiac, arrhythmia, afib, a-fib, palpitations, pacemaker, chest pain, chest pains, stent]
+  a head injury: [concussion, concussed, head injury, head knock]
+  low bone density: [osteoporosis, osteopenia, low bone density]
+  diabetes: [diabetes, diabetic, insulin, hypoglycemia, hypoglycaemia, low blood sugar]
+  a hernia: [hernia, hernias]
+  epilepsy or seizures: [epilepsy, epileptic, seizure, seizures]
+  cancer treatment: [cancer, chemo, chemotherapy, radiotherapy]
+  a blood clot: [blood clot, dvt, deep vein thrombosis]
+  a stroke: [had a stroke, mini-stroke]
+  recent illness: [covid, long covid, fever, pneumonia]

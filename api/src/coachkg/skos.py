@@ -27,6 +27,16 @@ KINDS = ("region", "condition", "muscle", "pattern", "equipment", "family")
 SNOMED = "http://snomed.info/id/"
 UBERON = "http://purl.obolibrary.org/obo/"
 WIKIDATA = "http://www.wikidata.org/entity/"
+UBERON_SOURCE = URIRef("http://purl.obolibrary.org/obo/uberon.owl")
+WIKIDATA_SOURCE = URIRef("https://www.wikidata.org/")
+CC_BY_3 = URIRef("https://creativecommons.org/licenses/by/3.0/")
+CC0 = URIRef("https://creativecommons.org/publicdomain/zero/1.0/")
+RIGHTS = (
+    "Concept labels and structure are the future-pkg authors' own, for a synthetic demo. Terms taken "
+    "from the Future exercise dataset are not relicensed here. External matches are identifiers only: "
+    "SNOMED CT identifiers (no SNOMED CT content is included; SNOMED CT is a registered trademark of "
+    "SNOMED International), Uberon IRIs (Uberon, CC BY 3.0) and Wikidata IRIs (CC0)."
+)
 
 
 def load_wikidata() -> list[dict[str, Any]]:
@@ -46,6 +56,12 @@ def build(store: NetworkXStore) -> Graph:
     g.add((SCHEME, RDF.type, SKOS.ConceptScheme))
     g.add((SCHEME, SKOS.prefLabel, Literal("Coach knowledge graph concepts", lang="en")))
     g.add((SCHEME, DCTERMS.source, Literal("Future exercise dataset and kg/rules (synthetic demo)")))
+    # Rights: our labels and structure; dataset-derived terms are not relicensed; external matches
+    # are identifiers, credited with their sources' licences.
+    g.add((SCHEME, DCTERMS.rights, Literal(RIGHTS, lang="en")))
+    for source, licence in ((UBERON_SOURCE, CC_BY_3), (WIKIDATA_SOURCE, CC0)):
+        g.add((SCHEME, DCTERMS.source, source))
+        g.add((source, DCTERMS.license, licence))
     for kind in KINDS:
         top = CKG[f"{kind}s"]
         g.add((top, RDF.type, SKOS.Collection))

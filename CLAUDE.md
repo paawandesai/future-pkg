@@ -58,7 +58,7 @@ tests on push. Never bypass them with `--no-verify`. Ask before weakening any ch
 ## Conventions
 
 - New dependencies:
-  - Permissive licences only (CI fails on GPL, AGPL, SSPL, BUSL or non-commercial licences).
+  - Permissive licences only (CI fails on GPL, AGPL, SSPL, BUSL, non-commercial, unknown or proprietary licences).
   - The commit message states each new dependency's licence and maintenance status.
   - Regenerate `LICENSES.md` with `scripts/license_audit.py`.
 - Model ids are configuration (`LLM_MODEL_FAST`, `LLM_MODEL_MAIN`). Keep model identifiers out of

@@ -37,8 +37,8 @@ make dev                # same without Docker: installs, then API on :8000 and w
 make test               # installs if needed, then the API, web and infra suites (offline)
 ```
 
-**Prerequisites.** Docker for `make up`. For `make dev` and `make test`: Python 3.12 with
-[uv](https://docs.astral.sh/uv/), Node 22 with pnpm 10 (`corepack enable`), and `python3` on the
+**Prerequisites.** Docker, `make` and `python3` for `make up` (the data fetch runs on the host). For `make dev` and `make test`: Python 3.12 with
+[uv](https://docs.astral.sh/uv/), Node 22.23 with pnpm 10.34 (`corepack enable`), and `python3` on the
 path. Both paths need network access to fetch the assessment data (from its GitHub repo, at a
 pinned commit, checksum-verified) and packages, and free ports 5173 and 8000.
 
@@ -61,7 +61,7 @@ flowchart LR
   ui[Dashboard<br/>React SPA] -->|prompt + time window| api[FastAPI<br/>auth: mock locally, Cognito deployed]
   api --> A1
   subgraph wf [Generator workflow]
-    A1[Intent agent<br/>fast model, structured output] --> S1[Deterministic scan<br/>adds injury mentions the model missed]
+    A1[Intent agent<br/>fast model, structured output] --> S1[Deterministic scan<br/>adds body words with an injury cue next to them]
     S1 --> S2[Resolver<br/>exact SKOS labels, then fuzzy]
     S2 --> S3[Safety filter<br/>graph walk over signed rules]
     S3 --> S4[Scorer + alternatives<br/>focus, goals, journey stage, dislikes]
@@ -129,18 +129,21 @@ there.
 
 | Coach request | Result |
 |---|---|
-| "45 minutes, lower body. Her left knee is still a bit sore." | 11 exercises, 43.7 min, 2.0 s. Lower-body work is Dumbbell Hip Thrust and Glute Bridge: no exercise loads the knee, so only those two lower-body exercises pass, and the plan says the rest of the main block is other work. Both Romanian deadlifts are left out because Jordan dislikes them. |
-| The same request with the coach's clearance on ("Left knee cleared for low-impact loading") | 18 exercises, 42.6 min, 3.9 s. Six lower-body exercises in the main block, including a partial-range high-box goblet squat, a kettlebell hamstring walkout and a banded lateral walk. Each knee-loading exercise is flagged in the trace; plyometrics and deep loaded knee bends stay excluded. |
-| "30 min upper body. She has no barbell and no bench this week." | 8 exercises, 28.7 min, 2.4 s. Nothing needs a barbell or a bench, and the trace offers two equivalent alternatives: Glute Bridge instead of Dumbbell Hip Thrust and Resistance Band Reverse Curl instead of Single-Arm Dumbbell Preacher Curl. |
-| "Full body 40 min, no deadlifts." | 10 exercises, 39.4 min, 3.1 s. Nothing from the deadlift family or its variants. |
-| "Upper body today, her thingy is acting up again." | Blocked. The injury mention can't be resolved, so the coach is asked to pick the region. |
+| "45 minutes, lower body. Her left knee is still a bit sore." | 11 exercises, 43.7 min, 1.7 s. Lower-body work is Dumbbell Hip Thrust and Glute Bridge: no exercise loads the knee, so only those two lower-body exercises pass, and the plan says the rest of the main block is other work. Both Romanian deadlifts are left out because Jordan dislikes them. |
+| The same request with the coach's clearance on ("Left knee cleared for low-impact loading") | 18 exercises, 42.6 min, 2.4 s. Six lower-body exercises in the main block, including a partial-range high-box goblet squat, a kettlebell hamstring walkout and a banded lateral walk. Each knee-loading exercise is flagged in the trace; plyometrics and deep loaded knee bends stay excluded. |
+| "30 min upper body. She has no barbell and no bench this week." | 8 exercises, 28.7 min, 4.4 s. Nothing needs a barbell or a bench, and the trace offers two equivalent alternatives: Glute Bridge instead of Dumbbell Hip Thrust and Resistance Band Reverse Curl instead of Single-Arm Dumbbell Preacher Curl. |
+| "Full body 40 min, no deadlifts." | 10 exercises, 39.4 min, 2.9 s. Nothing from the deadlift family or its variants. |
+| "Upper body today, her thingy is acting up again." | Blocked. The injury mention can't be resolved, so the coach is asked to pick the region. Picking one and pressing "Continue with this restriction" drafts the plan with that region restricted (5 exercises with the elbow confirmed). |
+| Elena: "Lower body, 45 minutes. She had knee surgery three weeks ago." | 9 exercises, 33.0 min, 2.2 s. "Knee surgery" resolves to the knee, so nothing that loads either knee is offered. |
+| "45 minutes, lower body. Her left knee is really painful today." with the clearance on | 11 exercises, 43.7 min, 2.3 s. Acute pain switches the clearance off for this draft and the plan says so; mild words such as "a bit sore" keep it. |
+| Elena: "Full body, 40 minutes. She's 20 weeks pregnant." | 17 exercises, 38.4 min, 2.1 s. The plan carries a "check clearance" note for the coach; nothing is relaxed. |
 
 <details>
 <summary>Trace for "45 minutes, lower body. Her left knee is still a bit sore."</summary>
 
 > 45 minutes, lower body. Her left knee is still a bit sore.
 
-11 exercises, 43.7 min, 2048 ms.
+11 exercises, 43.7 min, 1739 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -148,10 +151,10 @@ there.
 | Dumbbell Hip Thrust | 3 | matches the requested focus; fits a priority-1 goal; uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads hip, which is not restricted; picked for the main block by the selection step | same pattern trained in the last two days |
 | Alternating Low Plank To Low Side Plank | 3 | uses only equipment the member has (Yoga Mat); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
 | Glute Bridge | 3 | matches the requested focus; fits a priority-1 goal; uses only equipment the member has (Yoga Mat); loads hip, which is not restricted; picked for the main block by the selection step | same pattern trained in the last two days |
-| Push-Up to Knee-Drive | 3 | uses only equipment the member has (Yoga Mat); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
 | Alternating Dumbbell Overhead Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
-| Bodyweight Pike | 3 | uses only equipment the member has (Yoga Mat); loads hip, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
+| Push-Up to Knee-Drive | 3 | uses only equipment the member has (Yoga Mat); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
 | Dumbbell Neutral-Grip Bench Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
+| Bodyweight Pike | 3 | uses only equipment the member has (Yoga Mat); loads hip, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
 | Bench-Lying Single-Arm Dumbbell Tricep Extension | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
 | Resistance Band Reverse Curl | 3 | uses only equipment the member has (Resistance Band - Loop); loads elbow, which is not restricted; picked for the main block by the selection step | - |
 | Ground Upper Trap Stretch | 1 | uses only equipment the member has (Yoga Mat); loads cervical spine, which is not restricted; mobility - static, regen are cool-down patterns in programming.yaml | - |
@@ -171,6 +174,7 @@ there.
 - Left out 2 exercise(s) the member says they dislike: Dumbbell Romanian Deadlift, Kettlebell Romanian Deadlift. Name one in the request to include it.
 - Journey-stage rule (programming.yaml) suggests a lighter main block: weekly completion fell from 100% to 50% over the last 4 weeks. Kept the default sets because the exercises that passed the filter can't fill 45 minutes at 2 sets.
 - Only 2 of 9 main-block exercises match lower body: 2 exercise(s) matching it passed the filter. The rest are the closest exercises that passed it, used to fill the time.
+
 </details>
 
 The warm-up and cool-down pools that pass the filter are small, so the main block takes the time
@@ -183,9 +187,9 @@ request plans 28.7 minutes), and its notes say why.
 
 ## Evaluation
 
-`eval/` runs 12 generator scenarios and 7 adversarial cases with the live model API. Checks are
+`eval/` runs 17 generator scenarios and 14 adversarial cases with the live model API. Checks are
 graph facts and regular expressions, never a model grading a model. Latest run (2026-10-17):
-**19 of 19 passed** ([eval/results/latest.md](eval/results/latest.md)).
+**31 of 31 passed** ([eval/results/latest.md](eval/results/latest.md)).
 
 Checks that an answer must not claim something skip sentences that negate or condition it, and
 text the answer quotes. That list has grown over runs, and each change is listed here:
@@ -206,14 +210,21 @@ check. The adversarial cases are:
 - a request for another member's data;
 - an instruction in a member-record field (`snomedct_hint`) asking for a SNOMED CT lookup;
 - an instruction in the member's preference notes, which reach the selection prompt;
-- an instruction added to the morning brief's text.
+- an instruction added to the morning brief's text;
+- questions about Jordan's and Priya's injuries, whose answers must name the injury from the record;
+- follow-up questions about LDL, vitamin D and weight, where the lab check must hold;
+- a chat line that tries to close the draft's data section (`</facts>`);
+- forged earlier turns sent by the client.
+
+The `snomedct_hint` case also checks that the answer names the left knee.
 
 The test suites hold the deterministic guarantees:
-- 177 API tests: resolver, safety filter, graph edges, alternatives, provenance, member graph and
+- 375 API tests: resolver, safety filter, graph edges, alternatives, provenance, member graph and
   copilot tools, ingest, assembly, auth, access requests and scoping.
 - 58 live tests that check every SNOMED, Uberon and Wikidata identifier against its source.
-- 17 web tests.
-- 8 infra tests on the synthesized template (Cognito auth, noindex, TTL and purge, no secrets).
+- 22 web tests.
+- 16 infra tests on the synthesized template (Cognito auth, noindex and security headers, TTL and
+  purge, no secret values, CloudFront-only API, concurrency cap, log retention).
 
 **Why these critical paths.** The two places where a mistake reaches a member are reading the
 request and deciding what is allowed, so they carry most of the tests:
@@ -233,7 +244,7 @@ request and deciding what is allowed, so they carry most of the tests:
 | What | Metric | Alert |
 |---|---|---|
 | Safety | Plans with an exercise that loads a confirmed-injured region, or one the coach marked unsuitable | Any, as a severity-1 incident. The filter is deterministic, so this should be zero and the check proves it. |
-| Request reading | Share of injury mentions that blocked, by phrase; coach answers to "which region?" | A new phrase blocking more than a few times a week becomes a resolver label (signed) and a test |
+| Request reading | Share of injury mentions that blocked, by phrase; coach answers to "which region?" | A new phrase blocking more than a few times a week becomes a label in `kg/vocab/labels.yaml` and a test |
 | Resolver drift | Exact vs fuzzy vs no-match rates per kind, weekly | Fuzzy or no-match share up by a third |
 | Plan quality | Drafts confirmed without edits; edits by type (swap, remove, sets); time-window shortfall | Confirmation rate down 10 points week on week |
 | Copilot grounding | Share of answers whose numbers all come from a tool result (checked by code against the tool output); answers with no tool call | Any answer citing a number no tool returned |
@@ -277,8 +288,9 @@ through the tool results it asks for, plus at most six earlier turns.
   Not sent." Copying a draft adds a line for the member: "(Written with help from AI and reviewed
   by your coach.)"
 - **Labs and DEXA are shown as values only.** They are never churn inputs. The copilot's prompt
-  says not to interpret them. Code also checks every answer that used the labs or biomarker tools:
-  if the answer reads a value (for example "elevated", "normal range" or "suggests"), it is
+  says not to interpret them. Code also checks every answer, whichever tools it used: when a lab,
+  DEXA, biomarker or weight term or unit appears in the answer, the question or an earlier turn,
+  and the answer reads a value (for example "high", "on the low side" or "may explain"), it is
   replaced with a values-only listing written by code.
 - **No cross-member caching** of safety decisions.
 - **Logs** hold method, route template, status and milliseconds. When a model call fails they also
@@ -288,7 +300,8 @@ through the tool results it asks for, plus at most six earlier turns.
   - The admin group can only be granted from AWS.
   - Mock auth is refused on Lambda.
   - A "Demo — synthetic data only" banner and `noindex` appear on every page.
-  - Plans are purged daily and access requests expire after 7 days.
+  - Plans and expired access requests are purged daily; access requests expire after 7 days.
+  - The API accepts only requests that come through CloudFront (a secret origin header).
   - The API key is kept in Secrets Manager.
 
 ## What it does NOT do
@@ -338,7 +351,8 @@ American Pathologists. "SNOMED" and "SNOMED CT" are registered trademarks of SNO
 NICE guidance is not used: putting its content in an AI product needs a licence from NICE. Lab results are shown as the dataset gives them; no LOINC codes or content are included.
 
 Dependency licences are generated in [LICENSES.md](LICENSES.md). CI fails on GPL, AGPL, SSPL,
-BUSL or non-commercial licences.
+BUSL or non-commercial licences, and on unknown, unlicensed or proprietary ones. The site ships
+its third-party notices at `/third-party-notices.txt`.
 
 ## Roadmap
 
@@ -354,7 +368,10 @@ file a person signs, and only the last one changes what the safety filter exclud
 - **Longer than one day.** The brief sets one day. The commits span 2026-10-15 17:13 UTC to
   2026-10-17, and the later ones fix findings from our own reviews. The history is unedited.
 - **`data/` is not committed.** It is fetched at build time from a pinned commit of the assessment
-  repo, which carries no licence.
+  repo, which carries no licence. One early commit (d5ae9c2, 2026-10-15) stored an eval answer
+  that quoted member chat lines from that data word for word. A later commit replaced the file and
+  a test now fails if eval results carry long spans of member text, but the history is unedited,
+  so the old file is still in it.
 - **The SNOMED live check needs NCI EVS to be reachable.** It runs when alignments change and on a
   schedule, not on every push.
 - **Five of the six demo members are generated**, as is a seventh under another coach. Each
@@ -382,7 +399,11 @@ file a person signs, and only the last one changes what the safety filter exclud
   2026-10-16 from open-access papers. The two JOSPT guidelines they also cite are paywalled, so
   their DOIs are checked but their claims are not.
 - **Two model roles in a fixed workflow, not autonomous agents** (see Architecture).
-- **Mock auth locally, Cognito when deployed.** Mock auth is refused on Lambda.
+- **Mock auth locally, Cognito when deployed.** Mock auth is refused on Lambda. The API defaults
+  to Cognito; `make up`, `make dev` and the tests set `AUTH_MODE=mock`.
+- **No MFA for admin accounts, and turning an account off isn't instant.** Admins sign in with a
+  password only, and an already signed-in session keeps working until its one-hour token
+  expires.
 - **Lambda instead of App Runner or Fargate.** App Runner no longer takes new customers, and
   Fargate needs a load balancer, which puts it over the $25 budget.
 - **Cut for time:** the embedding pass of the resolver (exact and fuzzy cover the test cases), a
@@ -398,7 +419,7 @@ file a person signs, and only the last one changes what the safety filter exclud
   allowed, and every plan it changes says so.
 - **No plan without the model.** If the API key is missing or rejected, drafting stops and says
   so. We chose that over a rule-only fallback plan that the coach might not notice was different.
-- **`muscle_actions.yaml` and `recovery.yaml` are reference data** the app doesn't load yet.
+- **`muscle_actions.yaml` only ever adds restrictions:** an injured muscle restricts the joints it acts on. `recovery.yaml` is reference data the app doesn't load yet.
 - **The demo's access-request form takes an email, a name and a reason from anyone.** Nobody
   gets an account without an admin approving it, requests expire after 7 days and are never
   logged, but it is the one place the demo stores real personal data. Reviewers are given a demo

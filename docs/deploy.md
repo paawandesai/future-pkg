@@ -6,14 +6,15 @@ branch by the manual GitLab job `deploy:production`; `deploy:secret` then puts t
 | Piece | What | Guardrail it carries |
 |---|---|---|
 | Cognito user pool `future-pkg-coaches` | Invite-only (no self sign-up), email sign-in, 12+ char passwords | Real auth; `custom:coach_id` is admin-set and not writable by the app client, so a coach can't re-scope their token |
-| Lambda `Api` + function URL | The FastAPI app unchanged, via the AWS Lambda Web Adapter layer, streaming responses (SSE) | `AUTH_MODE=cognito` (mock is refused on Lambda); access log is method, route template, status, ms |
-| CloudFront + private S3 bucket | SPA from S3 (origin access control), `/api/*` to the function URL, no caching for the API | `X-Robots-Tag: noindex` and security headers on every response, `robots.txt` disallows all; demo banner is in the UI |
+| Lambda `Api` + function URL | The FastAPI app unchanged, via the AWS Lambda Web Adapter layer, streaming responses (SSE) | `AUTH_MODE=cognito` (mock is refused on Lambda); access log is method, route template, status, ms; rejects any request without CloudFront's `x-origin-verify` header (value generated in Secrets Manager), so the function URL can't be used directly; reserved concurrency 5 (`-c apiConcurrency=N`) |
+| CloudFront + private S3 bucket | SPA from S3 (origin access control), `/api/*` to the function URL, no caching for the API | `X-Robots-Tag: noindex` and security headers on every response (CSP without inline styles, Permissions-Policy, Server header removed), `robots.txt` disallows all; demo banner is in the UI |
 | DynamoDB `Plans` | Draft and confirmed plans | `expires_at` TTL one day after drafting |
-| DynamoDB `AccessRequests` | "Request a demo account" submissions and hourly rate counters | TTL 7 days (requests) and 2 hours (counters); client addresses are stored only as salted hashes; at most 3 requests per client per hour and 50 pending in total |
+| DynamoDB `AccessRequests` | "Request a demo account" submissions and hourly rate counters | TTL 7 days (requests) and 2 hours (counters); client addresses are stored only as salted hashes; at most 3 requests per viewer address (IPv6 per /64) per hour and 50 pending in total; an admin can reject all pending at once |
 | Cognito group `admin` | Who may approve requests and invite or turn off reviewers | Granted only by AWS (the stack adds `DEMO_ADMIN_EMAIL`); the API role can create, enable and disable users but can't grant admin |
-| Lambda `Purge` + EventBridge rule | Daily | Deletes every plan drafted more than 12 hours ago |
+| Lambda `Purge` + EventBridge rule | Daily | Deletes every plan drafted more than 12 hours ago, and every expired access request and rate counter |
 | Secrets Manager `future-pkg/anthropic-api-key` | Created with a random value; `deploy:secret` puts the real key | The key is never in the template, outputs, function config or logs; the function gets the secret's name |
-| CloudWatch log groups | Two weeks' retention | No bodies, prompts, member text or query strings are logged |
+| CloudWatch log groups | Two weeks' retention, including CDK's provider functions | No bodies, prompts, member text or query strings are logged |
+| AWS Budget (optional) | Monthly cost budget, email at 50% and 100% actual and 100% forecast | Created only when `-c budgetEmail=…` or `BUDGET_ALERT_EMAIL` is set; `-c monthlyBudgetUsd=N` (default 20) |
 
 Why Lambda instead of App Runner or Fargate: App Runner no longer accepts new customers, and
 Fargate needs a load balancer (about $16/month) plus the task (about $18/month), over the $25
@@ -27,9 +28,9 @@ scripts/package_lambda.sh            # infra/build/lambda (wheels for python3.12
 pnpm --filter web build              # web/dist
 scripts/cdk.sh diff                  # every 12-digit number (account id) is masked in output
 scripts/cdk.sh deploy FuturePkgDemo --require-approval never
-uv run --no-project --with boto3==1.43.105 python scripts/put_secret.py
-uv run --no-project --with boto3==1.43.105 python scripts/demo_users.py invite someone@example.com
-uv run --no-project --with boto3==1.43.105 python scripts/demo_users.py disable-all   # after grading
+uv run --project api --frozen --only-group deploy python scripts/put_secret.py
+uv run --project api --frozen --only-group deploy python scripts/demo_users.py invite someone@example.com
+uv run --project api --frozen --only-group deploy python scripts/demo_users.py disable-all   # after grading
 # or, signed in as an admin: Admin → "Turn off all reviewer accounts"
 ```
 

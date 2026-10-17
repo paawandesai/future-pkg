@@ -1,6 +1,6 @@
 """Manage the invite-only demo coach accounts in the deployed Cognito pool.
 
-  uv run --no-project --with boto3==1.43.105 python scripts/demo_users.py invite EMAIL [COACH_ID]
+  uv run --project api --frozen --only-group deploy python scripts/demo_users.py invite EMAIL [COACH_ID]
   ... list | disable EMAIL | disable-all | delete EMAIL
 
 `invite` emails a temporary password straight from Cognito (it is never printed here). COACH_ID

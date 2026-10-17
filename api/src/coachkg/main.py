@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import hmac
 import json
 import logging
 import os
@@ -14,7 +15,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from coachkg.access import (
     AccessRequestIn,
@@ -27,9 +28,11 @@ from coachkg.access import (
     MemoryAccounts,
     RateLimited,
     client_key,
+    normalise_email,
+    viewer_network,
 )
 from coachkg.auth import Admin, current_admin, current_coach
-from coachkg.config import REPO_ROOT
+from coachkg.config import ORIGIN_HEADER, REPO_ROOT, origin_secret
 from coachkg.copilot import agent, data
 from coachkg.generator.pipeline import GenerateRequest, run
 from coachkg.llm import KEY_PROBLEM, LLM, LLMAuthError, LLMError, failure_message
@@ -37,7 +40,8 @@ from coachkg.member import Member
 from coachkg.plans import DynamoPlanStore, PlanStore, SqlitePlanStore
 from coachkg.world import World, get_world
 
-app = FastAPI(title="coachkg", docs_url=None, redoc_url=None, openapi_url=None)
+# No slash redirects: a redirect's Location would name the function URL behind CloudFront.
+app = FastAPI(title="coachkg", docs_url=None, redoc_url=None, openapi_url=None, redirect_slashes=False)
 
 
 @app.exception_handler(LLMAuthError)
@@ -55,16 +59,48 @@ if not access_log.handlers:
     access_log.propagate = False
 
 
+Next = Callable[[Request], Awaitable[Response]]
+
+
+def _route(request: Request) -> str:
+    return str(getattr(request.scope.get("route"), "path", "unmatched"))
+
+
 @app.middleware("http")
-async def log_and_tag(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
-    """One line per request: method, route template, status, milliseconds. No bodies, no query strings."""
+async def only_via_cloudfront(request: Request, call_next: Next) -> Response:
+    """Deployed, every request must carry the header CloudFront adds, so the function URL can't be
+    used directly (it would skip CloudFront's headers and let a caller choose X-Forwarded-For).
+    /healthz is exempt: the Lambda Web Adapter's readiness check calls it on localhost."""
+    if request.url.path != "/healthz":
+        try:
+            expected = origin_secret()
+        except Exception as exc:  # fail closed; the class is enough to diagnose
+            access_log.error("origin secret unavailable: %s", type(exc).__name__)
+            return JSONResponse(status_code=503, content={"detail": "Service unavailable"})
+        sent = request.headers.get(ORIGIN_HEADER, "")
+        if expected is not None and not hmac.compare_digest(sent.encode(), expected.encode()):
+            return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def log_and_tag(request: Request, call_next: Next) -> Response:
+    """One line per request: method, route template, status, milliseconds. No bodies, no query strings.
+
+    Also the catch-all for unhandled errors: it logs the route template and the exception class
+    only, because exception messages can carry what a user typed or what a model wrote.
+    """
     t0 = time.perf_counter()
-    response = await call_next(request)
-    route = request.scope.get("route")
-    path = getattr(route, "path", "unmatched")
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        access_log.error("unhandled %s on %s %s", type(exc).__name__, request.method, _route(request))
+        response = JSONResponse(status_code=500, content={"detail": "Something went wrong. Try again."})
     ms = round((time.perf_counter() - t0) * 1000)
-    access_log.info("%s %s %s %dms", request.method, path, response.status_code, ms)
+    access_log.info("%s %s %s %dms", request.method, _route(request), response.status_code, ms)
     response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    # Responses hold member data or account state: never stored by a browser or a shared cache.
+    response.headers.setdefault("Cache-Control", "no-store")
     return response
 
 
@@ -133,10 +169,16 @@ async def generate(
         raise HTTPException(status_code=404, detail="Member not found")
 
     async def stream() -> AsyncIterator[str]:
-        async for event in run(world, llm, req, member, coach):
-            if event["event"] == "plan":
-                plans.save(event["plan"])
-            yield _sse(event)
+        try:
+            async for event in run(world, llm, req, member, coach):
+                if event["event"] == "plan":
+                    plans.save(event["plan"])
+                yield _sse(event)
+        except Exception as exc:
+            # Headers are already sent, so the middleware can't answer; end the stream with an error
+            # event and log the class only.
+            access_log.error("unhandled %s in POST /api/generate stream", type(exc).__name__)
+            yield _sse({"event": "error", "message": "Something went wrong. Try again."})
 
     return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-store"})
 
@@ -284,10 +326,13 @@ def member_graph(member_id: str, coach: Coach, world: WorldDep) -> dict[str, Any
 @app.post("/api/access-requests", status_code=202)
 def request_access(req: AccessRequestIn, request: Request, access: AccessDep) -> dict[str, str]:
     """Public. The same answer whether or not the email already asked, so the form reveals nothing."""
-    # Right-most hops are added by CloudFront and the function URL; anything to their left is
-    # client-supplied, so it is ignored. The total cap on pending requests bounds what's left.
-    hops = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",") if h.strip()]
-    address = ",".join(hops[-2:]) or (request.client.host if request.client else None)
+    # CloudFront sets CloudFront-Viewer-Address itself, and the origin header check means every
+    # deployed request came through CloudFront. Without it (local runs) the right-most
+    # X-Forwarded-For hops are used; anything to their left is client-supplied, so it is ignored.
+    address = viewer_network(request.headers.get("cloudfront-viewer-address"))
+    if address is None:
+        hops = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",") if h.strip()]
+        address = ",".join(hops[-2:]) or (request.client.host if request.client else None)
     try:
         access.submit(req, client_key(address))
     except RateLimited:
@@ -309,6 +354,12 @@ def me(coach: Coach, authorization: Annotated[str | None, Header()] = None) -> d
 @app.get("/api/admin/requests")
 def admin_requests(admin: AdminDep, access: AccessDep) -> list[dict[str, Any]]:
     return [r.model_dump() for r in access.list()]
+
+
+@app.post("/api/admin/requests/reject-pending")
+def admin_reject_pending(admin: AdminDep, access: AccessDep) -> dict[str, int]:
+    """If the public form fills the pending cap, clear it in one go."""
+    return {"rejected": access.reject_pending(admin.email)}
 
 
 @app.post("/api/admin/requests/{request_id}/approve")
@@ -337,6 +388,11 @@ def admin_reject(request_id: str, admin: AdminDep, access: AccessDep) -> dict[st
 class InviteIn(BaseModel):
     email: str = Field(min_length=6, max_length=254)
 
+    @field_validator("email")
+    @classmethod
+    def _email(cls, v: str) -> str:
+        return normalise_email(v)  # a malformed address is a 422, never a 500
+
 
 @app.get("/api/admin/users")
 def admin_users(admin: AdminDep, accounts: AccountsDep) -> list[dict[str, Any]]:
@@ -345,7 +401,7 @@ def admin_users(admin: AdminDep, accounts: AccountsDep) -> list[dict[str, Any]]:
 
 @app.post("/api/admin/users", status_code=201)
 def admin_invite(body: InviteIn, admin: AdminDep, accounts: AccountsDep) -> dict[str, str]:
-    email = AccessRequestIn(email=body.email, reason="admin invite").email
+    email = body.email
     try:
         accounts.invite(email)
     except AccountExists:

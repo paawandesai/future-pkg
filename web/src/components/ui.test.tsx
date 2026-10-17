@@ -189,6 +189,72 @@ describe("GeneratorPage", () => {
     expect(screen.queryByRole("button", { name: "Confirm plan" })).toBeNull();
   });
 
+  it("answers a full-list blocker with the picked region and the mention it answers", async () => {
+    const blocked = {
+      event: "blocked",
+      read: [],
+      checks: [],
+      blockers: [
+        {
+          mention: "her thingy",
+          reason: "Pick the region to protect.",
+          pick_one: true,
+          candidates: [
+            { concept: "region:elbow", label: "Elbow" },
+            { concept: "region:knee", label: "Knee" },
+          ],
+        },
+      ],
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(sse([blocked]))
+      .mockResolvedValueOnce(sse([{ event: "plan", plan }]));
+    render(wrap(<GeneratorPage member={member} />));
+    fireEvent.change(screen.getByLabelText(/focus on/i), { target: { value: "her thingy hurts" } });
+    fireEvent.click(screen.getByRole("button", { name: "Draft plan" }));
+    const go = await screen.findByRole("button", { name: "Continue with this restriction" });
+    expect(screen.queryByLabelText(/All candidates/)).toBeNull();
+    expect((go as HTMLButtonElement).disabled).toBe(true); // the coach must pick a region
+    fireEvent.change(screen.getByLabelText(/Region to protect/), { target: { value: "region:knee" } });
+    fireEvent.click(go);
+    expect(await screen.findByText("Dumbbell Neutral-Grip Bench Press")).toBeTruthy();
+    const body = JSON.parse(String((fetchMock.mock.calls[1][1] as RequestInit).body));
+    expect(body.confirmed_regions).toEqual([{ region: "region:knee", side: null, mention: "her thingy" }]);
+  });
+
+  it("leaves the minutes empty so the request's minutes apply", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(sse([{ event: "plan", plan }]));
+    render(wrap(<GeneratorPage member={member} />));
+    const field = screen.getByLabelText(/Time available/) as HTMLInputElement;
+    expect(field.value).toBe("");
+    expect(field.required).toBe(false);
+    expect(field.placeholder).toContain("50");
+    fireEvent.change(screen.getByLabelText(/focus on/i), { target: { value: "45 minutes, upper body" } });
+    fireEvent.click(screen.getByRole("button", { name: "Draft plan" }));
+    expect(await screen.findByText("Dumbbell Neutral-Grip Bench Press")).toBeTruthy();
+    expect(JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body)).minutes).toBeNull();
+    // A number typed in the field is sent.
+    fireEvent.change(field, { target: { value: "30" } });
+    fetchMock.mockResolvedValueOnce(sse([{ event: "plan", plan }]));
+    fireEvent.click(screen.getByRole("button", { name: "Draft plan" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(String((fetchMock.mock.calls[1][1] as RequestInit).body)).minutes).toBe(30);
+  });
+
+  it("says confirming sends nothing to the member and shows clearance checks", async () => {
+    const check = 'Check clearance: the request mentions pregnancy ("pregnant").';
+    const withCheck = { ...plan, checks: [check], trace: { ...plan.trace, notes: [check] } };
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(sse([{ event: "plan", plan: withCheck }]));
+    render(wrap(<GeneratorPage member={member} />));
+    fireEvent.change(screen.getByLabelText(/focus on/i), { target: { value: "upper body, pregnant" } });
+    fireEvent.click(screen.getByRole("button", { name: "Draft plan" }));
+    expect(await screen.findByText(/nothing is sent to the member/)).toBeTruthy();
+    expect(screen.queryByText(/shared with the member/)).toBeNull();
+    expect(screen.getByLabelText("Check clearance").textContent).toContain("pregnancy");
+    expect(screen.getAllByText(check)).toHaveLength(1); // not repeated in the notes
+  });
+
   it("shows member text as a quote that can't lift the restriction", () => {
     render(wrap(<GeneratorPage member={member} />));
     expect(screen.getByText(/can't lift a restriction/)).toBeTruthy();

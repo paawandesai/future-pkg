@@ -18,7 +18,7 @@ from coachkg.kg.graph import NetworkXStore, build_movement_graph, ex_node
 from coachkg.kg.rules import Review, RuleSet, authored_alt_labels
 from coachkg.member import Clearance, Member, load_member
 from coachkg.resolver import Resolver
-from coachkg.safety import SafetyFilter, SafetyRequest
+from coachkg.safety import Confirmation, SafetyFilter, SafetyRequest
 
 SIGNED = Review(status="signed", drafted_by="model", reviewer="TEST", signed_on=date(2026, 10, 15))
 
@@ -244,3 +244,113 @@ def test_clearance_only_relaxes_knee_injuries(
     clear = Clearance(injury_id="inj_sh", cleared_low_impact=True, by="coach", at="2026-06-04")
     cleared = f.run(SafetyRequest(member=shoulder, clearances=[clear]))
     assert {e.id for e in cleared.candidates} == {e.id for e in base.candidates}
+
+
+def test_confirmed_region_answers_the_unresolved_mention(
+    catalog: list[Exercise], rules: RuleSet, jordan: Member
+) -> None:
+    """ "Continue with this restriction": the coach's region replaces the blocker for that mention."""
+    healthy = jordan.model_copy(update={"injuries": []})
+    f, resolver, store = _filter(catalog, rules)
+    mention = resolver.parse_body_mention("her thingy")
+    assert f.run(SafetyRequest(member=healthy, injury_mentions=[mention])).blocked
+    # The model may word the mention a little differently on the next run.
+    again = resolver.parse_body_mention("thingy")
+    confirm = Confirmation("region:knee", "left", "her thingy")
+    res = f.run(SafetyRequest(member=healthy, injury_mentions=[again], confirmed_regions=[confirm]))
+    assert not res.blocked
+    assert [(r.origin, r.regions, r.side) for r in res.restrictions] == [
+        ("coach-confirmed", frozenset({"region:knee"}), "left")
+    ]
+    assert not [e.name for e in res.candidates if _knee_loading(store, e)]
+
+
+def test_unconfirmed_mentions_still_block(catalog: list[Exercise], rules: RuleSet, jordan: Member) -> None:
+    healthy = jordan.model_copy(update={"injuries": []})
+    f, resolver, _ = _filter(catalog, rules)
+    mentions = [resolver.parse_body_mention("her thingy"), resolver.parse_body_mention("the wotsit")]
+    one = f.run(
+        SafetyRequest(
+            member=healthy,
+            injury_mentions=mentions,
+            confirmed_regions=[Confirmation("region:knee", None, "her thingy")],
+        )
+    )
+    assert [b.mention for b in one.blockers] == ["the wotsit"]
+    # A region without the mention it answers restricts, but answers no blocker.
+    bare = f.run(
+        SafetyRequest(
+            member=healthy, injury_mentions=mentions[:1], confirmed_regions=[Confirmation("region:knee")]
+        )
+    )
+    assert bare.blocked
+
+
+def test_no_close_match_offers_every_region(catalog: list[Exercise], rules: RuleSet, jordan: Member) -> None:
+    f, resolver, _ = _filter(catalog, rules)
+    res = f.run(SafetyRequest(member=jordan, injury_mentions=[resolver.parse_body_mention("her thingy")]))
+    b = res.blockers[0]
+    concepts = {c["concept"] for c in b.candidates}
+    assert b.pick_one
+    assert {"region:knee", "region:elbow", "region:wrist", "region:cervical_spine"} <= concepts
+    assert all(c.startswith("region:") for c in concepts) and "region:body" not in concepts
+
+
+def test_muscle_mention_restricts_the_joints_it_acts_on(
+    catalog: list[Exercise], rules: RuleSet, jordan: Member
+) -> None:
+    healthy = jordan.model_copy(update={"injuries": []})
+    f, resolver, store = _filter(catalog, rules)
+    res = f.run(
+        SafetyRequest(
+            member=healthy, injury_mentions=[resolver.parse_body_mention("pulled her right hamstring")]
+        )
+    )
+    assert not res.blocked
+    assert [(r.regions, r.side) for r in res.restrictions] == [
+        (frozenset({"region:knee", "region:hip"}), "right")
+    ]
+    assert not [e.name for e in res.candidates if _knee_loading(store, e)]
+
+
+@pytest.mark.parametrize(
+    "said",
+    ["her left knee is really painful today", "her knee is swollen and flared up", "kneecap really hurts"],
+)
+def test_fresh_pain_turns_the_clearance_off_for_this_draft(
+    catalog: list[Exercise], rules: RuleSet, jordan: Member, said: str
+) -> None:
+    clear = Clearance(injury_id="inj_knee_left", cleared_low_impact=True, by="coach", at="2026-06-04")
+    f, resolver, store = _filter(catalog, _sign(rules, *ALL))
+    cleared = f.run(SafetyRequest(member=jordan, clearances=[clear]))
+    assert [e.name for e in cleared.candidates if _knee_loading(store, e)]
+    assert not cleared.notes
+    mentions = [m for m in resolver.find_body_mentions(said) if m.injury]
+    assert mentions
+    res = f.run(SafetyRequest(member=jordan, clearances=[clear], injury_mentions=mentions, request_text=said))
+    assert not [e.name for e in res.candidates if _knee_loading(store, e)]
+    assert any("clearance" in n and "not applied" in n for n in res.notes)
+    assert any(r.origin == "request" for r in res.restrictions)
+
+
+@pytest.mark.parametrize("said", ["her left knee is still a bit sore", "her left knee is a little stiff"])
+def test_mild_ongoing_soreness_keeps_the_clearance(
+    catalog: list[Exercise], rules: RuleSet, jordan: Member, said: str
+) -> None:
+    clear = Clearance(injury_id="inj_knee_left", cleared_low_impact=True, by="coach", at="2026-06-04")
+    f, resolver, store = _filter(catalog, _sign(rules, *ALL))
+    mentions = resolver.find_body_mentions(said)
+    res = f.run(SafetyRequest(member=jordan, clearances=[clear], injury_mentions=mentions, request_text=said))
+    assert [e.name for e in res.candidates if _knee_loading(store, e)]
+    assert not res.notes
+
+
+def test_pain_elsewhere_keeps_the_knee_clearance(
+    catalog: list[Exercise], rules: RuleSet, jordan: Member
+) -> None:
+    clear = Clearance(injury_id="inj_knee_left", cleared_low_impact=True, by="coach", at="2026-06-04")
+    f, resolver, store = _filter(catalog, _sign(rules, *ALL))
+    mentions = [m for m in resolver.find_body_mentions("her right shoulder is sore") if m.injury]
+    res = f.run(SafetyRequest(member=jordan, clearances=[clear], injury_mentions=mentions))
+    assert [e.name for e in res.candidates if _knee_loading(store, e)]
+    assert not res.notes

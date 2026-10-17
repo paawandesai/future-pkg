@@ -12,9 +12,9 @@ import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from coachkg.generator import alternatives as alt
 from coachkg.generator import assemble, intent, selection, trace
@@ -24,27 +24,35 @@ from coachkg.kg.graph import region_node
 from coachkg.llm import LLM, CallStats, LLMError, failure_message
 from coachkg.member import Clearance, Member
 from coachkg.resolver import Resolution, normalise
-from coachkg.safety import SafetyRequest, Side
+from coachkg.safety import Confirmation, SafetyRequest, Side
 from coachkg.world import World
 
 log = logging.getLogger("coachkg.llm")
 
 POOL_SIZES: dict[assemble.BlockName, int] = {"warmup": 5, "main": 14, "cooldown": 5}
+MIN_MINUTES, MAX_MINUTES = 10, 120
+# A request has a handful of injuries and blockers at most; the caps keep the filter's work bounded.
+MAX_LIST = 10
 
 
 class ConfirmedRegion(BaseModel):
-    region: str = Field(description="Region id from a blocker's candidates, e.g. 'knee'")
+    region: str = Field(max_length=64, description="Region id from a blocker's candidates, e.g. 'knee'")
     side: Side | None = None
+    # The blocker's mention this answers. Without it the region is restricted but no blocker is
+    # answered, so an unconfirmed mention still blocks.
+    mention: str | None = Field(default=None, max_length=300)
 
 
 class GenerateRequest(BaseModel):
-    member_id: str
+    member_id: str = Field(max_length=64)
     prompt: str = Field(min_length=1, max_length=1000)
-    minutes: int | None = Field(default=None, ge=10, le=120)
+    minutes: int | None = Field(default=None, ge=MIN_MINUTES, le=MAX_MINUTES)
     # Injury ids the coach has cleared for low-impact loading (structured toggle, never from text).
-    cleared_low_impact: list[str] = Field(default_factory=list)
+    cleared_low_impact: list[Annotated[str, StringConstraints(max_length=64)]] = Field(
+        default_factory=list, max_length=MAX_LIST
+    )
     # The coach's answers to "which region did you mean?" blockers.
-    confirmed_regions: list[ConfirmedRegion] = Field(default_factory=list)
+    confirmed_regions: list[ConfirmedRegion] = Field(default_factory=list, max_length=MAX_LIST)
 
 
 @dataclass
@@ -180,6 +188,18 @@ async def run(
 
     # 2. Resolve phrases to graph concepts.
     mentions, hints = intent.merge_mentions(world.resolver, req.prompt, it)
+    # Conditions the filter can't adjust for: a note for the coach, never a relaxation. A mention
+    # that names only such a condition (no body word, no pain word) becomes the note instead of a
+    # blocker no region could answer.
+    terms = world.rules.clearance_terms
+    checks = intent.clearance_checks(terms, [req.prompt, *(it.injury_mentions or [])])
+    mentions, _ = intent.drop_clearance_only(terms, mentions)
+    check_notes = [
+        f'Check clearance: the request mentions {name} ("{word}"). The filter doesn\'t adjust '
+        "exercises for this, so check that the member is cleared for exercise before using this plan."
+        for name, word in checks
+    ]
+    notes += check_notes
     excl = intent.resolve_terms(world.resolver, it.exclusions, ["family", "exercise", "equipment"])
     equip = intent.resolve_terms(world.resolver, it.unavailable_equipment, ["equipment"])
     exclude_concepts: list[str] = []
@@ -234,6 +254,14 @@ async def run(
     yield {"event": "read", "rows": read}
 
     # 3. Safety filter (deterministic, per request, emits PROV records).
+    confirmations = [
+        Confirmation(c.region if c.region.startswith("region:") else region_node(c.region), c.side, c.mention)
+        for c in req.confirmed_regions
+    ]
+    regions = set(world.store.nodes("region"))
+    if bad := [c.region for c in confirmations if c.region not in regions]:
+        yield {"event": "error", "message": f"Unknown body region: {', '.join(sorted(set(bad)))}."}
+        return
     now = datetime.now(UTC).isoformat(timespec="seconds")
     clearances = [
         Clearance(injury_id=i.id, cleared_low_impact=True, by=coach_id, at=now)
@@ -247,20 +275,20 @@ async def run(
             exclude_concepts=sorted(set(exclude_concepts)),
             unavailable_equipment=sorted(set(unavailable)),
             clearances=clearances,
-            confirmed_regions=[
-                (c.region if c.region.startswith("region:") else region_node(c.region), c.side)
-                for c in req.confirmed_regions
-            ],
+            confirmed_regions=confirmations,
+            request_text=req.prompt,
         )
     )
+    notes += safety.notes
     yield {"event": "stage", "stage": "safety", "ms": timer.mark("safety")}
     if safety.blocked:
         yield {
             "event": "blocked",
             "blockers": [
-                {"mention": b.mention, "reason": b.reason, "candidates": b.candidates}
+                {"mention": b.mention, "reason": b.reason, "candidates": b.candidates, "pick_one": b.pick_one}
                 for b in safety.blockers
             ],
+            "checks": check_notes,
             "read": read,
         }
         return
@@ -298,8 +326,16 @@ async def run(
     scored = [x for x in scored if not x.disliked]
     kept = {x.exercise.id for x in scored}
     alts = [a for a in alts if a.use.id in kept]
-    minutes = req.minutes or it.minutes or int(member.preferences.get("preferred_session_minutes", 45))
-    if req.minutes and it.minutes and it.minutes != req.minutes:
+    said_minutes = it.minutes
+    if said_minutes is not None and not MIN_MINUTES <= said_minutes <= MAX_MINUTES:
+        said_minutes = min(MAX_MINUTES, max(MIN_MINUTES, said_minutes))
+        if not req.minutes:
+            notes.append(
+                f"The request's session length was read as {it.minutes} minutes; plans run "
+                f"{MIN_MINUTES} to {MAX_MINUTES} minutes, so this one uses {said_minutes}."
+            )
+    minutes = req.minutes or said_minutes or int(member.preferences.get("preferred_session_minutes", 45))
+    if req.minutes and said_minutes and said_minutes != req.minutes:
         notes.append(
             f"The request mentions {it.minutes} minutes; the plan uses the {req.minutes} in the time field."
         )
@@ -410,6 +446,8 @@ async def run(
         "label": "Coach decision support: a draft for the coach to review and confirm.",
         "minutes_requested": minutes,
         "minutes_planned": round(planned_s / 60, 1),
+        # Conditions to check clearance for before using the plan (also in trace.notes).
+        "checks": check_notes,
         "blocks": blocks,
         "trace": {
             "read": read,

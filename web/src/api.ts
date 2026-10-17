@@ -64,6 +64,7 @@ export const api = {
       call<AccessRequest>(`/api/admin/requests/${encodeURIComponent(id)}/approve`, post()),
     reject: (id: string) =>
       call<AccessRequest>(`/api/admin/requests/${encodeURIComponent(id)}/reject`, post()),
+    rejectPending: () => call<{ rejected: number }>("/api/admin/requests/reject-pending", post()),
     users: () => call<DemoUser[]>("/api/admin/users"),
     invite: (email: string) => call<{ email: string; status: string }>("/api/admin/users", post({ email })),
     setEnabled: (email: string, enabled: boolean) =>
@@ -95,7 +96,7 @@ export interface GenerateBody {
   prompt: string;
   minutes: number | null;
   cleared_low_impact: string[];
-  confirmed_regions: { region: string; side: string | null }[];
+  confirmed_regions: { region: string; side: string | null; mention?: string }[];
 }
 
 /** POST /api/generate and yield server-sent events as they arrive. */

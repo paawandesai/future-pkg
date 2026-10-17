@@ -12,9 +12,10 @@ filter stricter, never allow anything (see below).
 | `kg/rules/families.yaml` | Exercise families (`variant-of`) and family hierarchy (`is-a`) | Yes (exclusion requests) |
 | `kg/authored/exercises.yaml` | Exercises we wrote as structured fields | Yes (their joint loads) |
 | `kg/rules/equipment.yaml` | Equipment substitutes | No, ranking only |
-| `kg/rules/muscle_actions.yaml` | Muscle group to joint actions | No. Reference data, not loaded by the app yet |
+| `kg/rules/muscle_actions.yaml` | Muscle group to joint actions | Restrictive only: an injured muscle restricts the joints it acts on |
 | `kg/rules/recovery.yaml` | Self-administered recovery and referral roles | No. Reference data, not loaded by the app yet |
 | `kg/rules/programming.yaml` | Default sets, reps, rest, tempo and warm-up/cool-down patterns | No, plan assembly only |
+| `kg/vocab/clearance_terms.yaml` (unsigned) | Conditions that need clearance (pregnancy, postpartum, high blood pressure, dizziness, heart or breathing conditions, concussion and similar) | No. A hit only adds a "check clearance" note to the plan; it never removes or allows an exercise |
 
 ## Signing a file
 
@@ -49,7 +50,12 @@ Unsigned facts may make the filter stricter, never looser:
 - Allowing an exercise needs dataset facts or signed facts. Exercises whose joint loads come only
   from unsigned files (the authored exercises) are not offered as candidates.
 - A coach's low-impact clearance relaxes knee loading only for exercises whose attributes come
-  from a signed file. Deep loaded knee flexion and high impact stay excluded even then.
+  from a signed file. Deep loaded knee flexion and high impact stay excluded even then. If the
+  request itself reports pain at the cleared injury ("her knee is really painful today"), the
+  clearance is not applied to that draft and the plan says so.
+- When the coach picks a region for a blocked mention and presses "Continue with this
+  restriction", that region is restricted and the draft goes ahead; mentions the coach hasn't
+  answered still block.
 - Injury regions that cannot be linked to a dataset joint through trusted edges block drafting and
   ask the coach to confirm the region (fail closed).
 - Programming defaults (`programming.yaml`) are not safety facts. The file was signed by PD on

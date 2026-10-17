@@ -12,6 +12,13 @@ from coachkg.kg.rules import RuleSet, load_rules
 DATA_DIR = REPO_ROOT / "data"
 
 
+@pytest.fixture(autouse=True)
+def _mock_auth(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The app defaults to Cognito auth; the offline suite runs as the local mock unless a test
+    sets AUTH_MODE itself."""
+    monkeypatch.setenv("AUTH_MODE", "mock")
+
+
 @pytest.fixture(scope="session")
 def data_dir() -> Path:
     if not (DATA_DIR / "exercises.json").exists():
