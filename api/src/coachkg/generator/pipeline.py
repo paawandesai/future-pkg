@@ -276,6 +276,7 @@ async def run(
             unavailable_equipment=sorted(set(unavailable)),
             clearances=clearances,
             confirmed_regions=confirmations,
+            request_text=req.prompt,
         )
     )
     notes += safety.notes

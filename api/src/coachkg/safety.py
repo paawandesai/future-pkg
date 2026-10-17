@@ -15,6 +15,7 @@ runs. Nothing downstream may add reasons the filter did not record.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -87,6 +88,21 @@ class SafetyRequest:
     unavailable_equipment: list[str] = field(default_factory=list)  # equipment:* removed by request
     clearances: list[Clearance] = field(default_factory=list)
     confirmed_regions: list[Confirmation] = field(default_factory=list)  # coach answers
+    request_text: str = ""  # the coach's words, read only to spot acute pain at a cleared injury
+
+
+# Words that mean the injury is worse than when the coach cleared it. Mild, ongoing words ("a bit
+# sore", "stiff", "bothering her") describe the state the clearance was given in, so they keep it.
+_ACUTE = re.compile(
+    r"\b(pain(ful)?|hurt(s|ing)?|swollen|swelling|flare[sd]?|flared|flaring|flare-up|worse|"
+    r"sharp|throbbing|inflamed|injur(ed|y)|re-?injur\w*|tweaked|aggravated|gave out|giving way|"
+    r"unstable|locked|locking|limping|can't bear|cannot bear|agony|acute|really sore|very sore)\b",
+    re.I,
+)
+
+
+def is_acute(text: str) -> bool:
+    return bool(_ACUTE.search(text))
 
 
 @dataclass
@@ -365,9 +381,13 @@ class SafetyFilter:
                 )
             )
 
-        # 4. Fresh pain in the request at a region the coach cleared turns that clearance off for
+        # 4. Acute pain in the request at a region the coach cleared turns that clearance off for
         # this draft: the request's restriction is kept (it has no clearance) and the coach is told.
-        cleared_ids = {c.injury_id for c in req.clearances if c.cleared_low_impact}
+        # Mild, ongoing soreness is what the coach cleared, so it is absorbed into the record below.
+        said = req.request_text or " ".join(m.text for m in req.injury_mentions)
+        cleared_ids = (
+            {c.injury_id for c in req.clearances if c.cleared_low_impact} if is_acute(said) else set()
+        )
         overlaps: dict[str, list[Restriction]] = {}
         for rec in out:
             if rec.injury_id not in cleared_ids:

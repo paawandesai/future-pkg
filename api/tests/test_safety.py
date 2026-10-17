@@ -314,7 +314,8 @@ def test_muscle_mention_restricts_the_joints_it_acts_on(
 
 
 @pytest.mark.parametrize(
-    "said", ["her left knee is really painful today", "her knee is swollen and flared up", "kneecap is sore"]
+    "said",
+    ["her left knee is really painful today", "her knee is swollen and flared up", "kneecap really hurts"],
 )
 def test_fresh_pain_turns_the_clearance_off_for_this_draft(
     catalog: list[Exercise], rules: RuleSet, jordan: Member, said: str
@@ -326,10 +327,22 @@ def test_fresh_pain_turns_the_clearance_off_for_this_draft(
     assert not cleared.notes
     mentions = [m for m in resolver.find_body_mentions(said) if m.injury]
     assert mentions
-    res = f.run(SafetyRequest(member=jordan, clearances=[clear], injury_mentions=mentions))
+    res = f.run(SafetyRequest(member=jordan, clearances=[clear], injury_mentions=mentions, request_text=said))
     assert not [e.name for e in res.candidates if _knee_loading(store, e)]
     assert any("clearance" in n and "not applied" in n for n in res.notes)
     assert any(r.origin == "request" for r in res.restrictions)
+
+
+@pytest.mark.parametrize("said", ["her left knee is still a bit sore", "her left knee is a little stiff"])
+def test_mild_ongoing_soreness_keeps_the_clearance(
+    catalog: list[Exercise], rules: RuleSet, jordan: Member, said: str
+) -> None:
+    clear = Clearance(injury_id="inj_knee_left", cleared_low_impact=True, by="coach", at="2026-06-04")
+    f, resolver, store = _filter(catalog, _sign(rules, *ALL))
+    mentions = resolver.find_body_mentions(said)
+    res = f.run(SafetyRequest(member=jordan, clearances=[clear], injury_mentions=mentions, request_text=said))
+    assert [e.name for e in res.candidates if _knee_loading(store, e)]
+    assert not res.notes
 
 
 def test_pain_elsewhere_keeps_the_knee_clearance(
