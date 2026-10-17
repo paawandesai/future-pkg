@@ -1,4 +1,5 @@
-# Local run only (docker compose up). The AWS deploy packages the same code for Lambda instead.
+# Local run only (docker compose up, which sets AUTH_MODE=mock). Without AUTH_MODE the API expects
+# Cognito and refuses every request. The AWS deploy packages the same code for Lambda instead.
 FROM ghcr.io/astral-sh/uv:0.11.32-python3.12-trixie-slim
 ENV UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app/api
@@ -12,4 +13,4 @@ COPY fixtures /app/fixtures
 RUN useradd --create-home app && mkdir -p /app/.cache && chown app /app/.cache
 USER app
 EXPOSE 8000
-CMD ["/app/api/.venv/bin/uvicorn", "coachkg.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+CMD ["/app/api/.venv/bin/uvicorn", "coachkg.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--no-server-header"]

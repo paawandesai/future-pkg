@@ -18,7 +18,7 @@ cat > "$out/run.sh" <<'RUN'
 # Started by the Lambda Web Adapter; uvicorn's own access log is off (main.py logs ids/status/timing).
 export PYTHONPATH="/var/task:/var/runtime:${PYTHONPATH:-}"
 exec /var/lang/bin/python -m uvicorn coachkg.main:app --host 127.0.0.1 --port "${PORT:-8080}" \
-  --no-access-log --log-level warning
+  --no-access-log --no-server-header --log-level warning
 RUN
 chmod 755 "$out/run.sh"
 echo "lambda package: $(du -sh "$out" | cut -f1)"

@@ -34,7 +34,9 @@ def load_settings() -> Settings:
         kg_dir=Path(os.environ.get("KG_DIR", REPO_ROOT / "kg")),
         fixtures_dir=Path(os.environ.get("FIXTURES_DIR", REPO_ROOT / "fixtures")),
         as_of_date=date.fromisoformat(os.environ.get("AS_OF_DATE", "2026-06-04")),
-        auth_mode=os.environ.get("AUTH_MODE", "mock"),
+        # Unset means cognito, so an image run without configuration refuses every request instead
+        # of serving mock sign-in. Local runs (compose, make dev, tests) set AUTH_MODE=mock themselves.
+        auth_mode=os.environ.get("AUTH_MODE", "cognito"),
         llm_model_fast=os.environ.get("LLM_MODEL_FAST") or None,
         llm_model_main=os.environ.get("LLM_MODEL_MAIN") or None,
     )
@@ -54,6 +56,17 @@ def anthropic_api_key() -> str | None:
     if key:
         return key
     secret_id = os.environ.get("ANTHROPIC_SECRET_ID")
+    return _secret_value(secret_id) if secret_id else None
+
+
+# CloudFront adds this header to every request it sends the API; its value is a generated secret
+# (ORIGIN_SECRET_ID names it). Requests without it came straight to the function URL and are refused.
+ORIGIN_HEADER = "x-origin-verify"
+
+
+def origin_secret() -> str | None:
+    """The value CloudFront sends, when deployed. Unset locally, so mock and Docker runs need no header."""
+    secret_id = os.environ.get("ORIGIN_SECRET_ID")
     return _secret_value(secret_id) if secret_id else None
 
 
