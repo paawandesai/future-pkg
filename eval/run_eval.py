@@ -4,6 +4,9 @@ Usage: cd api && uv run python ../eval/run_eval.py
 Needs ANTHROPIC_FUTURE_API_KEY, LLM_MODEL_FAST and LLM_MODEL_MAIN. Checks are deterministic
 (graph facts and regexes), never a model grading a model. Every prompt sent to the model is
 recorded in memory so the run can check what never reaches it; nothing is written but results.
+Results hold the model's answers with any 24+ character span of the assessment's member text
+(chat lines, captions, notes) replaced by a placeholder, because that text is not ours to
+redistribute (NOTICE). `--redact` applies the same to the stored results without a model call.
 """
 
 from __future__ import annotations
@@ -25,6 +28,9 @@ from coachkg.member import Member
 from coachkg.world import World, get_world
 
 EVAL = Path(__file__).resolve().parent
+REPO = EVAL.parent
+MIN_SPAN = 24  # characters of member text that count as quoting it
+PLACEHOLDER = "[member text]"
 READ_TOOLS = {t["name"] for t in agent.TOOLS}
 NEGATION = re.compile(
     r"\b(not|no|nothing|none|neither|nor|never|cannot|can't|doesn't|isn't|hasn't|unconfirmed|claims?|says?|"
@@ -50,6 +56,59 @@ class RecordingLLM(LLM):
     async def create(self, **kw: Any) -> Any:  # type: ignore[override]
         self.sent.append(json.dumps({k: kw[k] for k in ("system", "messages")}, default=str))
         return await super().create(**kw)
+
+
+def member_text(record: dict[str, Any]) -> list[str]:
+    """The free text of a member record that results must not quote: chat, captions and notes."""
+    out = [str(m.get("text") or "") for m in record.get("chat_history", [])]
+    out += [
+        str(a.get("caption") or "")
+        for m in record.get("chat_history", [])
+        for a in m.get("attachments") or []
+    ]
+    out += [str(i.get("notes") or "") for i in record.get("injuries", [])]
+    out.append(str((record.get("preferences") or {}).get("notes") or ""))
+    return [t for t in out if len(t) >= MIN_SPAN]
+
+
+def our_text() -> str:
+    """Text we wrote (rules, authored exercises, alignments). A span also found here is ours."""
+    return "\n".join(p.read_text() for p in sorted((REPO / "kg").rglob("*.yaml")))
+
+
+def leaked_spans(text: str, sources: list[str], ours: str = "") -> list[tuple[int, int, int]]:
+    """(source index, start, length) of each maximal span of >= MIN_SPAN characters of a source
+    that appears in `text`, skipping spans that start with text we wrote ourselves."""
+    found = []
+    for k, src in enumerate(sources):
+        i = 0
+        while i <= len(src) - MIN_SPAN:
+            window = src[i : i + MIN_SPAN]
+            if window in text and window not in ours:
+                n = MIN_SPAN
+                while i + n < len(src) and src[i : i + n + 1] in text:
+                    n += 1
+                found.append((k, i, n))
+                i += n
+            else:
+                i += 1
+    return found
+
+
+def redact(value: Any, sources: list[str], ours: str = "") -> Any:
+    """Replace quoted member text in every string of a results structure with PLACEHOLDER."""
+    if isinstance(value, str):
+        spans = sorted(
+            {sources[k][i : i + n] for k, i, n in leaked_spans(value, sources, ours)}, key=len, reverse=True
+        )
+        for span in spans:
+            value = value.replace(span, PLACEHOLDER)
+        return value
+    if isinstance(value, list):
+        return [redact(v, sources, ours) for v in value]
+    if isinstance(value, dict):
+        return {k: redact(v, sources, ours) for k, v in value.items()}
+    return value
 
 
 def member_for(world: World, case: dict[str, Any]) -> Member:
@@ -135,6 +194,25 @@ def trace_summary(plan: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def text_checks(what: str, text: str, exp: dict[str, Any]) -> list[str]:
+    """claims_not: no unnegated sentence asserts it; answer_not: never appears; answer_has: must
+    appear (each entry is a regex, matched case-insensitively)."""
+    fails = []
+    for pat in exp.get("claims_not", []):
+        # Text the answer quotes (an injected line it reports and ignores) is not its claim.
+        unquoted = QUOTED.sub('"…"', text)
+        for sentence in re.split(r"(?<=[.!?])\s+|\n", unquoted):
+            if re.search(pat, sentence, re.IGNORECASE) and not NEGATION.search(sentence):
+                fails.append(f"{what} asserts /{pat}/: {sentence.strip()[:120]}")
+    for pat in exp.get("answer_not", []):
+        if re.search(pat, text, re.IGNORECASE):
+            fails.append(f"{what} matched /{pat}/")
+    for pat in exp.get("answer_has", []):
+        if not re.search(pat, text, re.IGNORECASE):
+            fails.append(f"{what} lacks /{pat}/")
+    return fails
+
+
 async def run_case(world: World, llm: RecordingLLM, case: dict[str, Any]) -> dict[str, Any]:
     exp = case["expect"]
     member = member_for(world, case)
@@ -165,24 +243,30 @@ async def run_case(world: World, llm: RecordingLLM, case: dict[str, Any]) -> dic
         )
     if case.get("surface") in ("copilot", "both"):
         try:
+            history = [agent.Turn(t["role"], t["text"]) for t in case.get("history", [])]
             ans = await agent.ask(
-                llm, world.settings.llm_model_main or "", world.context(member), case["question"]
+                llm, world.settings.llm_model_main or "", world.context(member), case["question"], history
             )
             out["answer"] = ans.text
             out["tools_used"] = ans.tools_used
+            out["guarded"] = ans.guarded
             if not set(ans.tools_used) <= READ_TOOLS:
                 out["fails"].append(f"unexpected tools {ans.tools_used}")
-            for pat in exp.get("claims_not", []):
-                # Text the answer quotes (an injected line it reports and ignores) is not its claim.
-                unquoted = QUOTED.sub('"…"', ans.text)
-                for sentence in re.split(r"(?<=[.!?])\s+|\n", unquoted):
-                    if re.search(pat, sentence, re.IGNORECASE) and not NEGATION.search(sentence):
-                        out["fails"].append(f"answer asserts /{pat}/: {sentence.strip()[:120]}")
-            for pat in exp.get("answer_not", []):
-                if re.search(pat, ans.text, re.IGNORECASE):
-                    out["fails"].append(f"answer matched /{pat}/")
+            for tool in exp.get("tools_include", []):
+                if tool not in ans.tools_used:
+                    out["fails"].append(f"didn't call {tool}")
+            out["fails"] += text_checks("answer", ans.text, exp)
         except LLMError as exc:
             out["fails"].append(f"copilot error: {exc}")
+    if case.get("surface") == "draft":
+        try:
+            draft = await agent.congratulation_draft(
+                llm, world.settings.llm_model_main or "", world.context(member)
+            )
+            out["answer"] = draft["draft"] or ""
+            out["fails"] += text_checks("draft", out["answer"], exp)
+        except LLMError as exc:
+            out["fails"].append(f"draft error: {exc}")
     sent = "\n".join(llm.sent[sent_before:])
     for s in exp.get("prompt_never_contains", []):
         if s in sent:
@@ -198,6 +282,7 @@ async def main() -> int:
         "adversarial": yaml.safe_load((EVAL / "adversarial" / "cases.yaml").read_text()),
     }
     results = {name: [await run_case(world, llm, c) for c in cases] for name, cases in suites.items()}
+    results = redact(results, assessment_text(), our_text())
     stamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     (EVAL / "results" / "latest.json").write_text(json.dumps({"run_at": stamp, **results}, indent=1) + "\n")
     lines = [
@@ -229,6 +314,20 @@ async def main() -> int:
     print("\n".join(lines))
     render_traces()
     return 1 if failed else 0
+
+
+def assessment_text() -> list[str]:
+    return member_text(json.loads((REPO / "data" / "member-context.json").read_text()))
+
+
+def redact_stored() -> None:
+    """Apply the redaction to results already on disk (no model call)."""
+    sources, ours = assessment_text(), our_text()
+    path = EVAL / "results" / "latest.json"
+    path.write_text(json.dumps(redact(json.loads(path.read_text()), sources, ours), indent=1) + "\n")
+    for name in ("latest.md", "traces.md"):
+        md = EVAL / "results" / name
+        md.write_text(redact(md.read_text(), sources, ours))
 
 
 def render_traces() -> None:
@@ -272,5 +371,8 @@ def render_traces() -> None:
 if __name__ == "__main__":
     if sys.argv[1:] == ["--render"]:
         render_traces()
+        sys.exit(0)
+    if sys.argv[1:] == ["--redact"]:
+        redact_stored()
         sys.exit(0)
     sys.exit(asyncio.run(main()))
