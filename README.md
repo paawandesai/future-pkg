@@ -277,8 +277,9 @@ through the tool results it asks for, plus at most six earlier turns.
   Not sent." Copying a draft adds a line for the member: "(Written with help from AI and reviewed
   by your coach.)"
 - **Labs and DEXA are shown as values only.** They are never churn inputs. The copilot's prompt
-  says not to interpret them. Code also checks every answer that used the labs or biomarker tools:
-  if the answer reads a value (for example "elevated", "normal range" or "suggests"), it is
+  says not to interpret them. Code also checks every answer, whichever tools it used: when a lab,
+  DEXA, biomarker or weight term or unit appears in the answer, the question or an earlier turn,
+  and the answer reads a value (for example "high", "on the low side" or "may explain"), it is
   replaced with a values-only listing written by code.
 - **No cross-member caching** of safety decisions.
 - **Logs** hold method, route template, status and milliseconds. When a model call fails they also
