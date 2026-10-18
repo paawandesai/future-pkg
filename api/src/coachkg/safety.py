@@ -244,14 +244,15 @@ class SafetyFilter:
     def _answered(self, mention: str, confirmations: list[Confirmation]) -> list[Confirmation]:
         """Confirmations that answer this mention. The model may word the same mention a little
         differently on the next run ("knee surgery" / "knee surgery three weeks ago"), so one
-        phrase containing the other counts; anything else stays blocked."""
+        phrase starting with the other, word for word, counts. "her thing" doesn't answer "her
+        other thing"; anything else stays blocked."""
         key = self._mention_key(mention)
         out = []
         for c in confirmations:
             if not c.mention:
                 continue
             ck = self._mention_key(c.mention)
-            if ck and key and (ck == key or f" {ck} " in f" {key} " or f" {key} " in f" {ck} "):
+            if ck and key and (ck == key or f"{key} ".startswith(f"{ck} ") or f"{ck} ".startswith(f"{key} ")):
                 out.append(c)
         return out
 

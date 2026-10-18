@@ -330,6 +330,17 @@ describe("CopilotPage", () => {
     expect(screen.getByText(/not interpreted/)).toBeTruthy();
   });
 
+  it("doesn't label a generated member's view as a provided brief when the record has none", () => {
+    const noBrief: MemberView = {
+      ...member,
+      brief: { generated_for: null, morning_tasks: [] },
+      churn: { ...member.churn, brief_text: null },
+    };
+    render(wrap(<CopilotPage member={noBrief} />));
+    expect(screen.getByText(/has no morning brief/)).toBeTruthy();
+    expect(screen.queryByText(/Provided brief/)).toBeNull();
+  });
+
   it("keeps the thread and sends earlier turns with a follow-up", async () => {
     const answer = (text: string) =>
       Response.json({ answer: text, charts: [], tools_used: ["get_adherence"], disclosure: "AI-generated." });

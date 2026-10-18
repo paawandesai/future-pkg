@@ -277,6 +277,15 @@ def test_unconfirmed_mentions_still_block(catalog: list[Exercise], rules: RuleSe
         )
     )
     assert [b.mention for b in one.blockers] == ["the wotsit"]
+    # Answering one vague mention doesn't answer another that happens to contain its words.
+    other = [resolver.parse_body_mention("her other thingy on the left")]
+    assert f.run(
+        SafetyRequest(
+            member=healthy,
+            injury_mentions=other,
+            confirmed_regions=[Confirmation("region:knee", None, "her thingy")],
+        )
+    ).blocked
     # A region without the mention it answers restricts, but answers no blocker.
     bare = f.run(
         SafetyRequest(
