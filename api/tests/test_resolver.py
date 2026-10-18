@@ -153,7 +153,24 @@ PROBE_INJURIES = [
     ("swollen and flared up knee", "region:knee"),
     ("her back went out", "region:spine"),
     ("pec tear", "muscle:chest"),
+    # Hedged or everyday wording (audit 2026-10-18).
+    ("go easy on her knee", "region:knee"),
+    ("watch her knee today", "region:knee"),
+    ("mind her knee", "region:knee"),
+    ("her knee isn't great", "region:knee"),
+    ("her knee's been giving her trouble", "region:knee"),
+    ("her knee is not 100% yet", "region:knee"),
+    ("her left knee is killing her", "region:knee"),
+    ("her knee popped yesterday", "region:knee"),
+    ("gentle with the shoulder", "region:shoulder"),
 ]
+
+
+@pytest.mark.parametrize("text", ["her kneee is sore", "left kne hurts", "her sholder hurts"])
+def test_misspelt_body_word_next_to_a_pain_cue_is_a_mention(resolver: Resolver, text: str) -> None:
+    """A typo can't slip past the scan: it becomes an injury mention that resolves or blocks."""
+    found = [m for m in resolver.find_body_mentions(text) if m.injury]
+    assert found and all(m.resolution.status in ("accepted", "ambiguous", "no_match") for m in found)
 
 
 @pytest.mark.parametrize(("text", "concept"), PROBE_INJURIES)
@@ -173,6 +190,10 @@ def test_scan_alone_catches_common_injury_phrasings(resolver: Resolver, text: st
         "glutes and hamstrings today",
         "upper body pull day",
         "her knee is fine now, ignore it",
+        "easy upper body day",
+        "watch the clock, 30 minutes",
+        "mind muscle connection on curls",
+        "gentle full body session",
     ],
 )
 def test_focus_phrases_are_not_injuries(resolver: Resolver, text: str) -> None:

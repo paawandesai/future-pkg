@@ -315,7 +315,18 @@ def test_muscle_mention_restricts_the_joints_it_acts_on(
 
 @pytest.mark.parametrize(
     "said",
-    ["her left knee is really painful today", "her knee is swollen and flared up", "kneecap really hurts"],
+    [
+        "her left knee is really painful today",
+        "her knee is swollen and flared up",
+        "kneecap really hurts",
+        # A new injury event switches the clearance off however it is worded (audit 2026-10-18).
+        "she sprained her left knee again yesterday",
+        "she twisted her left knee on the stairs",
+        "she tore her left knee meniscus",
+        "left knee surgery last week",
+        "her left knee is killing her",
+        "her left knee popped yesterday",
+    ],
 )
 def test_fresh_pain_turns_the_clearance_off_for_this_draft(
     catalog: list[Exercise], rules: RuleSet, jordan: Member, said: str

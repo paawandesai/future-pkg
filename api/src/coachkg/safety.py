@@ -100,7 +100,11 @@ class SafetyRequest:
 _ACUTE = re.compile(
     r"\b(pain(ful)?|hurt(s|ing)?|swollen|swelling|flare[sd]?|flared|flaring|flare-up|worse|"
     r"sharp|throbbing|inflamed|injur(ed|y)|re-?injur\w*|tweaked|aggravated|gave out|giving way|"
-    r"unstable|locked|locking|limping|can't bear|cannot bear|agony|acute|really sore|very sore)\b",
+    r"unstable|locked|locking|limping|can't bear|cannot bear|agony|acute|really sore|very sore|"
+    # A new injury event, however it is worded ("sprained it again", "tore her meniscus").
+    r"sprain(s|ed)?|strain(s|ed)?|twist(s|ed)?|rolled|tore|torn|tear|ruptured?|broke|broken|"
+    r"fractured?|dislocat\w*|surgery|surgeries|operat(ed|ion)|post-?op|popped|killing|wrecked|"
+    r"banged|buckled|gave way|gives way|collapsed|fell)\b",
     re.I,
 )
 
