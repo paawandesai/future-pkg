@@ -20,7 +20,11 @@ A deliberate lint error blocks the commit (checked: eslint `no-unused-vars` stop
   running interruptible pipelines (verified: a second push cancelled the first).
 - Jobs skip when their area did not change (`rules: changes` with `compare_to: refs/heads/main`).
 - Jobs start as soon as their inputs are ready (`needs: []`; `web:build` waits only on `web:typecheck`).
-- 15 minute default timeout, `GIT_DEPTH=20`, workers capped at 2, Node heap capped at 1536 MB.
+- 15 minute default timeout, `GIT_DEPTH=20` (except `gitleaks`, which fetches the whole history),
+  workers capped at 2, Node heap capped at 1536 MB.
+- `kg:live` checks every SNOMED, Uberon and Wikidata identifier against its source on every
+  pipeline, and the deploy jobs wait for it. If NCI EVS, EBI OLS or Wikidata is down, the
+  pipeline fails until it is back (one automatic retry).
 - Each job prints `peak_memory_mb` from its cgroup as its last script line.
 
 ### Dependencies: cache plus re-sync instead of an install job
@@ -58,4 +62,7 @@ areas. Queue time (140–400 s) came from the runner being busy, not from this p
 ## Recommended project settings (not changed)
 
 - Container registry cleanup policy: keep the last 5 tags, remove tags older than 14 days.
-- A weekly schedule for the heavy jobs (`eval:live`, `kg:live`); both already have schedule rules.
+- A weekly schedule for `eval:live`, which already has a schedule rule.
+- OIDC for the deploy jobs instead of the static keys of the `future-pkg-deployer` IAM user: an
+  IAM role that trusts the GitLab instance's OIDC provider, scoped to protected `main`. It needs
+  the AWS account owner to create the provider and role, so it is an owner step.

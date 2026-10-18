@@ -375,8 +375,10 @@ file a person signs, and only the last one changes what the safety filter exclud
   that quoted member chat lines from that data word for word. A later commit replaced the file and
   a test now fails if eval results carry long spans of member text, but the history is unedited,
   so the old file is still in it.
-- **The SNOMED live check needs NCI EVS to be reachable.** It runs when alignments change and on a
-  schedule, not on every push.
+- **The identifier checks need NCI EVS, EBI OLS and Wikidata to be reachable.** They run on every
+  pipeline, so an outage there fails the build until it is back.
+- **Deploys use an IAM user's access keys**, held as masked, protected CI variables. OIDC would
+  remove the long-lived keys; it needs the AWS account owner to set up (see [docs/ci.md](docs/ci.md)).
 - **Five of the six demo members are generated**, as is a seventh under another coach. Each
   record says so in its `_note`, and the UI marks generated inputs.
 - **Login events are generated** (`fixtures/generated-login-events.json`) because the dataset has
