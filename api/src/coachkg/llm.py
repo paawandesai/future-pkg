@@ -15,6 +15,7 @@ from typing import Any, Literal, TypeVar
 import anthropic
 from pydantic import BaseModel, ValidationError
 
+from coachkg import health
 from coachkg.config import anthropic_api_key
 
 T = TypeVar("T", bound=BaseModel)
@@ -132,6 +133,7 @@ class LLM:
         if resp.stop_reason == "max_tokens" or resp.parsed_output is None:
             raise LLMError(f"{purpose}: no structured output")
         stats = CallStats(purpose, model, resp.model, ms, resp.usage.input_tokens, resp.usage.output_tokens)
+        health.mark("last_model_call_ok_at")
         return resp.parsed_output, stats
 
     async def create(
@@ -165,4 +167,5 @@ class LLM:
             raise LLMAuthError(f"copilot: {type(exc).__name__}") from exc
         except anthropic.APIError as exc:
             raise LLMError(f"copilot: {type(exc).__name__}") from exc
+        health.mark("last_model_call_ok_at")
         return resp, int((time.perf_counter() - t0) * 1000)

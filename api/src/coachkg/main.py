@@ -17,6 +17,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
+from coachkg import health
 from coachkg.access import (
     AccessRequestIn,
     AccessStore,
@@ -26,13 +27,14 @@ from coachkg.access import (
     DynamoAccessStore,
     MemoryAccessStore,
     MemoryAccounts,
+    ModelBudgetSpent,
     RateLimited,
     client_key,
     normalise_email,
     viewer_network,
 )
-from coachkg.auth import Admin, current_admin, current_coach
-from coachkg.config import ORIGIN_HEADER, REPO_ROOT, origin_secret
+from coachkg.auth import Admin, current_admin, current_caller, current_coach
+from coachkg.config import ORIGIN_HEADER, REPO_ROOT, load_settings, origin_secret
 from coachkg.copilot import agent, data
 from coachkg.generator.pipeline import GenerateRequest, run
 from coachkg.llm import KEY_PROBLEM, LLM, LLMAuthError, LLMError, failure_message
@@ -140,12 +142,31 @@ LLMDep = Annotated[LLM, Depends(get_llm)]
 AccessDep = Annotated[AccessStore, Depends(get_access)]
 AccountsDep = Annotated[Accounts, Depends(get_accounts)]
 AdminDep = Annotated[Admin, Depends(current_admin)]
+Caller = Annotated[str, Depends(current_caller)]
+
+
+def _spend(access: AccessStore, caller: str) -> None:
+    """One model-backed request (a draft, an answer or a congratulation draft) against the budget."""
+    try:
+        access.spend_model_call(caller)
+    except ModelBudgetSpent:
+        raise HTTPException(
+            status_code=429,
+            detail="The demo's model budget for now is used up. Try again in an hour.",
+        ) from None
 
 
 @app.get("/healthz")
-def healthz() -> dict[str, str]:
-    """Configuration-level health only: never calls a model or reads a secret."""
-    return {"status": "ok"}
+def healthz() -> dict[str, Any]:
+    """Configuration and last-success times only: never calls a model, reads a secret or names a
+    model id."""
+    settings = load_settings()
+    return {
+        "status": "ok",
+        "auth_mode": settings.auth_mode,
+        "models_configured": bool(settings.llm_model_fast and settings.llm_model_main),
+        **health.snapshot(),
+    }
 
 
 @app.get("/api/members")
@@ -163,17 +184,25 @@ def _sse(event: dict[str, Any]) -> str:
 
 @app.post("/api/generate")
 async def generate(
-    req: GenerateRequest, coach: Coach, world: WorldDep, plans: PlansDep, llm: LLMDep
+    req: GenerateRequest,
+    coach: Coach,
+    caller: Caller,
+    world: WorldDep,
+    plans: PlansDep,
+    llm: LLMDep,
+    access: AccessDep,
 ) -> StreamingResponse:
     member = world.member_for_coach(req.member_id, coach)
     if member is None:
         raise HTTPException(status_code=404, detail="Member not found")
+    _spend(access, caller)
 
     async def stream() -> AsyncIterator[str]:
         try:
             async for event in run(world, llm, req, member, coach):
                 if event["event"] == "plan":
                     plans.save(event["plan"])
+                    health.mark("last_plan_saved_at")
                 yield _sse(event)
         except Exception as exc:
             # Headers are already sent, so the middleware can't answer; end the stream with an error
@@ -306,12 +335,19 @@ class CopilotRequest(BaseModel):
 
 @app.post("/api/members/{member_id}/copilot")
 async def copilot(
-    member_id: str, req: CopilotRequest, coach: Coach, world: WorldDep, llm: LLMDep
+    member_id: str,
+    req: CopilotRequest,
+    coach: Coach,
+    caller: Caller,
+    world: WorldDep,
+    llm: LLMDep,
+    access: AccessDep,
 ) -> dict[str, Any]:
     m = _member(member_id, coach, world)
     model = world.settings.llm_model_main
     if not model:
         raise HTTPException(status_code=503, detail="Model ids are not configured")
+    _spend(access, caller)
     try:
         history = [agent.Turn(t.role, t.text) for t in req.history]
         ans = await agent.ask(llm, model, world.context(m), req.question, history)
@@ -329,12 +365,15 @@ async def copilot(
 
 
 @app.post("/api/members/{member_id}/congratulate")
-async def congratulate(member_id: str, coach: Coach, world: WorldDep, llm: LLMDep) -> dict[str, Any]:
+async def congratulate(
+    member_id: str, coach: Coach, caller: Caller, world: WorldDep, llm: LLMDep, access: AccessDep
+) -> dict[str, Any]:
     """A draft for the coach. There is no endpoint or tool that sends it."""
     m = _member(member_id, coach, world)
     model = world.settings.llm_model_main
     if not model:
         raise HTTPException(status_code=503, detail="Model ids are not configured")
+    _spend(access, caller)
     try:
         return await agent.congratulation_draft(llm, model, world.context(m))
     except LLMError as exc:
@@ -358,10 +397,11 @@ def member_graph(member_id: str, coach: Coach, world: WorldDep) -> dict[str, Any
 @app.post("/api/access-requests", status_code=202)
 def request_access(req: AccessRequestIn, request: Request, access: AccessDep) -> dict[str, str]:
     """Public. The same answer whether or not the email already asked, so the form reveals nothing."""
-    # CloudFront sets CloudFront-Viewer-Address itself, and the origin header check means every
-    # deployed request came through CloudFront. Without it (local runs) the right-most
+    # CloudFront's viewer-request function writes X-Viewer-Ip from the connection (overwriting any
+    # copy the client sent), and the origin header check means every deployed request came through
+    # CloudFront. Without it (local runs) the right-most
     # X-Forwarded-For hops are used; anything to their left is client-supplied, so it is ignored.
-    address = viewer_network(request.headers.get("cloudfront-viewer-address"))
+    address = viewer_network(request.headers.get("x-viewer-ip"))
     if address is None:
         hops = [h.strip() for h in request.headers.get("x-forwarded-for", "").split(",") if h.strip()]
         address = ",".join(hops[-2:]) or (request.client.host if request.client else None)
