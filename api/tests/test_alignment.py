@@ -5,12 +5,12 @@ from __future__ import annotations
 from rdflib import Graph
 from rdflib.namespace import SKOS
 
-from coachkg.alignment import load_snomed, load_uberon
+from coachkg.alignment import label_matches, load_snomed, load_uberon
 from coachkg.config import REPO_ROOT
 from coachkg.kg.graph import NetworkXStore
 from coachkg.skos import build, load_wikidata
 
-ALLOWED_SNOMED_KEYS = {"concept", "side", "sctid", "match", "our_label", "evs_name_sha256"}
+ALLOWED_SNOMED_KEYS = {"concept", "side", "sctid", "match", "our_label"}
 
 
 def test_alignments_reference_graph_concepts(graph: NetworkXStore) -> None:
@@ -24,10 +24,16 @@ def test_snomed_entries_store_codes_and_our_labels_only() -> None:
     for entry in load_snomed():
         assert set(entry) <= ALLOWED_SNOMED_KEYS, set(entry) - ALLOWED_SNOMED_KEYS
         assert entry["sctid"].isdigit()
-        assert len(entry.get("evs_name_sha256", "")) == 64, f"{entry['sctid']} not pinned"
         key = (entry["concept"], entry["side"])
         assert key not in seen
         seen.add(key)
+
+
+def test_the_label_check_needs_a_shared_word_and_the_same_side() -> None:
+    assert label_matches("Left knee joint", "Structure of left knee joint")
+    assert not label_matches("Left knee joint", "Structure of right knee joint")
+    assert not label_matches("Knee joint", "Structure of left knee joint")
+    assert not label_matches("Ankle sprain", "Fracture of wrist")
 
 
 def test_every_dataset_joint_region_is_aligned(graph: NetworkXStore) -> None:

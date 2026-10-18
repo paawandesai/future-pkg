@@ -1,29 +1,28 @@
 # SNOMED CT alignments: identifiers and OUR labels only. No SNOMED descriptions, synonyms or
-# hierarchy are stored here. `evs_name_sha256` is a SHA-256 of the lower-cased, whitespace-
-# normalised concept name EVS returned when the code was pinned, so the live test can confirm
-# the code still means what we think without this repo carrying the description itself.
-# Re-pin with: cd api && uv run python -m coachkg.alignment pin   (tests/test_snomed_live.py checks every entry)
+# hierarchy are stored here, not even a hash of a name (a hash of a short name can be reversed).
+# tests/test_snomed_live.py resolves every code live and checks that its current name shares a
+# word with our label and names the same side, so a wrong or retired code fails the build.
 system: http://snomed.info/sct
 iri_prefix: http://snomed.info/id/
 alignments:
-  - { concept: region:knee, side: null, sctid: "49076000", evs_name_sha256: "5cdb858eaf3a912cd779d1497ba53477fd11a0de385ee1cbbbd6591f4b9f10b7", match: exactMatch, our_label: Knee joint }
-  - { concept: region:knee, side: left, sctid: "719442003", evs_name_sha256: "4d0763883ed8f5a18b3f699d488e3e3e4a3541d35e1624346fe6de5bf8995787", match: exactMatch, our_label: Left knee joint }
-  - { concept: region:knee, side: right, sctid: "719443008", evs_name_sha256: "ad02a29dbc8832f3a4a8f0fc065def25eeb38041b874cfc93ac182c8146e5a4e", match: exactMatch, our_label: Right knee joint }
-  - { concept: region:patellofemoral_joint, side: null, sctid: "129160003", evs_name_sha256: "b2aea9173d9b74823b961ce4c332f2230fb5468b5e65c70f1207ae03019220f2", match: exactMatch, our_label: Patellofemoral joint }
-  - { concept: region:hip, side: null, sctid: "24136001", evs_name_sha256: "b74d3d5aea098db2f145af1c87b2fd1fdabdab53429429f4a5260f73a86c10d7", match: exactMatch, our_label: Hip joint }
-  - { concept: region:hip, side: left, sctid: "362907004", evs_name_sha256: "e92d14622b41b2c837337627ef8eaf25334883cbf0db0cdad7b8f09ddac258c0", match: exactMatch, our_label: Left hip joint }
-  - { concept: region:hip, side: right, sctid: "362908009", evs_name_sha256: "eab660ab41b63c49d1e59fc05289959ad66bbac206d347e0ac440bad962591d5", match: exactMatch, our_label: Right hip joint }
-  - { concept: region:ankle, side: null, sctid: "70258002", evs_name_sha256: "c79eabdc04c902ca719a24df98409de26d9f21aa60eb3c1ae9d937922d205219", match: exactMatch, our_label: Ankle joint }
-  - { concept: region:ankle, side: left, sctid: "720532008", evs_name_sha256: "3392f6891b37a35539bdd44c99cdbe76a2751891d490e2a9b2daed99f968b192", match: exactMatch, our_label: Left ankle joint }
-  - { concept: region:ankle, side: right, sctid: "720533003", evs_name_sha256: "655f8fa1f5e7061a265659901da157c63540a8d4f92ed0d4f7205f24c86c0d14", match: exactMatch, our_label: Right ankle joint }
-  - { concept: region:shoulder, side: null, sctid: "31398001", evs_name_sha256: "b3bfd509f141698302375e4e83fdf3d59e27eec16146aaa6567636ab75cb7108", match: closeMatch, our_label: Shoulder joint region }
-  - { concept: region:glenohumeral_joint, side: null, sctid: "85537004", evs_name_sha256: "263d399aa2ccf67906a64a1695d93ef4b0c5f2b22bfdb55958b57a7289b98e81", match: exactMatch, our_label: Glenohumeral joint }
-  - { concept: region:elbow, side: null, sctid: "16953009", evs_name_sha256: "f14cfb8fb857311f9634f69ee92ffa3ab240631ee45d5ff06993958685442819", match: exactMatch, our_label: Elbow joint }
-  - { concept: region:wrist, side: null, sctid: "74670003", evs_name_sha256: "c24319379ac0e298c9a9d9def54dc26ed58561e3779b1e214a733c79c78f56b4", match: exactMatch, our_label: Wrist joint }
-  - { concept: region:cervical_spine, side: null, sctid: "122494005", evs_name_sha256: "d187c9599db0f5e505f93b007870299171d35805ba49cb5d8abc09ee8df77758", match: closeMatch, our_label: Cervical spine }
-  - { concept: region:thoracic_spine, side: null, sctid: "122495006", evs_name_sha256: "957ab9df411bcf1c3c3e38f8a7415f004711d657387dc6409ea48a60d3b1daad", match: exactMatch, our_label: Thoracic spine }
-  - { concept: region:lumbar_spine, side: null, sctid: "122496007", evs_name_sha256: "84457e77740af96e6fc0b25351ea9e9f634921ab872a261f1a7e315a7907b6ca", match: exactMatch, our_label: Lumbar spine }
-  - { concept: condition:patellofemoral_pain, side: null, sctid: "430725003", evs_name_sha256: "0f5986d72ae920ac9f1b584155de790e6ef9338c043e8bed636531d5c9559146", match: exactMatch, our_label: Patellofemoral pain }
-  - { concept: condition:ankle_sprain, side: null, sctid: "44465007", evs_name_sha256: "a3cd8ffc4863cf0f0eed470df842e57d7953e856fe5821b7e2d75663444572aa", match: broadMatch, our_label: Ankle sprain }
-  - { concept: condition:rotator_cuff_tendinopathy, side: null, sctid: "789754007", evs_name_sha256: "81fea4ae883b20574f54fa96c3d48838a602c30b9a8508154ba7af9f771fc4d8", match: closeMatch, our_label: Rotator cuff tendinopathy }
-  - { concept: condition:low_back_pain, side: null, sctid: "279039007", evs_name_sha256: "4f131e19bcbacb66f617cce86735c7486d4173f4c49278cec890e3887042d64e", match: exactMatch, our_label: Low back pain }
+  - { concept: region:knee, side: null, sctid: "49076000", match: exactMatch, our_label: Knee joint }
+  - { concept: region:knee, side: left, sctid: "719442003", match: exactMatch, our_label: Left knee joint }
+  - { concept: region:knee, side: right, sctid: "719443008", match: exactMatch, our_label: Right knee joint }
+  - { concept: region:patellofemoral_joint, side: null, sctid: "129160003", match: exactMatch, our_label: Patellofemoral joint }
+  - { concept: region:hip, side: null, sctid: "24136001", match: exactMatch, our_label: Hip joint }
+  - { concept: region:hip, side: left, sctid: "362907004", match: exactMatch, our_label: Left hip joint }
+  - { concept: region:hip, side: right, sctid: "362908009", match: exactMatch, our_label: Right hip joint }
+  - { concept: region:ankle, side: null, sctid: "70258002", match: exactMatch, our_label: Ankle joint }
+  - { concept: region:ankle, side: left, sctid: "720532008", match: exactMatch, our_label: Left ankle joint }
+  - { concept: region:ankle, side: right, sctid: "720533003", match: exactMatch, our_label: Right ankle joint }
+  - { concept: region:shoulder, side: null, sctid: "31398001", match: closeMatch, our_label: Shoulder joint region }
+  - { concept: region:glenohumeral_joint, side: null, sctid: "85537004", match: exactMatch, our_label: Glenohumeral joint }
+  - { concept: region:elbow, side: null, sctid: "16953009", match: exactMatch, our_label: Elbow joint }
+  - { concept: region:wrist, side: null, sctid: "74670003", match: exactMatch, our_label: Wrist joint }
+  - { concept: region:cervical_spine, side: null, sctid: "122494005", match: closeMatch, our_label: Cervical spine }
+  - { concept: region:thoracic_spine, side: null, sctid: "122495006", match: exactMatch, our_label: Thoracic spine }
+  - { concept: region:lumbar_spine, side: null, sctid: "122496007", match: exactMatch, our_label: Lumbar spine }
+  - { concept: condition:patellofemoral_pain, side: null, sctid: "430725003", match: exactMatch, our_label: Patellofemoral pain }
+  - { concept: condition:ankle_sprain, side: null, sctid: "44465007", match: broadMatch, our_label: Ankle sprain }
+  - { concept: condition:rotator_cuff_tendinopathy, side: null, sctid: "789754007", match: closeMatch, our_label: Rotator cuff tendinopathy }
+  - { concept: condition:low_back_pain, side: null, sctid: "279039007", match: exactMatch, our_label: Low back pain }

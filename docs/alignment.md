@@ -11,15 +11,16 @@ anatomy, not safety logic. Each alignment lives in `kg/alignment/` and is checke
 | Uberon | CC BY 3.0 | 17 IRIs for our anatomy regions and 19 for the dataset's muscle groups, with their labels | `kg/alignment/uberon.yaml` |
 | Wikidata | CC0 | 23 items for equipment (exact, close, broad or related matches) | `kg/alignment/wikidata.yaml` |
 
-SNOMED entries hold the code, our own label, the SKOS match type and a SHA-256 of the name EVS
-returned when the code was pinned. No SNOMED descriptions, synonyms, hierarchy or relationships
-are stored. `api/tests/test_snomed_live.py` resolves every code at `api-evsrest.nci.nih.gov`,
-fails on a 404, an inactive concept or a changed name, and writes `prov:wasDerivedFrom`
+SNOMED entries hold the code, our own label and the SKOS match type. No SNOMED descriptions,
+synonyms, hierarchy or relationships are stored, and no hash of a name either (an earlier version
+kept one, and a hash of a short name can be reversed by guessing). `api/tests/test_snomed_live.py`
+resolves every code at `api-evsrest.nci.nih.gov`, fails on a 404, an inactive concept or a live
+name that no longer shares a word and a side with our label, and writes `prov:wasDerivedFrom`
 evidence (retrieval time, response hash, terminology version) to `.cache/evs/`, which is not
 committed.
 
-Codes were found by searching EVS on 2026-10-15; none came from memory or a model. Notes from
-that search:
+Claude found the codes by searching EVS live on 2026-10-15 and chose the match types; no code
+was written from memory, and every one is checked live. Notes from that search:
 
 - Knee joint `49076000` reports `leaf: true` while it has children. EVS children are is-a
   relations, not part-of, so we never use them to build our part-of tree. Explore with
@@ -51,7 +52,7 @@ cite-only for the reasons below.
 
 | Ontology | What it offers, by its own description | What we use | What we left out, and why |
 |---|---|---|---|
-| **SNOMED CT** (via NCI EVS) | Clinical anatomy, joints, disorders and injuries with stable codes | Identifiers for our 18 regions and 5 conditions (`snomed.yaml`), live-checked in CI. Our `part-of` hierarchy mirrors its anatomy for the parts we need, so "knee" covers its sub-structures. | Descriptions and the rest of the hierarchy: redistribution needs a licence, and a hand-picked hierarchy of 18 regions is easier to review and sign than a slice of 350,000 concepts. |
+| **SNOMED CT** (via NCI EVS) | Clinical anatomy, joints, disorders and injuries with stable codes | Identifiers for 11 of our regions and 4 conditions (`snomed.yaml`, 21 codes with the sided ones), live-checked in CI. Our `part-of` hierarchy mirrors its anatomy for the parts we need, so "knee" covers its sub-structures. | Descriptions and the rest of the hierarchy: redistribution needs a licence, and a hand-picked hierarchy of our regions is easier to review and sign than a slice of 350,000 concepts. |
 | **OPE** (Ontology of Physical Exercises) | Exercise types, the musculoskeletal system, equipment and injuries | Its split of the domain into exercise, body structure, equipment and injury is the shape of KG1's node types. | Classes and terms: no licence is published, it is an alpha release, and its OWL import fails, so nothing can be redistributed or kept in sync. The dataset's own taxonomy plus Uberon and Wikidata cover the same ground with clear licences. |
 | **COPPER** | Personalisation and behaviour-change concepts for activity recommendations (barriers, motivation, context, goals) | The idea that a recommendation depends on where the member is in their journey: our journey-stage rule (tenure, falling adherence) and the churn reasons are the two places this shows. | Its classes: CC BY-NC is a non-commercial licence, which our licence policy rules out. If Future licensed it, its behaviour-change concepts would be the natural home for KG2's goals, preferences and adherence nodes. |
 | **PROV-O** | Activities, entities, agents and derivation | The whole plan trace ([provenance.md](provenance.md)): one activity per stage, coach and model roles as agents, every exclusion linked to its rule and evidence. | Nothing: it is a W3C standard, small, and exactly the "why was this chosen" record the brief asks for. |
