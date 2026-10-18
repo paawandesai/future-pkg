@@ -38,6 +38,7 @@ from coachkg.generator.pipeline import GenerateRequest, run
 from coachkg.llm import KEY_PROBLEM, LLM, LLMAuthError, LLMError, failure_message
 from coachkg.member import Member
 from coachkg.plans import DynamoPlanStore, PlanStore, SqlitePlanStore
+from coachkg.safety import BROAD_REGIONS, TOO_BROAD
 from coachkg.world import World, get_world
 
 # No slash redirects: a redirect's Location would name the function URL behind CloudFront.
@@ -239,15 +240,46 @@ def member_view(member_id: str, coach: Coach, world: WorldDep) -> dict[str, Any]
 
 
 def _review_mentions(m: Member, world: World) -> list[dict[str, Any]]:
-    """Member messages that mention a body region with an active injury. Shown to the coach as
-    something to review; they never change the restriction."""
+    """Member messages for the coach to review. They never change a restriction by themselves.
+
+    - kind "injured": the message names a region with an active injury ("knee felt okay").
+    - kind "new": the message reports pain or an injury at a region the record doesn't restrict
+      ("my right shoulder has been really painful"). The coach can add it as a restriction for the
+      next draft (a coach-confirmed region); nothing is added without that click.
+    """
     g = world.member_graphs[m.id]
     injured = {e.dst for i in m.injuries if i.active for e in g.out_edges(f"injury:{i.id}", "located-at")}
-    out = []
+    by_message: dict[int, dict[str, Any]] = {}
     for e in g.all_edges():
-        if e.kind == "mentions" and e.prov == "member-said" and e.dst in injured:
-            msg = m.chat_history[int(e.src.split(":", 1)[1])]
-            out.append({"ts": msg.ts, "quote": msg.text, "region": g.node(e.dst).get("label")})
+        if e.kind != "mentions" or e.prov != "member-said":
+            continue
+        is_region = g.node(e.dst).get("kind") == "region"
+        if e.dst in injured:
+            kind = "injured"
+        elif e.attrs.get("injury") and is_region and e.dst not in TOO_BROAD:
+            kind = "new"
+        else:
+            continue
+        idx = int(e.src.split(":", 1)[1])
+        msg = m.chat_history[idx]
+        row = by_message.setdefault(idx, {"ts": msg.ts, "quote": msg.text, "kind": kind, "regions": []})
+        if kind == "injured":
+            row["kind"] = "injured"
+        row["regions"].append(
+            {
+                "concept": e.dst,
+                "label": g.node(e.dst).get("label"),
+                "side": e.attrs.get("side"),
+                "restricted": e.dst in injured,
+            }
+        )
+    out = []
+    for _, row in sorted(by_message.items()):
+        # A broad word next to a specific one ("shoulder ... arm") adds nothing for the coach.
+        specific = [r for r in row["regions"] if r["concept"] not in BROAD_REGIONS]
+        row["regions"] = specific or row["regions"]
+        row["region"] = row["regions"][0]["label"]
+        out.append(row)
     return out
 
 

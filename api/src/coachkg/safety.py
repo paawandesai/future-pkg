@@ -35,6 +35,10 @@ _BEND = {
 }
 # Regions too broad to count as "the same place" as an injury (every limb exercise would match).
 _TOO_BROAD = {region_node("body")}
+TOO_BROAD = frozenset(_TOO_BROAD)
+# Whole limbs and the spine: a member naming one beside a specific region ("my shoulder, the whole
+# arm") is describing the specific one.
+BROAD_REGIONS = frozenset(region_node(r) for r in ("body", "lower_limb", "upper_limb", "spine"))
 KNEE = region_node("knee")
 
 

@@ -42,7 +42,15 @@ const member: MemberView = {
     uses_generated_data: ["logins"],
     brief_text: { level: "elevated", reasons: ["Adherence fell"] },
   },
-  review_mentions: [{ ts: "2026-06-03", quote: "Knee felt okay", region: "Knee" }],
+  review_mentions: [
+    {
+      ts: "2026-06-03",
+      quote: "Knee felt okay",
+      region: "Knee",
+      kind: "injured",
+      regions: [{ concept: "region:knee", label: "Knee", side: null, restricted: true }],
+    },
+  ],
 };
 
 const plan: Plan = {
@@ -258,6 +266,40 @@ describe("GeneratorPage", () => {
   it("shows member text as a quote that can't lift the restriction", () => {
     render(wrap(<GeneratorPage member={member} />));
     expect(screen.getByText(/can't lift a restriction/)).toBeTruthy();
+  });
+
+  it("lets the coach add a region a member reported as a restriction for the next draft", async () => {
+    const reported: MemberView = {
+      ...member,
+      review_mentions: [
+        {
+          ts: "2026-06-04",
+          quote: "My right shoulder has been really painful",
+          region: "Shoulder",
+          kind: "new",
+          regions: [{ concept: "region:shoulder", label: "Shoulder", side: "right", restricted: false }],
+        },
+      ],
+    };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(sse([{ event: "plan", plan }]));
+    render(wrap(<GeneratorPage member={reported} />));
+    expect(screen.getByText("Member reported pain the record doesn't have")).toBeTruthy();
+    // Nothing is restricted until the coach clicks.
+    fireEvent.change(screen.getByLabelText(/focus on/i), { target: { value: "upper body" } });
+    fireEvent.click(screen.getByRole("button", { name: "Draft plan" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body)).confirmed_regions).toEqual(
+      [],
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Restrict Right shoulder in drafts" }));
+    expect(
+      screen.getByRole("button", { name: /Restricting Right shoulder/ }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Draft plan" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(String((fetchMock.mock.calls[1][1] as RequestInit).body)).confirmed_regions).toEqual([
+      { region: "region:shoulder", side: "right", mention: null },
+    ]);
   });
 });
 

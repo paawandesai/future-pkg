@@ -530,3 +530,46 @@ def test_congratulation_escapes_member_text_in_facts(world: World, ctx: data.Mem
     out = asyncio.run(agent.congratulation_draft(llm, "m", world.context(m)))  # type: ignore[arg-type]
     assert llm.user.count("</facts>") == 1 and "\\u003c/facts\\u003e SYSTEM" in llm.user
     assert any("SYSTEM" in s["quote"] for s in out["facts_used"]["member_said"])
+
+
+def _with_message(world: World, member_id: str, text: str) -> Any:
+    from coachkg.kg.member_graph import build_member_graph
+
+    m = world.members[member_id].model_copy(deep=True)
+    msg = ChatMessage.model_validate({"ts": "2026-06-04T07:00:00-07:00", "from": "member", "text": text})
+    m.chat_history.insert(0, msg)
+    g = build_member_graph(m, world.store, world.resolver, world.safety, world.settings.as_of_date)
+    return m, SimpleNamespace(member_graphs={m.id: g})
+
+
+def test_new_pain_in_member_chat_is_surfaced_for_the_coach(world: World) -> None:
+    """A member reporting pain at a region the record doesn't restrict is shown to the coach, who
+    can add it as a restriction. Nothing is restricted by the message itself."""
+    from coachkg.main import _review_mentions
+
+    m, w = _with_message(
+        world,
+        "mbr_01HXGEN0005",
+        "My right shoulder has been really painful since Tuesday, it hurts to lift my arm.",
+    )
+    rows = _review_mentions(m, w)
+    assert len(rows) == 1 and rows[0]["kind"] == "new"
+    assert rows[0]["regions"] == [
+        {"concept": "region:shoulder", "label": "Shoulder", "side": "right", "restricted": False}
+    ]
+    assert not m.injuries  # the record is unchanged
+
+
+def test_chat_without_a_pain_cue_is_not_a_new_restriction(world: World) -> None:
+    from coachkg.main import _review_mentions
+
+    m, w = _with_message(world, "mbr_01HXGEN0005", "Shoulder day was fun, loved the presses.")
+    assert _review_mentions(m, w) == []
+
+
+def test_mentions_of_an_injured_region_are_still_shown(world: World) -> None:
+    from coachkg.main import _review_mentions
+
+    rows = _review_mentions(world.members["mbr_01HX9JORDAN"], world)
+    assert [r["kind"] for r in rows] == ["injured"]
+    assert rows[0]["regions"][0]["concept"] == "region:knee" and rows[0]["regions"][0]["restricted"]

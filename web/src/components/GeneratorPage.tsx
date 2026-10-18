@@ -11,6 +11,7 @@ import type {
   PlanBlock,
   PlanItem,
   ReadRow,
+  ReviewMention as ReviewMentionRow,
 } from "../types";
 
 type State =
@@ -44,6 +45,9 @@ export function GeneratorPage({ member }: { member: MemberView }) {
   const preferred = member.preferences.preferred_session_minutes ?? 45;
   const [cleared, setCleared] = useState<Record<string, string>>({});
   const [state, setState] = useState<State>({ kind: "idle" });
+  // Regions the coach chose to restrict from a member's message ("my shoulder hurts"). They go into
+  // every draft as coach-confirmed restrictions until the coach removes them.
+  const [added, setAdded] = useState<ConfirmedRegion[]>([]);
   const abort = useRef<AbortController | null>(null);
   const activeInjuries = member.injuries.filter((i) => i.active && i.clearable);
 
@@ -59,7 +63,7 @@ export function GeneratorPage({ member }: { member: MemberView }) {
           prompt,
           minutes: minutes.trim() ? Number(minutes) : null,
           cleared_low_impact: Object.keys(cleared),
-          confirmed_regions: confirmedRegions,
+          confirmed_regions: [...added, ...confirmedRegions],
         },
         ctl.signal,
       )) {
@@ -161,7 +165,18 @@ export function GeneratorPage({ member }: { member: MemberView }) {
 
       <div className="wide">
         {member.review_mentions.map((m, idx) => (
-          <ReviewMention key={idx} quote={m.quote} ts={m.ts} />
+          <ReviewMention
+            key={idx}
+            mention={m}
+            added={added}
+            onToggle={(r) =>
+              setAdded((a) =>
+                a.some((x) => x.region === r.region && x.side === r.side)
+                  ? a.filter((x) => !(x.region === r.region && x.side === r.side))
+                  : [...a, r],
+              )
+            }
+          />
         ))}
         {state.kind === "idle" && (
           <div className="card muted">Describe the session and press Draft plan. The plan appears here.</div>
@@ -205,17 +220,57 @@ function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function ReviewMention({ quote, ts }: { quote: string; ts: string | null }) {
+function ReviewMention({
+  mention,
+  added,
+  onToggle,
+}: {
+  mention: ReviewMentionRow;
+  added: ConfirmedRegion[];
+  onToggle: (r: ConfirmedRegion) => void;
+}) {
+  const fresh = mention.kind === "new";
   return (
-    <div className="card">
-      <div style={{ fontWeight: 600 }}>Member mentioned something to review</div>
+    <div className={fresh ? "card notice warn" : "card"}>
+      <div style={{ fontWeight: 600 }}>
+        {fresh ? "Member reported pain the record doesn't have" : "Member mentioned something to review"}
+      </div>
       <blockquote className="quote" style={{ marginTop: 8 }}>
-        <div className="xsmall muted">Member said{ts ? ` · ${ts.slice(0, 10)}` : ""}</div>“{quote}”
+        <div className="xsmall muted">Member said{mention.ts ? ` · ${mention.ts.slice(0, 10)}` : ""}</div>“
+        {mention.quote}”
       </blockquote>
-      <p className="small muted" style={{ marginBottom: 0 }}>
-        Member messages can't lift a restriction. If a clinician has cleared the member, record it in the
-        clearance setting.
-      </p>
+      {fresh ? (
+        <>
+          <p className="small" style={{ margin: "0 0 8px" }}>
+            Nothing is restricted until you add it. An added region is left out of every draft on this page.
+          </p>
+          <div className="row">
+            {mention.regions
+              .filter((r) => !r.restricted)
+              .map((r) => {
+                const conf = { region: r.concept, side: r.side, mention: null };
+                const on = added.some((x) => x.region === r.concept && x.side === r.side);
+                const name = `${r.side ? `${capitalize(r.side)} ` : ""}${r.side ? r.label.toLowerCase() : r.label}`;
+                return (
+                  <button
+                    key={`${r.concept}-${r.side ?? ""}`}
+                    type="button"
+                    className={on ? "btn primary" : "btn"}
+                    aria-pressed={on}
+                    onClick={() => onToggle(conf)}
+                  >
+                    {on ? `Restricting ${name} (undo)` : `Restrict ${name} in drafts`}
+                  </button>
+                );
+              })}
+          </div>
+        </>
+      ) : (
+        <p className="small muted" style={{ marginBottom: 0 }}>
+          Member messages can&apos;t lift a restriction. If a clinician has cleared the member, record it in
+          the clearance setting.
+        </p>
+      )}
     </div>
   );
 }

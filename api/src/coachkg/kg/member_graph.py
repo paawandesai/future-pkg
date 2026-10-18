@@ -77,7 +77,8 @@ def build_member_graph(
         for bm in resolver.find_body_mentions(text.replace("-", " ")):
             if bm.resolution.status == "accepted" and bm.resolution.concept:
                 shared(bm.resolution.concept)
-                edge(src, bm.resolution.concept, kind, field, prov)
+                # injury: the text puts a pain or injury cue on this body word (the resolver's scan).
+                edge(src, bm.resolution.concept, kind, field, prov, injury=bm.injury, side=bm.side)
 
     # Goals: dated by their target date; body regions they name join KG 1.
     for i, goal in enumerate(member.goals):

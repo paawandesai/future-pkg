@@ -278,8 +278,11 @@ through the tool results it asks for, plus at most six earlier turns.
 
 ## Safety and data handling
 
-- **Member text is data.** It can add a pending restriction for the coach to confirm. It can never
-  clear an injury; only the coach's structured field can.
+- **Member text is data.** It never changes a restriction by itself. When a member reports pain
+  or an injury at a region the record doesn't restrict ("my right shoulder has been really
+  painful"), the Generator page shows the message to the coach with a "Restrict right shoulder in
+  drafts" button; only that click adds the restriction. Messages about an injured region are shown
+  too. Member text can never clear an injury; only the coach's structured field can.
 - **The model never writes graph edges.** Safety edges come only from the dataset or from signed
   rule files ([docs/rules.md](docs/rules.md)). Unsigned or unsourced rules are flagged
   "unverified" in the plan.
