@@ -2,7 +2,8 @@
 # deadlift variant. Members are exercise names from the catalog or kg/authored. Names from the
 # member's workout history that are not in the catalog are listed as alt_labels for resolution.
 review:
-  status: signed
+  # Edited 2026-10-18 (push-up family; split squats now a kind of squat): needs a new sign-off.
+  status: draft
   drafted_by: model
   reviewer: PD
   signed_on: 2026-10-15
@@ -37,7 +38,8 @@ families:
   - id: split_squat
     label: Split squat
     alt_labels: [split squats, bulgarian split squat]
-    is_a: squat_pattern
+    # A split squat is a squat variation: "no squats" leaves these out too.
+    is_a: squat
     members: [RNT Split Squat, Med Ball Split Squat, Dumbbell Goblet Split Squat]
   - id: lunge
     label: Lunge
@@ -57,6 +59,10 @@ families:
     label: Horizontal press
     alt_labels: [bench press, bench, chest press, floor press]
     members: [Barbell Decline Bench Press, Alternating Dumbbell Decline Bench Press, Dumbbell Neutral-Grip Bench Press]
+  - id: push_up
+    label: Push-up
+    alt_labels: [push-ups, push ups, pushups, press-up, press-ups, press ups]
+    members: [Push-Up to Knee-Drive]
   - id: vertical_press
     label: Overhead press
     alt_labels: [overhead press, shoulder press, OHP]

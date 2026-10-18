@@ -367,6 +367,38 @@ def test_unmatched_exclusion_fails_closed(world: World) -> None:
     assert any(e["event"] == "error" and "zorbing" in e["message"] for e in events)
 
 
+def _offered_names(world: World, prompt: str, who: str, **kw: Any) -> set[str]:
+    """Names of the exercises the selection step was offered (everything that passed the filter)."""
+    llm = FakeLLM(_intent(**kw), _all_offered)
+    _plan(_run(world, llm, prompt, who=who))
+    offered = llm.seen_users[-1]
+    every = [e.name for e in world.catalog] + [e.name for e in world.rules.authored]
+    return {n for n in every if json.dumps(n) in offered}
+
+
+def test_no_push_ups_leaves_out_push_ups_not_pull_ups(world: World) -> None:
+    names = _offered_names(world, "Upper body, no push-ups", "Elena Petrova", exclusions=["push-ups"])
+    assert "Push-Up to Knee-Drive" not in names
+    r = world.resolver.resolve("push-ups", ["family", "exercise", "equipment"])
+    assert (r.status, r.concept) == ("accepted", "family:push_up")  # not the pull-up family
+
+
+def test_no_squats_leaves_out_split_squats(world: World) -> None:
+    names = _offered_names(world, "Lower body, no squats", "Elena Petrova", exclusions=["squats"])
+    assert not [n for n in names if "Squat" in n], names
+
+
+def test_a_near_miss_exclusion_fails_closed(world: World) -> None:
+    """A misspelt exclusion close to two things ("benchh": the press family or the bench) asks the
+    coach instead of guessing."""
+    r = world.resolver.resolve("benchh", ["family", "exercise", "equipment"])
+    assert (r.status, r.method) == ("ambiguous", "fuzzy")
+    it = _intent(exclusions=["benchh"])
+    events = _run(world, FakeLLM(it, _all_offered), "no benchh", who="Elena Petrova")
+    assert not any(e["event"] == "plan" for e in events)
+    assert any(e["event"] == "error" and "Couldn't tell what to leave out" in e["message"] for e in events)
+
+
 def test_only_named_equipment_is_used(world: World) -> None:
     it = _intent(unavailable_equipment=["barbell"], available_only=["dumbbells", "kettlebell"])
     prompt = "She has no barbell, only dumbbells and a kettlebell"

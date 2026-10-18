@@ -54,6 +54,7 @@
         <urn:coachkg:family/jump>,
         <urn:coachkg:family/lunge>,
         <urn:coachkg:family/plank>,
+        <urn:coachkg:family/push_up>,
         <urn:coachkg:family/row>,
         <urn:coachkg:family/split_squat>,
         <urn:coachkg:family/squat>,
@@ -473,6 +474,16 @@
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Plank"@en .
 
+<urn:coachkg:family/push_up> a skos:Concept ;
+    skos:altLabel "press ups"@en,
+        "press-up"@en,
+        "press-ups"@en,
+        "push ups"@en,
+        "push-ups"@en,
+        "pushups"@en ;
+    skos:inScheme <urn:coachkg:scheme> ;
+    skos:prefLabel "Push-up"@en .
+
 <urn:coachkg:family/row> a skos:Concept ;
     skos:altLabel "rowing"@en,
         "rows"@en ;
@@ -482,16 +493,9 @@
 <urn:coachkg:family/split_squat> a skos:Concept ;
     skos:altLabel "bulgarian split squat"@en,
         "split squats"@en ;
-    skos:broader <urn:coachkg:family/squat_pattern> ;
+    skos:broader <urn:coachkg:family/squat> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Split squat"@en .
-
-<urn:coachkg:family/squat> a skos:Concept ;
-    skos:altLabel "goblet squat"@en,
-        "squats"@en ;
-    skos:broader <urn:coachkg:family/squat_pattern> ;
-    skos:inScheme <urn:coachkg:scheme> ;
-    skos:prefLabel "Squat"@en .
 
 <urn:coachkg:family/step_up> a skos:Concept ;
     skos:altLabel "step up"@en,
@@ -959,6 +963,13 @@
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Hip lift"@en .
 
+<urn:coachkg:family/squat> a skos:Concept ;
+    skos:altLabel "goblet squat"@en,
+        "squats"@en ;
+    skos:broader <urn:coachkg:family/squat_pattern> ;
+    skos:inScheme <urn:coachkg:scheme> ;
+    skos:prefLabel "Squat"@en .
+
 <urn:coachkg:region/shoulder> a skos:Concept ;
     skos:altLabel "AC joint"@en,
         "clavicle"@en,
@@ -1016,6 +1027,12 @@
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Hip"@en .
 
+<urn:coachkg:family/squat_pattern> a skos:Concept ;
+    skos:altLabel "knee dominant"@en,
+        "leg day lifts"@en ;
+    skos:inScheme <urn:coachkg:scheme> ;
+    skos:prefLabel "Squat pattern (knee-dominant)"@en .
+
 <urn:coachkg:region/body> a skos:Concept ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Body"@en .
@@ -1048,12 +1065,6 @@
     skos:closeMatch <http://purl.obolibrary.org/obo/UBERON_0001460> ;
     skos:inScheme <urn:coachkg:scheme> ;
     skos:prefLabel "Upper limb"@en .
-
-<urn:coachkg:family/squat_pattern> a skos:Concept ;
-    skos:altLabel "knee dominant"@en,
-        "leg day lifts"@en ;
-    skos:inScheme <urn:coachkg:scheme> ;
-    skos:prefLabel "Squat pattern (knee-dominant)"@en .
 
 <urn:coachkg:region/knee> a skos:Concept ;
     skos:altLabel "ACL"@en,

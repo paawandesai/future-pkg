@@ -206,10 +206,16 @@ async def run(
     unavailable: list[str] = []
     unmatched: list[str] = []
     for r in excl:
+        if r.status == "ambiguous" and r.method == "fuzzy":
+            # A near-miss spelling ("push-ups" scoring close to "pull-ups") may name the wrong thing:
+            # leaving that out would keep what the coach meant. Ask instead (fail closed).
+            unmatched.append(r.text)
+            continue
         for c in _restrictive(r):
             (unavailable if c.startswith("equipment:") else exclude_concepts).append(c)
         if r.status == "ambiguous":
-            notes.append(f'"{r.text}" matched several things; all of them were left out.')
+            names = ", ".join(c.label for c in r.candidates)
+            notes.append(f'"{r.text}" names several things ({names}); all of them were left out.')
         elif r.status == "no_match":
             hits = _equipment_containing(world, r.text)
             unavailable += hits
