@@ -342,17 +342,21 @@ def test_model_routes_answer_429_when_the_budget_is_spent(stores: Any) -> None:
     access, _ = stores
     for _ in range(MODEL_CALLS_PER_USER_PER_HOUR):
         access.spend_model_call("local")
+    import dataclasses
+
+    from coachkg.main import get_llm
+    from coachkg.world import get_world
+
+    # Model ids configured, so the routes get as far as the budget whatever the environment says.
+    w = get_world()
+    settings = dataclasses.replace(w.settings, llm_model_fast="fast-model", llm_model_main="main-model")
+    app.dependency_overrides[get_world] = lambda: dataclasses.replace(w, settings=settings)
+    # No API key in CI: the budget answers before any model call, so the client is never used.
+    app.dependency_overrides[get_llm] = lambda: object()
     client = TestClient(app)
     r = client.post("/api/generate", json={"member_id": "mbr_01HX9JORDAN", "prompt": "upper body"})
     assert r.status_code == 429 and "budget" in r.json()["detail"]
     # The copilot and congratulation routes spend from the same budget.
-    import dataclasses
-
-    from coachkg.world import get_world
-
-    w = get_world()
-    configured = dataclasses.replace(w, settings=dataclasses.replace(w.settings, llm_model_main="main-model"))
-    app.dependency_overrides[get_world] = lambda: configured
     r = client.post("/api/members/mbr_01HX9JORDAN/copilot", json={"question": "hi"})
     assert r.status_code == 429
     assert client.post("/api/members/mbr_01HX9JORDAN/congratulate").status_code == 429
