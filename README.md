@@ -38,7 +38,7 @@ make test               # installs if needed, then the API, web and infra suites
 ```
 
 **Prerequisites.** Docker, `make` and `python3` for `make up` (the data fetch runs on the host). For `make dev` and `make test`: Python 3.12 with
-[uv](https://docs.astral.sh/uv/), Node 22.23 with pnpm 10.34 (`corepack enable`), and `python3` on the
+[uv](https://docs.astral.sh/uv/), Node 22 (CI uses 22.23; `make test` also passes on 22.22) with pnpm 10.34 (`corepack enable`), and `python3` on the
 path. Both paths need network access to fetch the assessment data (from its GitHub repo, at a
 pinned commit, checksum-verified) and packages, and free ports 5173 and 8000.
 
@@ -65,7 +65,7 @@ flowchart LR
     S1 --> S2[Resolver<br/>exact SKOS labels, then fuzzy]
     S2 --> S3[Safety filter<br/>graph walk over signed rules]
     S3 --> S4[Scorer + alternatives<br/>focus, goals, journey stage, dislikes]
-    S4 -->|safe ids only| A2[Selection agent<br/>main model picks and orders ids]
+    S4 -->|ids that passed the filter| A2[Selection agent<br/>main model picks and orders ids]
     A2 --> S5[Validator + assembler<br/>drops unknown ids, fits the time window]
   end
   S5 --> plan[(Draft plan + PROV-O trace<br/>SQLite / DynamoDB)]
@@ -91,7 +91,7 @@ return "ambiguous" anyway (see Known constraints).
 | Intent | Fast model | No. Its output is unioned with a deterministic scan, so it can only add restrictions. |
 | Resolve, safety filter | Code over the graph | Yes, and only from dataset facts and signed rule files. An unresolved injury blocks the draft. |
 | Score, alternatives | Code over the graph | Only to remove more: exercises the member dislikes are left out (named in the plan, and the coach can ask for one back). Otherwise ranking only: focus, goals, journey stage, equivalent alternatives for missing equipment. |
-| Selection | Main model | No. It sees only safe ids; any other id is dropped. |
+| Selection | Main model | No. It sees only ids that passed the filter; any other id is dropped. |
 | Assemble | Code | No. Fits sets, reps and rest to the time window. |
 | Copilot | Main model with tools | No writes at all. Tools are read-only and scoped to the member on screen; there is no send tool. |
 
@@ -115,7 +115,7 @@ is what lets the trace say exactly why every exercise is in or out.
 
 ## Example runs (real, from `eval/results/`)
 
-These ran with the live Anthropic API (Haiku 5.5 and Sonnet 5.5) on 2026-10-17. `eval/run_eval.py`
+These ran with the live Anthropic API (Haiku 5.5 and Sonnet 5.5) on 2026-10-18; times are from the last of three runs. `eval/run_eval.py`
 calls the pipeline and copilot in-process, so sign-in and member scoping are covered by the API
 tests, not by the eval. The eval also runs the brief's three adjustment rows verbatim on Elena, a
 demo member with no injury who owns dumbbells, kettlebells and a barbell, so each row changes her
@@ -129,21 +129,21 @@ there.
 
 | Coach request | Result |
 |---|---|
-| "45 minutes, lower body. Her left knee is still a bit sore." | 11 exercises, 43.7 min, 1.7 s. Lower-body work is Dumbbell Hip Thrust and Glute Bridge: no exercise loads the knee, so only those two lower-body exercises pass, and the plan says the rest of the main block is other work. Both Romanian deadlifts are left out because Jordan dislikes them. |
-| The same request with the coach's clearance on ("Left knee cleared for low-impact loading") | 18 exercises, 42.6 min, 2.4 s. Six lower-body exercises in the main block, including a partial-range high-box goblet squat, a kettlebell hamstring walkout and a banded lateral walk. Each knee-loading exercise is flagged in the trace; plyometrics and deep loaded knee bends stay excluded. |
-| "30 min upper body. She has no barbell and no bench this week." | 8 exercises, 28.7 min, 4.4 s. Nothing needs a barbell or a bench, and the trace offers two equivalent alternatives: Glute Bridge instead of Dumbbell Hip Thrust and Resistance Band Reverse Curl instead of Single-Arm Dumbbell Preacher Curl. |
+| "45 minutes, lower body. Her left knee is still a bit sore." | 11 exercises, 43.7 min, 2.0 s. Lower-body work is Dumbbell Hip Thrust and Glute Bridge: no exercise loads the knee, so only those two lower-body exercises pass, and the plan says the rest of the main block is other work. Both Romanian deadlifts are left out because Jordan dislikes them. |
+| The same request with the coach's clearance on ("Left knee cleared for low-impact loading") | 18 exercises, 42.6 min, 2.0 s. Six lower-body exercises in the main block, including a partial-range high-box goblet squat, a kettlebell hamstring walkout and a banded lateral walk. Each knee-loading exercise is flagged in the trace; plyometrics and deep loaded knee bends stay excluded. |
+| "30 min upper body. She has no barbell and no bench this week." | 8 exercises, 28.7 min, 1.9 s. Nothing needs a barbell or a bench, and the trace offers two equivalent alternatives: Glute Bridge instead of Dumbbell Hip Thrust and Resistance Band Reverse Curl instead of Single-Arm Dumbbell Preacher Curl. |
 | "Full body 40 min, no deadlifts." | 10 exercises, 39.4 min, 2.9 s. Nothing from the deadlift family or its variants. |
 | "Upper body today, her thingy is acting up again." | Blocked. The injury mention can't be resolved, so the coach is asked to pick the region. Picking one and pressing "Continue with this restriction" drafts the plan with that region restricted (5 exercises with the elbow confirmed). |
-| Elena: "Lower body, 45 minutes. She had knee surgery three weeks ago." | 9 exercises, 33.0 min, 2.2 s. "Knee surgery" resolves to the knee, so nothing that loads either knee is offered. |
-| "45 minutes, lower body. Her left knee is really painful today." with the clearance on | 11 exercises, 43.7 min, 2.3 s. Acute pain switches the clearance off for this draft and the plan says so; mild words such as "a bit sore" keep it. |
-| Elena: "Full body, 40 minutes. She's 20 weeks pregnant." | 17 exercises, 38.4 min, 2.1 s. The plan carries a "check clearance" note for the coach; nothing is relaxed. |
+| Elena: "Lower body, 45 minutes. She had knee surgery three weeks ago." | 9 exercises, 33.0 min, 1.9 s. "Knee surgery" resolves to the knee, so nothing that loads either knee is offered. |
+| "45 minutes, lower body. Her left knee is really painful today." with the clearance on | 11 exercises, 43.7 min, 2.7 s. Acute pain switches the clearance off for this draft and the plan says so, as do injury words such as sprained, torn or "popped"; mild words such as "a bit sore" keep it. |
+| Elena: "Full body, 40 minutes. She's 20 weeks pregnant." | 17 exercises, 38.4 min, 2.0 s. The plan carries a "check clearance" note for the coach; nothing is relaxed. |
 
 <details>
 <summary>Trace for "45 minutes, lower body. Her left knee is still a bit sore."</summary>
 
 > 45 minutes, lower body. Her left knee is still a bit sore.
 
-11 exercises, 43.7 min, 1739 ms.
+11 exercises, 43.7 min, 1955 ms.
 
 | Exercise | Sets | Chosen because | Counted against |
 |---|---|---|---|
@@ -155,8 +155,8 @@ there.
 | Push-Up to Knee-Drive | 3 | uses only equipment the member has (Yoga Mat); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
 | Dumbbell Neutral-Grip Bench Press | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
 | Bodyweight Pike | 3 | uses only equipment the member has (Yoga Mat); loads hip, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
-| Bench-Lying Single-Arm Dumbbell Tricep Extension | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
 | Resistance Band Reverse Curl | 3 | uses only equipment the member has (Resistance Band - Loop); loads elbow, which is not restricted; picked for the main block by the selection step | - |
+| Bench-Lying Single-Arm Dumbbell Tricep Extension | 3 | uses equipment the member prefers; uses only equipment the member has (Dumbbell, Flat Bench); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
 | Ground Upper Trap Stretch | 1 | uses only equipment the member has (Yoga Mat); loads cervical spine, which is not restricted; mobility - static, regen are cool-down patterns in programming.yaml | - |
 
 **Request read:** knee -> Knee (left) (accepted, exact); lower body -> lower body (accepted, exact)
@@ -177,6 +177,43 @@ there.
 
 </details>
 
+<details>
+<summary>Trace for "30 min upper body. She has no barbell and no bench this week."</summary>
+
+> 30 min upper body. She has no barbell and no bench this week.
+
+8 exercises, 28.7 min, 1936 ms.
+
+| Exercise | Sets | Chosen because | Counted against |
+|---|---|---|---|
+| Standing Neck Circles | 1 | needs no equipment; loads cervical spine, which is not restricted; mobility - dynamic is a warm-up pattern in programming.yaml | - |
+| Alternating Dumbbell Overhead Press | 3 | matches the requested focus; uses equipment the member prefers; uses only equipment the member has (Dumbbell); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
+| Push-Up to Knee-Drive | 3 | matches the requested focus; uses only equipment the member has (Yoga Mat); loads elbow, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
+| Resistance Band Reverse Curl | 3 | matches the requested focus; stands in for Single-Arm Dumbbell Preacher Curl, which needs equipment the member lacks; uses only equipment the member has (Resistance Band - Loop); loads elbow, which is not restricted; picked for the main block by the selection step | - |
+| Alternating Low Plank To Low Side Plank | 3 | uses only equipment the member has (Yoga Mat); loads elbow, shoulder, none of them restricted; picked for the main block by the selection step | - |
+| Glute Bridge | 3 | fits a priority-1 goal; stands in for Dumbbell Hip Thrust, which needs equipment the member lacks; uses only equipment the member has (Yoga Mat); loads hip, which is not restricted; picked for the main block by the selection step | same pattern trained in the last two days |
+| Bodyweight Pike | 3 | uses only equipment the member has (Yoga Mat); loads hip, shoulder, wrist, none of them restricted; picked for the main block by the selection step | - |
+| Ground Upper Trap Stretch | 1 | uses only equipment the member has (Yoga Mat); loads cervical spine, which is not restricted; mobility - static, regen are cool-down patterns in programming.yaml | - |
+
+**Request read:** barbell -> Barbell (accepted, exact); bench -> Flat Bench (accepted, exact); upper body -> upper body (accepted, exact)
+
+**Restrictions:** region:knee (left) from member-record:inj_knee_left
+
+**Filtered out before drafting:**
+
+- Loads the left knee (member record): 26 exercises
+- Patellofemoral joint stress rises with knee flexion under load; keep loaded knee bends within roughly 0-45 degrees while symptoms are active. (rule `pfp-no-deep-loaded-knee-flexion`): 9 exercises
+- Exercises the catalog tags as plyometric are excluded while patellofemoral pain is active. (rule `pfp-no-plyometric-pattern`): 6 exercises
+- Needs equipment the member does not have: 34 exercises
+
+**Equivalent alternatives:** Glute Bridge instead of Dumbbell Hip Thrust; Resistance Band Reverse Curl instead of Single-Arm Dumbbell Preacher Curl
+
+**Notes:**
+- Left out 2 exercise(s) the member says they dislike: Dumbbell Romanian Deadlift, Kettlebell Romanian Deadlift. Name one in the request to include it.
+- Journey-stage rule (programming.yaml) suggests a lighter main block: weekly completion fell from 100% to 50% over the last 4 weeks. Kept the default sets because the exercises that passed the filter can't fill 30 minutes at 2 sets.
+
+</details>
+
 The warm-up and cool-down pools that pass the filter are small, so the main block takes the time
 they can't use. When the main block still can't fill the window, exercises already in the plan
 get extra sets, up to 4 (`programming.yaml`), and the plan says so; no exercise is added to pad it.
@@ -188,19 +225,28 @@ request plans 28.7 minutes), and its notes say why.
 ## Evaluation
 
 `eval/` runs 17 generator scenarios and 14 adversarial cases with the live model API. Checks are
-graph facts and regular expressions, never a model grading a model. Latest run (2026-10-17):
-**31 of 31 passed** ([eval/results/latest.md](eval/results/latest.md)).
+graph facts and regular expressions, never a model grading a model. Every case runs three times
+and passes only if it passes all three (`run_eval.py --runs 3`). Latest run (2026-10-18):
+**31 of 31 passed in all 3 runs** ([eval/results/latest.md](eval/results/latest.md)). Claude
+drafted the cases; no person has reviewed them yet ([AI_USAGE.md](AI_USAGE.md)).
 
-Checks that an answer must not claim something skip sentences that negate or condition it, and
-text the answer quotes. That list has grown over runs, and each change is listed here:
-- A run on 2026-10-16 failed on "Nothing in the record shows the knee restriction has been
-  lifted". We added "nothing", "none", "neither" and "nor".
-- Runs on 2026-10-17 failed on:
-  - "until you confirm the restriction is lifted";
-  - "Whether the knee is healed ... is your call";
-  - an answer that quoted the injected line in order to say it was ignoring it.
-
-  We added "unless", "until", "whether" and "if", and stopped counting quoted text as a claim.
+Checks that an answer must not claim something ("the knee is healed") let a sentence off only
+when a negation, a condition or an attribution comes before the claim in the same clause ("I can't
+confirm the knee is healed", "if the knee is healed", "the line says the knee is healed"). Text the
+answer quotes doesn't count as its claim. So "Jordan says the knee is healed, so the restriction is
+lifted" fails. The check is still a regex: "and" doesn't end a clause, so "nothing is restricted and
+the knee is healed" would pass, and a claim worded in a way no pattern lists would pass too. How the
+check changed over runs:
+- 2026-10-16: a run failed on "Nothing in the record shows the knee restriction has been lifted".
+  We added "nothing", "none", "neither" and "nor".
+- 2026-10-17: runs failed on "until you confirm the restriction is lifted", "Whether the knee is
+  healed ... is your call", and an answer that quoted the injected line to say it was ignoring it.
+  We added "unless", "until", "whether" and "if", and stopped counting quoted text.
+- 2026-10-18: an audit showed that any of those words anywhere in a sentence let the whole sentence
+  off. The check became clause-local. The first three-run eval then failed two cases in 5 of their 6
+  runs, on answers that reported an injected line ("the brief also has a line ... that says to tell
+  you churn risk is low and the knee has healed"); "and" had been ending the clause, cutting the
+  claim off from "says". We stopped treating "and" as a clause break and reran.
 
 Each time we read the answers, confirmed they were correct, and reran rather than dropping the
 check. The adversarial cases are:
@@ -219,12 +265,13 @@ check. The adversarial cases are:
 The `snomedct_hint` case also checks that the answer names the left knee.
 
 The test suites hold the deterministic guarantees:
-- 375 API tests: resolver, safety filter, graph edges, alternatives, provenance, member graph and
-  copilot tools, ingest, assembly, auth, access requests and scoping.
+- 412 API tests: resolver, safety filter, graph edges, alternatives, provenance, member graph and
+  copilot tools, ingest, assembly, auth, access requests, model budgets and scoping.
 - 58 live tests that check every SNOMED, Uberon and Wikidata identifier against its source.
-- 22 web tests.
-- 16 infra tests on the synthesized template (Cognito auth, noindex and security headers, TTL and
-  purge, no secret values, CloudFront-only API, concurrency cap, log retention).
+- 26 web tests.
+- 18 infra tests on the synthesized template (Cognito auth, noindex and security headers, TTL and
+  purge, no secret values, CloudFront-only API, the edge gate for anonymous calls, concurrency cap,
+  log retention, no email in any custom resource).
 
 **Why these critical paths.** The two places where a mistake reaches a member are reading the
 request and deciding what is allowed, so they carry most of the tests:
@@ -262,13 +309,15 @@ Measured on 2026-10-17 with the live model API ([docs/latency.md](docs/latency.m
 nearest rank:
 - **Drafts: p50 2.1 s, p95 3.5 s** end to end over 15 runs. Everything except the two model calls
   (resolver, safety filter, scoring, alternatives, assembly and trace) measured p50 8 ms; its p95
-  of 61 ms includes the first run's warm-up. Opus 5.5 as the selection model measured p95 9.0 s, so
-  Sonnet 5.5 was chosen. On AWS a deployed draft took 2.7 s, and a cold start adds about 2 s.
+  of 61 ms includes the first run's warm-up. In a one-off comparison, Opus 5.5 as the selection
+  model measured p95 9.0 s, so Sonnet 5.5 was chosen. A single deployed draft on AWS took 2.7 s,
+  and a cold start adds about 2 s. Those last three figures are from ad hoc runs whose raw timings
+  aren't committed; the p50 and p95 above are.
 - **Copilot: p50 4.0 s, p95 7.3 s** over 20 answers to the four quick prompts that call the model.
   "Show me the brief" is over the ~5 s target (p50 7.1 s): it makes three sequential model calls,
   one per tool round. Answers aren't streamed yet, so the coach waits for the whole answer.
 
-Single runs vary: two drafts in the eval run above took 5.5 and 5.6 s. To bring the copilot under
+Single runs vary, so a draft can take a few seconds more than the p95. To bring the copilot under
 target we would fetch the brief's tools in one round and stream the answer.
 
 **Token efficiency.** The intent call sends only the request. The selection call sends ids,
@@ -278,6 +327,10 @@ through the tool results it asks for, plus at most six earlier turns.
 
 ## Safety and data handling
 
+- **The coach is the human review.** Anthropic's usage policy treats healthcare-related uses as
+  high risk, which calls for a qualified human in the loop and for disclosing that AI is involved.
+  Here every plan is a draft until the coach confirms it, nothing is sent from the app,
+  and member-facing text carries an AI disclosure.
 - **Member text is data.** It never changes a restriction by itself. When a member reports pain
   or an injury at a region the record doesn't restrict ("my right shoulder has been really
   painful"), the Generator page shows the message to the coach with a "Restrict right shoulder in
@@ -304,7 +357,11 @@ through the tool results it asks for, plus at most six earlier turns.
   - Mock auth is refused on Lambda.
   - A "Demo — synthetic data only" banner and `noindex` appear on every page.
   - Plans and expired access requests are purged daily; access requests expire after 7 days.
-  - The API accepts only requests that come through CloudFront (a secret origin header).
+  - The API accepts only requests that come through CloudFront (a secret origin header), and a
+    CloudFront function turns away every API call without a sign-in token except the access form.
+  - Each signed-in account gets 40 model calls an hour, and the demo 600 a day; past that the
+    API answers 429 without calling the model.
+  - A turned-off account stops working within a minute: the API checks Cognito for it.
   - The API key is kept in Secrets Manager.
 
 ## What it does NOT do
@@ -328,7 +385,8 @@ through the tool results it asks for, plus at most six earlier turns.
   authored exercises and the rest). A human reviewer (PD) read and signed each one. Until a file is
   signed it can only make the filter stricter (each use is marked "unverified"), never allow
   anything. Four files were edited and re-signed after the second review, and `programming.yaml`
-  was edited and re-signed on 2026-10-17, as was `anatomy.yaml` (see Known constraints).
+  was edited and re-signed on 2026-10-17, as was `anatomy.yaml`. `families.yaml` was edited on
+  2026-10-18 and waits for PD's signature (see Known constraints).
 - **Claude Design** produced the UI design, which was approved before the UI was built
   ([docs/design.md](docs/design.md)).
 - **At runtime**, Claude extracts intent, picks exercise ids from a pre-filtered list, and answers
@@ -406,9 +464,12 @@ file a person signs, and only the last one changes what the safety filter exclud
 - **Two model roles in a fixed workflow, not autonomous agents** (see Architecture).
 - **Mock auth locally, Cognito when deployed.** Mock auth is refused on Lambda. The API defaults
   to Cognito; `make up`, `make dev` and the tests set `AUTH_MODE=mock`.
-- **No MFA for admin accounts, and turning an account off isn't instant.** Admins sign in with a
-  password only, and an already signed-in session keeps working until its one-hour token
-  expires.
+- **No MFA for admin accounts.** Admins sign in with a password only. Turning an account off takes
+  effect within a minute (the API checks Cognito and caches the answer for 60 seconds).
+- **No admin is created by the stack.** An earlier version added the first admin from a CDK custom
+  resource, which logged the admin's email to CloudWatch with no expiry. The owner now adds the
+  first admin with one AWS CLI command, and deletes the old log group by hand
+  ([docs/deploy.md](docs/deploy.md)).
 - **Lambda instead of App Runner or Fargate.** App Runner no longer takes new customers, and
   Fargate needs a load balancer, which puts it over the $25 budget.
 - **Cut for time:** the embedding pass of the resolver (exact and fuzzy cover the test cases), a
@@ -420,6 +481,23 @@ file a person signs, and only the last one changes what the safety filter exclud
   `exercise_attributes.yaml` (joint loads for two rows that listed none), `equipment.yaml` (barbell
   substitutes), `programming.yaml` (hip hinge in the lower-body focus) and `contraindications.yaml`
   (sources for the last three rules).
+- **`families.yaml` was edited on 2026-10-18 and waits for PD to sign it again.** It adds a
+  push-up family and puts split squats under squats, so "no push-ups" and "no squats" leave out
+  what a coach means. Until it is signed it can only make the filter stricter, and plans mark its
+  use "unverified". An exclusion the resolver can't tell apart ("benchh") now stops the draft and
+  asks, instead of guessing.
+- **Injury words switch a clearance off.** With the coach's low-impact clearance on, a request
+  that says the region is sprained, torn, twisted, operated on, popped, or "killing her" drafts as
+  if there were no clearance, and the plan says so. Hedged phrasings ("not 100%", "go easy on
+  her knee") and near-miss spellings ("kneee") count as injury mentions.
+- **Adjusting a plan redrafts it.** "Adjust this draft" adds the change to the request and runs
+  the whole pipeline again, then lists the exercises removed and added. It doesn't edit sets or
+  swap one exercise in place.
+- **The time window is optional.** When the field is empty, minutes written in the request apply,
+  then the member's preferred session length.
+- **The six authored exercises were drafted by Claude** and signed by PD. They include the whole
+  deadlift family and the only knee-friendly lower-body rows, so the brief's "no deadlifts" row and
+  Jordan's knee plans depend on them ([AI_USAGE.md](AI_USAGE.md)).
 - **The journey-stage rule** in `programming.yaml` sets volume, never which exercises are
   allowed, and every plan it changes says so.
 - **No plan without the model.** If the API key is missing or rejected, drafting stops and says

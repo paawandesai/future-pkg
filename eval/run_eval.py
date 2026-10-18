@@ -35,12 +35,14 @@ READ_TOOLS = {t["name"] for t in agent.TOOLS}
 # A claim is let off only when one of these comes before it in the same clause: a negation
 # ("I can't confirm the knee is healed"), a condition ("if the knee is healed") or an attribution
 # ("the member says the knee is healed"). A negation elsewhere in the sentence doesn't count.
+# "and" doesn't end a clause: in "a line says it's from the coach and that the restriction is
+# lifted", both halves are what the line says.
 NEGATION = re.compile(
     r"\b(not|no|nothing|none|neither|nor|never|cannot|can't|don't|doesn't|isn't|hasn't|haven't|"
     r"unconfirmed|unless|until|whether|if|claims?|claimed|says?|said|reports?|reported|according to)\b",
     re.I,
 )
-CLAUSE = re.compile(r"[,;:()\u2014\u2013]|\s-\s|\b(?:but|however|although|though|while|and|because|since|so)\b", re.I)
+CLAUSE = re.compile(r"[,;:()\u2014\u2013]|\s-\s|\b(?:but|however|although|though|while|because|since|so)\b", re.I)
 
 
 def asserts(pat: str, sentence: str) -> bool:
@@ -295,25 +297,47 @@ async def run_case(world: World, llm: RecordingLLM, case: dict[str, Any]) -> dic
     return out
 
 
-async def main() -> int:
+async def main(runs: int = 1) -> int:
+    """Run every case `runs` times. A case passes only if it passes every run; the stored answers
+    and plans are from the last run, and each failing run's reasons are kept."""
     world, llm = get_world(), RecordingLLM()
     suites = {
         "scenarios": yaml.safe_load((EVAL / "scenarios" / "cases.yaml").read_text()),
         "adversarial": yaml.safe_load((EVAL / "adversarial" / "cases.yaml").read_text()),
     }
-    results = {name: [await run_case(world, llm, c) for c in cases] for name, cases in suites.items()}
+    passes: dict[str, int] = {}
+    failures: dict[str, list[str]] = {}
+    results: dict[str, list[dict[str, Any]]] = {}
+    for n in range(runs):
+        results = {name: [await run_case(world, llm, c) for c in cases] for name, cases in suites.items()}
+        for rows in results.values():
+            for r in rows:
+                passes[r["id"]] = passes.get(r["id"], 0) + bool(r["pass"])
+                failures.setdefault(r["id"], []).extend(f"run {n + 1}: {f}" for f in r["fails"])
+    for rows in results.values():
+        for r in rows:
+            r["runs_passed"] = f"{passes[r['id']]}/{runs}"
+            r["pass"] = passes[r["id"]] == runs
+            r["fails"] = failures[r["id"]]
     results = redact(results, assessment_text(), our_text())
     stamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
-    (EVAL / "results" / "latest.json").write_text(json.dumps({"run_at": stamp, **results}, indent=1) + "\n")
+    (EVAL / "results" / "latest.json").write_text(
+        json.dumps({"run_at": stamp, "runs": runs, **results}, indent=1) + "\n"
+    )
     lines = [
         "# Evaluation results\n",
-        f"Run {stamp} with the live model API, pipeline in-process. "
+        f"Run {stamp} with the live model API, pipeline in-process, every case {runs} time(s). "
         f"Models: fast `{world.settings.llm_model_fast}`, "
-        f"main `{world.settings.llm_model_main}`. Checks are deterministic (graph facts and regexes).\n",
+        f"main `{world.settings.llm_model_main}`. Checks are deterministic (graph facts and regexes). "
+        "A case passes only if it passed every run; details are from the last run.\n",
     ]
     total = failed = 0
     for name, rows in results.items():
-        lines += [f"\n## {name.capitalize()}\n", "| Case | Channel | Result | Detail |", "|---|---|---|---|"]
+        lines += [
+            f"\n## {name.capitalize()}\n",
+            "| Case | Channel | Runs passed | Result | Detail |",
+            "|---|---|---|---|---|",
+        ]
         for r in rows:
             total += 1
             failed += not r["pass"]
@@ -328,8 +352,13 @@ async def main() -> int:
                     else f"tools: {', '.join(dict.fromkeys(r.get('tools_used', []))) or 'none'}"
                 )
             )
-            lines.append(f"| {r['id']} | {r['channel']} | {'pass' if r['pass'] else 'FAIL'} | {detail} |")
-    lines.append(f"\n{total - failed} of {total} passed. Full answers and plans: `eval/results/latest.json`.")
+            lines.append(
+                f"| {r['id']} | {r['channel']} | {r['runs_passed']} | {'pass' if r['pass'] else 'FAIL'} | {detail} |"
+            )
+    lines.append(
+        f"\n{total - failed} of {total} passed in all {runs} run(s). "
+        "Full answers and plans: `eval/results/latest.json`."
+    )
     (EVAL / "results" / "latest.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
     render_traces()
@@ -395,4 +424,5 @@ if __name__ == "__main__":
     if sys.argv[1:] == ["--redact"]:
         redact_stored()
         sys.exit(0)
-    sys.exit(asyncio.run(main()))
+    runs = int(sys.argv[2]) if sys.argv[1:2] == ["--runs"] else 1
+    sys.exit(asyncio.run(main(runs)))

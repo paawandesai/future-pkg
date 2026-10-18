@@ -157,7 +157,7 @@ eval:live:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
     - test -n "$ANTHROPIC_FUTURE_API_KEY" || { echo "ANTHROPIC_FUTURE_API_KEY CI variable is not set"; exit 1; }
-    - uv run --frozen python ../eval/run_eval.py
+    - uv run --frozen python ../eval/run_eval.py --runs 3
     - *peak
   artifacts:
     when: always
