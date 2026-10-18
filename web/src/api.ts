@@ -1,4 +1,5 @@
 import type {
+  ConfirmedRegion,
   ChartSpec,
   CongratsDraft,
   CopilotAnswer,
@@ -96,7 +97,7 @@ export interface GenerateBody {
   prompt: string;
   minutes: number | null;
   cleared_low_impact: string[];
-  confirmed_regions: { region: string; side: string | null; mention?: string }[];
+  confirmed_regions: ConfirmedRegion[];
 }
 
 /** POST /api/generate and yield server-sent events as they arrive. */

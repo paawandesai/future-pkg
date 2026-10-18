@@ -1,6 +1,7 @@
 # Wikidata alignments for equipment (Wikidata data is CC0). Labels are Wikidata's English labels,
-# kept so tests/test_wikidata_live.py can check each item still carries that label. Found by
-# searching Wikidata on 2026-10-15; none came from memory or a model.
+# kept so tests/test_wikidata_live.py can check each item still carries that label. Claude found
+# each item by searching Wikidata live on 2026-10-15 and chose the match type; no identifier was
+# written from memory, and every one is checked live.
 #
 # Left unmapped because no item fits, or the only hits are another sense of the word:
 # Adjustable Bench (incline/decline: broadMatch to bench below), Chest Supported Row Machine,

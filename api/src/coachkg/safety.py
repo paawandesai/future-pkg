@@ -35,6 +35,10 @@ _BEND = {
 }
 # Regions too broad to count as "the same place" as an injury (every limb exercise would match).
 _TOO_BROAD = {region_node("body")}
+TOO_BROAD = frozenset(_TOO_BROAD)
+# Whole limbs and the spine: a member naming one beside a specific region ("my shoulder, the whole
+# arm") is describing the specific one.
+BROAD_REGIONS = frozenset(region_node(r) for r in ("body", "lower_limb", "upper_limb", "spine"))
 KNEE = region_node("knee")
 
 
@@ -96,7 +100,11 @@ class SafetyRequest:
 _ACUTE = re.compile(
     r"\b(pain(ful)?|hurt(s|ing)?|swollen|swelling|flare[sd]?|flared|flaring|flare-up|worse|"
     r"sharp|throbbing|inflamed|injur(ed|y)|re-?injur\w*|tweaked|aggravated|gave out|giving way|"
-    r"unstable|locked|locking|limping|can't bear|cannot bear|agony|acute|really sore|very sore)\b",
+    r"unstable|locked|locking|limping|can't bear|cannot bear|agony|acute|really sore|very sore|"
+    # A new injury event, however it is worded ("sprained it again", "tore her meniscus").
+    r"sprain(s|ed)?|strain(s|ed)?|twist(s|ed)?|rolled|tore|torn|tear|ruptured?|broke|broken|"
+    r"fractured?|dislocat\w*|surgery|surgeries|operat(ed|ion)|post-?op|popped|killing|wrecked|"
+    r"banged|buckled|gave way|gives way|collapsed|fell)\b",
     re.I,
 )
 
@@ -236,14 +244,15 @@ class SafetyFilter:
     def _answered(self, mention: str, confirmations: list[Confirmation]) -> list[Confirmation]:
         """Confirmations that answer this mention. The model may word the same mention a little
         differently on the next run ("knee surgery" / "knee surgery three weeks ago"), so one
-        phrase containing the other counts; anything else stays blocked."""
+        phrase starting with the other, word for word, counts. "her thing" doesn't answer "her
+        other thing"; anything else stays blocked."""
         key = self._mention_key(mention)
         out = []
         for c in confirmations:
             if not c.mention:
                 continue
             ck = self._mention_key(c.mention)
-            if ck and key and (ck == key or f" {ck} " in f" {key} " or f" {key} " in f" {ck} "):
+            if ck and key and (ck == key or f"{key} ".startswith(f"{ck} ") or f"{ck} ".startswith(f"{key} ")):
                 out.append(c)
         return out
 

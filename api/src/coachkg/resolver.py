@@ -163,9 +163,23 @@ PAIN_CUES = {
     "carpal",
     "syndrome",
     "frozen",
+    # Everyday words for a fresh injury or a hedged warning ("her knee is killing her", "it popped",
+    # "watch her knee", "knee's been giving her trouble").
+    "killing",
+    "popped",
+    "wrecked",
+    "banged",
+    "buckled",
+    "throbbing",
+    "agony",
+    "limping",
+    "trouble",
+    "troubling",
+    "watch",
+    "mind",
 }
 # Cue words that name an exercise when followed by these words ("stiff leg deadlift").
-_NOT_CUES = {("stiff", "leg"), ("stiff", "legged"), ("rolled", "up")}
+_NOT_CUES = {("stiff", "leg"), ("stiff", "legged"), ("rolled", "up"), ("watch", "the"), ("mind", "muscle")}
 # Two-word cues that are only cues together ("tennis elbow", "her back went out").
 _CUE_PHRASES = {
     ("tennis", "elbow"),
@@ -182,9 +196,29 @@ _CUE_PHRASES = {
     ("gives", "way"),
     ("giving", "way"),
     ("went", "out"),
+    # Hedged: "her knee isn't great", "not 100% yet", "not right since".
+    ("not", "great"),
+    ("isn't", "great"),
+    ("not", "100"),
+    ("not", "right"),
+    ("isn't", "right"),
+    ("not", "good"),
+    # "go easy on her knee", "gentle with the shoulder" (but not "easy upper body day").
+    ("easy", "on"),
+    ("gentle", "on"),
+    ("gentle", "with"),
 }
 # Cues that point at what follows them ("avoid aggravating a knee injury", "careful with her knee").
-_FORWARD_CUES = {"avoid", "careful", "protect", "aggravate", "aggravating", "spare"}
+_FORWARD_CUES = {
+    "avoid",
+    "careful",
+    "protect",
+    "aggravate",
+    "aggravating",
+    "spare",
+    "watch",
+    "mind",
+}
 # Words that may follow a forward cue without naming what it points at ("knee, be careful with it").
 _CUE_TAIL = {"with", "it", "them", "that", "this", "there", "please", "today", "on", "of", "and", "be"}
 _COORDINATION = {
@@ -254,6 +288,10 @@ class BodyMention:
     injury: bool = True
 
 
+def rows_of(entries: dict[Kind, list[tuple[str, str, str]]], kind: Kind) -> list[tuple[str, str, str]]:
+    return entries.get(kind, [])
+
+
 class Resolver:
     def __init__(self, store: NetworkXStore, extra_labels: dict[str, list[str]] | None = None) -> None:
         self._entries: dict[Kind, list[tuple[str, str, str]]] = {}
@@ -273,6 +311,12 @@ class Resolver:
             for node, pref, lab in rows:
                 idx.setdefault(_squash(lab), set()).add((node, pref))
             self._exact[kind] = idx
+        # One-word region and condition names, for spotting typos next to a pain cue ("kneee is sore").
+        self._body_words = sorted(
+            {normalise(lab) for k in ("region", "condition") for _, _, lab in rows_of(self._entries, k)}
+            - {""},
+        )
+        self._body_words = [w for w in self._body_words if " " not in w and len(w) >= 3]
 
     def resolve(self, text: str, kinds: Iterable[Kind]) -> Resolution:
         kinds = list(kinds)
@@ -415,6 +459,14 @@ class Resolver:
                         continue
                     taken |= span
                     spans.append((i, i + n, phrase, bool(conditions), bool(muscles)))
+            if not spans and any(w in PAIN_CUES for w in words):
+                # No body name, but a pain cue: a misspelt body word ("kneee", "kne") becomes a
+                # mention, which then resolves (fuzzy) or blocks. It can only add a restriction.
+                for i, w in enumerate(words):
+                    if i in names or w in PAIN_CUES or w in _FILLER or w in _SIDE_WORDS or len(w) < 3:
+                        continue
+                    if process.extractOne(w, self._body_words, scorer=fuzz.ratio, score_cutoff=80):
+                        spans.append((i, i + 1, w, False, False))
             spans.sort()
             marked = {k for k, sp in enumerate(spans) if sp[3]}
             cues = [

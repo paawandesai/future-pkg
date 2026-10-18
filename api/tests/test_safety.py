@@ -277,6 +277,15 @@ def test_unconfirmed_mentions_still_block(catalog: list[Exercise], rules: RuleSe
         )
     )
     assert [b.mention for b in one.blockers] == ["the wotsit"]
+    # Answering one vague mention doesn't answer another that happens to contain its words.
+    other = [resolver.parse_body_mention("her other thingy on the left")]
+    assert f.run(
+        SafetyRequest(
+            member=healthy,
+            injury_mentions=other,
+            confirmed_regions=[Confirmation("region:knee", None, "her thingy")],
+        )
+    ).blocked
     # A region without the mention it answers restricts, but answers no blocker.
     bare = f.run(
         SafetyRequest(
@@ -315,7 +324,18 @@ def test_muscle_mention_restricts_the_joints_it_acts_on(
 
 @pytest.mark.parametrize(
     "said",
-    ["her left knee is really painful today", "her knee is swollen and flared up", "kneecap really hurts"],
+    [
+        "her left knee is really painful today",
+        "her knee is swollen and flared up",
+        "kneecap really hurts",
+        # A new injury event switches the clearance off however it is worded (audit 2026-10-18).
+        "she sprained her left knee again yesterday",
+        "she twisted her left knee on the stairs",
+        "she tore her left knee meniscus",
+        "left knee surgery last week",
+        "her left knee is killing her",
+        "her left knee popped yesterday",
+    ],
 )
 def test_fresh_pain_turns_the_clearance_off_for_this_draft(
     catalog: list[Exercise], rules: RuleSet, jordan: Member, said: str

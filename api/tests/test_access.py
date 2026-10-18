@@ -13,6 +13,8 @@ from fastapi.testclient import TestClient
 from coachkg import auth
 from coachkg.access import (
     MAX_PENDING,
+    MODEL_CALLS_PER_DAY,
+    MODEL_CALLS_PER_USER_PER_HOUR,
     PER_CLIENT_PER_HOUR,
     REQUEST_TTL,
     AccessRequest,
@@ -21,6 +23,7 @@ from coachkg.access import (
     DynamoAccessStore,
     MemoryAccessStore,
     MemoryAccounts,
+    ModelBudgetSpent,
     RateLimited,
     viewer_network,
 )
@@ -94,15 +97,16 @@ def test_requests_are_rate_limited_per_client(cognito: TestClient, stores: Any) 
     assert other.status_code == 202
 
 
-VIEWER = "CloudFront-Viewer-Address"
+VIEWER = "X-Viewer-Ip"
 
 
 @pytest.mark.parametrize(
     ("header", "key"),
     [
-        ("203.0.113.9:51234", "203.0.113.9"),
-        ("2001:db8:1:2:aaaa:bbbb:cccc:dddd:443", "2001:db8:1:2::/64"),
-        ("[2001:db8::1]:443", "2001:db8::/64"),
+        ("203.0.113.9", "203.0.113.9"),
+        ("2001:db8:1:2:aaaa:bbbb:cccc:dddd", "2001:db8:1:2::/64"),
+        ("[2001:db8::1]", "2001:db8::/64"),
+        ("203.0.113.9:51234", None),  # only the bare address the CloudFront function writes
         ("not-an-address", None),
         ("", None),
         (None, None),
@@ -113,7 +117,7 @@ def test_viewer_address_is_the_ip_or_the_ipv6_64(header: str | None, key: str | 
 
 
 def test_rate_limit_keys_on_the_cloudfront_viewer_address(cognito: TestClient, stores: Any) -> None:
-    """X-Forwarded-For is the caller's to write; the viewer address is CloudFront's."""
+    """X-Forwarded-For is the caller's to write; X-Viewer-Ip is written by CloudFront's function."""
 
     def post(i: int, viewer: str) -> int:
         headers = {VIEWER: viewer, "X-Forwarded-For": f"198.51.100.{i}"}
@@ -121,10 +125,10 @@ def test_rate_limit_keys_on_the_cloudfront_viewer_address(cognito: TestClient, s
         return r.status_code
 
     # Same IPv6 /64, different hosts and ports, a fresh X-Forwarded-For each time: one client.
-    codes = [post(i, f"2001:db8:1:2::{i}:{40000 + i}") for i in range(PER_CLIENT_PER_HOUR + 1)]
+    codes = [post(i, f"2001:db8:1:2::{i}") for i in range(PER_CLIENT_PER_HOUR + 1)]
     assert codes == [202] * PER_CLIENT_PER_HOUR + [429]
-    assert post(50, "2001:db8:1:3::1:443") == 202
-    assert post(51, "203.0.113.7:1") == 202
+    assert post(50, "2001:db8:1:3::1") == 202
+    assert post(51, "203.0.113.7") == 202
 
 
 def test_pending_requests_are_capped() -> None:
@@ -319,3 +323,40 @@ def test_dynamo_full_queue_is_refused_before_the_counter() -> None:
     with pytest.raises(RateLimited):
         store.submit(AccessRequestIn(email="late@example.com", reason="grading"), "c1")
     assert not any(k.startswith("rate#") for k in t.items)
+
+
+def test_model_calls_are_capped_per_user_and_per_day() -> None:
+    store = MemoryAccessStore()
+    for _ in range(MODEL_CALLS_PER_USER_PER_HOUR):
+        store.spend_model_call("user-a")
+    with pytest.raises(ModelBudgetSpent):
+        store.spend_model_call("user-a")
+    store.spend_model_call("user-b")  # another reviewer has their own hourly budget
+    for i in range(MODEL_CALLS_PER_DAY - MODEL_CALLS_PER_USER_PER_HOUR - 1):
+        store.spend_model_call(f"user-{i % 50}-x")
+    with pytest.raises(ModelBudgetSpent):
+        store.spend_model_call("user-c")  # the whole demo's daily cap
+
+
+def test_model_routes_answer_429_when_the_budget_is_spent(stores: Any) -> None:
+    access, _ = stores
+    for _ in range(MODEL_CALLS_PER_USER_PER_HOUR):
+        access.spend_model_call("local")
+    import dataclasses
+
+    from coachkg.main import get_llm
+    from coachkg.world import get_world
+
+    # Model ids configured, so the routes get as far as the budget whatever the environment says.
+    w = get_world()
+    settings = dataclasses.replace(w.settings, llm_model_fast="fast-model", llm_model_main="main-model")
+    app.dependency_overrides[get_world] = lambda: dataclasses.replace(w, settings=settings)
+    # No API key in CI: the budget answers before any model call, so the client is never used.
+    app.dependency_overrides[get_llm] = lambda: object()
+    client = TestClient(app)
+    r = client.post("/api/generate", json={"member_id": "mbr_01HX9JORDAN", "prompt": "upper body"})
+    assert r.status_code == 429 and "budget" in r.json()["detail"]
+    # The copilot and congratulation routes spend from the same budget.
+    r = client.post("/api/members/mbr_01HX9JORDAN/copilot", json={"question": "hi"})
+    assert r.status_code == 429
+    assert client.post("/api/members/mbr_01HX9JORDAN/congratulate").status_code == 429

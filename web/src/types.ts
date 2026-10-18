@@ -62,7 +62,7 @@ export interface MemberView {
   biomarkers?: Biomarkers;
   chat: ChatMessage[];
   churn: Churn;
-  review_mentions: { ts: string | null; quote: string; region: string }[];
+  review_mentions: ReviewMention[];
 }
 
 export interface PlanItem {
@@ -152,6 +152,8 @@ export interface Plan {
     }[];
     excluded: ExcludedGroup[];
     alternatives: Alternative[];
+    /** Exercises left out for missing equipment with no equivalent that passed the filter. */
+    no_alternative?: string[];
     unverified: string[];
     notes: string[];
     model_calls: { purpose: string; model: string; ms: number }[];
@@ -171,11 +173,20 @@ export interface Blocker {
   pick_one?: boolean;
 }
 
+/** A member message for the coach to review: about an injured region, or new pain the record lacks. */
+export interface ReviewMention {
+  ts: string | null;
+  quote: string;
+  region: string;
+  kind: "injured" | "new";
+  regions: { concept: string; label: string; side: string | null; restricted: boolean }[];
+}
+
 export interface ConfirmedRegion {
   region: string;
   side: string | null;
-  /** The blocker mention this answers. */
-  mention: string;
+  /** The blocker mention this answers; null for a region the coach adds from a member message. */
+  mention: string | null;
 }
 
 export type GenerateEvent =

@@ -30,6 +30,10 @@ from pydantic import BaseModel, Field, field_validator
 REQUEST_TTL = timedelta(days=7)
 MAX_PENDING = 50
 PER_CLIENT_PER_HOUR = 3
+# Model calls (drafts, copilot answers, congratulation drafts): per signed-in user per hour, and
+# for the whole demo per day. They bound what one account, or every account together, can spend.
+MODEL_CALLS_PER_USER_PER_HOUR = 40
+MODEL_CALLS_PER_DAY = 600
 DEMO_COACH = "coach_01HXSAM"
 EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[A-Za-z]{2,}$")
 
@@ -85,10 +89,15 @@ class RateLimited(Exception):
     """Too many requests from one client, or too many pending in total."""
 
 
+class ModelBudgetSpent(RateLimited):
+    """The caller, or the whole demo, has used its model calls for now."""
+
+
 def viewer_network(header: str | None) -> str | None:
-    """The viewer from CloudFront-Viewer-Address ("ip:port", IPv6 without brackets), which CloudFront
-    sets itself. IPv6 is keyed by its /64, since one subscriber usually holds a whole /64."""
-    host = (header or "").strip().rsplit(":", 1)[0].strip("[]")
+    """The viewer's address from X-Viewer-Ip, which the CloudFront viewer-request function sets from
+    the connection itself (overwriting any copy the client sent). IPv6 is keyed by its /64, since one
+    subscriber usually holds a whole /64."""
+    host = (header or "").strip().strip("[]")
     try:
         ip = ipaddress.ip_address(host)
     except ValueError:
@@ -115,6 +124,7 @@ class AccessStore(Protocol):
     def get(self, request_id: str) -> AccessRequest | None: ...
     def decide(self, request_id: str, status: Status, by: str) -> AccessRequest | None: ...
     def reject_pending(self, by: str) -> int: ...
+    def spend_model_call(self, caller: str) -> None: ...
 
 
 @dataclass
@@ -166,6 +176,18 @@ class MemoryAccessStore:
     def reject_pending(self, by: str) -> int:
         pending = [r.id for r in self.list() if r.status == "pending"]
         return sum(self.decide(rid, "rejected", by) is not None for rid in pending)
+
+    def spend_model_call(self, caller: str) -> None:
+        now = _now()
+        with self.lock:
+            user = f"model:{client_key(caller)}:{now:%Y%m%d%H}"
+            day = f"model:all:{now:%Y%m%d}"
+            if self.hits.get(day, 0) >= MODEL_CALLS_PER_DAY:
+                raise ModelBudgetSpent
+            if self.hits.get(user, 0) >= MODEL_CALLS_PER_USER_PER_HOUR:
+                raise ModelBudgetSpent
+            self.hits[day] = self.hits.get(day, 0) + 1
+            self.hits[user] = self.hits.get(user, 0) + 1
 
 
 class DynamoAccessStore:
@@ -238,6 +260,24 @@ class DynamoAccessStore:
                 **req.model_dump(),
             }
         )
+
+    def _count(self, key: str, expires: datetime) -> int:
+        hits = self._t.update_item(
+            Key={"id": key},
+            UpdateExpression="ADD hits :one SET expires_at = :e, kind = :k",
+            ExpressionAttributeValues={":one": 1, ":e": int(expires.timestamp()), ":k": "rate"},
+            ReturnValues="UPDATED_NEW",
+        )["Attributes"]["hits"]
+        return int(hits)
+
+    def spend_model_call(self, caller: str) -> None:
+        now = _now()
+        if self._count(f"rate#model#{client_key(caller)}#{now:%Y%m%d%H}", now + timedelta(hours=2)) > (
+            MODEL_CALLS_PER_USER_PER_HOUR
+        ):
+            raise ModelBudgetSpent
+        if self._count(f"rate#model#all#{now:%Y%m%d}", now + timedelta(days=2)) > MODEL_CALLS_PER_DAY:
+            raise ModelBudgetSpent
 
     @staticmethod
     def _model(item: dict[str, Any]) -> AccessRequest:

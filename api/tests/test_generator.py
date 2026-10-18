@@ -243,6 +243,15 @@ def test_missing_equipment_surfaces_equivalent_alternatives(world: World) -> Non
     assert {"has-pattern", "targets"} <= kinds
 
 
+def test_the_plan_says_when_no_equivalent_exists(world: World) -> None:
+    # Nothing is invented: the exercises that lost their equipment are named, with no stand-in.
+    llm = FakeLLM(_intent(focus=["core"], unavailable_equipment=["Bench"]), _all_offered)
+    plan = _run_for(world, "mbr_01HXGEN0002", llm, "core, the bench is taken", minutes=30)
+    none = plan["trace"]["no_alternative"]
+    assert none and "Dumbbell Hip Thrust" in none
+    assert not {a["instead_of"] for a in plan["trace"]["alternatives"]} & set(none)
+
+
 def test_a_stand_in_never_has_more_impact_than_what_it_replaces(world: World) -> None:
     # The brief's no-barbell row: before this rule a broad jump stood in for a partial-range squat.
     from coachkg.generator.alternatives import impact_level
@@ -365,6 +374,38 @@ def test_unmatched_exclusion_fails_closed(world: World) -> None:
     events = _run(world, FakeLLM(it, _all_offered), "no zorbing", who="Elena Petrova")
     assert not any(e["event"] == "plan" for e in events)
     assert any(e["event"] == "error" and "zorbing" in e["message"] for e in events)
+
+
+def _offered_names(world: World, prompt: str, who: str, **kw: Any) -> set[str]:
+    """Names of the exercises the selection step was offered (everything that passed the filter)."""
+    llm = FakeLLM(_intent(**kw), _all_offered)
+    _plan(_run(world, llm, prompt, who=who))
+    offered = llm.seen_users[-1]
+    every = [e.name for e in world.catalog] + [e.name for e in world.rules.authored]
+    return {n for n in every if json.dumps(n) in offered}
+
+
+def test_no_push_ups_leaves_out_push_ups_not_pull_ups(world: World) -> None:
+    names = _offered_names(world, "Upper body, no push-ups", "Elena Petrova", exclusions=["push-ups"])
+    assert "Push-Up to Knee-Drive" not in names
+    r = world.resolver.resolve("push-ups", ["family", "exercise", "equipment"])
+    assert (r.status, r.concept) == ("accepted", "family:push_up")  # not the pull-up family
+
+
+def test_no_squats_leaves_out_split_squats(world: World) -> None:
+    names = _offered_names(world, "Lower body, no squats", "Elena Petrova", exclusions=["squats"])
+    assert not [n for n in names if "Squat" in n], names
+
+
+def test_a_near_miss_exclusion_fails_closed(world: World) -> None:
+    """A misspelt exclusion close to two things ("benchh": the press family or the bench) asks the
+    coach instead of guessing."""
+    r = world.resolver.resolve("benchh", ["family", "exercise", "equipment"])
+    assert (r.status, r.method) == ("ambiguous", "fuzzy")
+    it = _intent(exclusions=["benchh"])
+    events = _run(world, FakeLLM(it, _all_offered), "no benchh", who="Elena Petrova")
+    assert not any(e["event"] == "plan" for e in events)
+    assert any(e["event"] == "error" and "Couldn't tell what to leave out" in e["message"] for e in events)
 
 
 def test_only_named_equipment_is_used(world: World) -> None:

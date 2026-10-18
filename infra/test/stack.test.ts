@@ -6,7 +6,8 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { App } from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
-import { DemoStack, type DemoStackProps, ORIGIN_HEADER } from "../lib/stack.ts";
+import { runInNewContext } from "node:vm";
+import { API_GATE_CODE, DemoStack, type DemoStackProps, ORIGIN_HEADER } from "../lib/stack.ts";
 
 const dir = (name: string) => {
   const d = mkdtempSync(join(tmpdir(), name));
@@ -117,22 +118,25 @@ test("a cost budget with email alerts exists only when an address is configured"
 });
 
 test("every Lambda log group expires", () => {
-  const withAdmin = build({ adminEmail: "owner@example.com" });
-  const fns = Object.entries(withAdmin.findResources("AWS::Lambda::Function"));
-  const retained = JSON.stringify(withAdmin.findResources("Custom::LogRetention"));
-  for (const r of resources(withAdmin, "Custom::LogRetention"))
-    assert.equal(r.Properties.RetentionInDays, 14);
+  const fns = Object.entries(t.findResources("AWS::Lambda::Function"));
+  const retained = JSON.stringify(t.findResources("Custom::LogRetention"));
+  for (const r of resources(t, "Custom::LogRetention")) assert.equal(r.Properties.RetentionInDays, 14);
   for (const [id, fn] of fns) {
     // Our functions log to their own 14-day group; the LogRetention function gives itself 1 day.
     if (fn.Properties.LoggingConfig || id.startsWith("LogRetention")) continue;
     assert.ok(retained.includes(`{"Ref":"${id}"}`), `${id} has no log retention`);
   }
-  for (const g of resources(withAdmin, "AWS::Logs::LogGroup")) assert.equal(g.Properties.RetentionInDays, 14);
+  for (const g of resources(t, "AWS::Logs::LogGroup")) assert.equal(g.Properties.RetentionInDays, 14);
 });
 
-test("the admin grant hides its parameters (the admin's email) from its logs", () => {
-  const withAdmin = JSON.stringify(build({ adminEmail: "owner@example.com" }).findResources("Custom::AWS"));
-  assert.ok(withAdmin.includes('\\"logApiResponseData\\":false'), "expected Logging.withDataHidden()");
+test("no custom resource carries an email: the first admin is added by hand, not by the stack", () => {
+  // AwsCustomResource logs its whole request event, parameters included, whatever its logging
+  // setting, so an email passed to one would land in CloudWatch.
+  assert.equal(Object.keys(t.findResources("Custom::AWS")).length, 0);
+  assert.ok(
+    !/@[a-z0-9-]+\.[a-z]{2,}/i.test(json.replace(/noreply@[^"]*/g, "")),
+    "an email address is in the template",
+  );
 });
 
 test("security headers: no inline styles, a permissions policy, no server banners", () => {
@@ -196,4 +200,34 @@ test("access requests expire", () => {
   const tables = Object.values(t.findResources("AWS::DynamoDB::Table"));
   assert.equal(tables.length, 2);
   for (const tb of tables) assert.equal(tb.Properties.TimeToLiveSpecification.AttributeName, "expires_at");
+});
+
+const gate = (method: string, uri: string, headers: Record<string, { value: string }> = {}) =>
+  runInNewContext(`${API_GATE_CODE}; handler(ev)`, {
+    ev: { request: { method, uri, headers }, viewer: { ip: "203.0.113.9" } },
+  });
+
+test("anonymous API calls stop at the edge; only the access form is open", () => {
+  t.hasResourceProperties("AWS::CloudFront::Distribution", {
+    DistributionConfig: {
+      CacheBehaviors: Match.arrayWith([
+        Match.objectLike({
+          PathPattern: "/api/*",
+          FunctionAssociations: [Match.objectLike({ EventType: "viewer-request" })],
+        }),
+      ]),
+    },
+  });
+  assert.equal(gate("GET", "/api/members").statusCode, 401);
+  assert.equal(gate("POST", "/api/generate", { authorization: { value: "Bearer nope" } }).statusCode, 401);
+  assert.equal(gate("GET", "/api/admin/requests").statusCode, 401);
+  const open = gate("POST", "/api/access-requests");
+  assert.equal(open.statusCode, undefined);
+  const signedIn = gate("GET", "/api/members", { authorization: { value: "Bearer a.b.c" } });
+  assert.equal(signedIn.statusCode, undefined);
+});
+
+test("the viewer address the API keys on is written by CloudFront, never the client's copy", () => {
+  const req = gate("POST", "/api/access-requests", { "x-viewer-ip": { value: "198.51.100.1" } });
+  assert.equal(req.headers["x-viewer-ip"].value, "203.0.113.9");
 });

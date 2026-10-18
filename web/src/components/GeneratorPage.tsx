@@ -11,6 +11,7 @@ import type {
   PlanBlock,
   PlanItem,
   ReadRow,
+  ReviewMention as ReviewMentionRow,
 } from "../types";
 
 type State =
@@ -44,11 +45,19 @@ export function GeneratorPage({ member }: { member: MemberView }) {
   const preferred = member.preferences.preferred_session_minutes ?? 45;
   const [cleared, setCleared] = useState<Record<string, string>>({});
   const [state, setState] = useState<State>({ kind: "idle" });
+  // Regions the coach chose to restrict from a member's message ("my shoulder hurts"). They go into
+  // every draft as coach-confirmed restrictions until the coach removes them.
+  const [added, setAdded] = useState<ConfirmedRegion[]>([]);
   const abort = useRef<AbortController | null>(null);
+  // The draft an adjustment started from, to show what changed, and the regions the coach
+  // confirmed for it, so an adjustment keeps them.
+  const [previous, setPrevious] = useState<Plan | null>(null);
+  const lastConfirmed = useRef<ConfirmedRegion[]>([]);
   const activeInjuries = member.injuries.filter((i) => i.active && i.clearable);
 
-  async function run(confirmedRegions: ConfirmedRegion[] = []) {
+  async function run(confirmedRegions: ConfirmedRegion[] = [], text: string = prompt) {
     abort.current?.abort();
+    lastConfirmed.current = confirmedRegions;
     const ctl = new AbortController();
     abort.current = ctl;
     setState({ kind: "running", stage: "start" });
@@ -56,10 +65,10 @@ export function GeneratorPage({ member }: { member: MemberView }) {
       for await (const ev of generate(
         {
           member_id: member.id,
-          prompt,
+          prompt: text,
           minutes: minutes.trim() ? Number(minutes) : null,
           cleared_low_impact: Object.keys(cleared),
-          confirmed_regions: confirmedRegions,
+          confirmed_regions: [...added, ...confirmedRegions],
         },
         ctl.signal,
       )) {
@@ -82,7 +91,18 @@ export function GeneratorPage({ member }: { member: MemberView }) {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    setPrevious(null);
     if (prompt.trim()) void run();
+  };
+
+  // An adjustment is a new draft of the request plus the change, through the same filter, so it
+  // can only be as permissive as a fresh request; the coach sees what changed.
+  const adjust = (change: string, from: Plan) => {
+    const base = prompt.trim().replace(/[.!\s]*$/, "");
+    const text = `${base}. ${change.trim()}`;
+    setPrompt(text);
+    setPrevious(from);
+    void run(lastConfirmed.current, text);
   };
 
   return (
@@ -161,7 +181,18 @@ export function GeneratorPage({ member }: { member: MemberView }) {
 
       <div className="wide">
         {member.review_mentions.map((m, idx) => (
-          <ReviewMention key={idx} quote={m.quote} ts={m.ts} />
+          <ReviewMention
+            key={idx}
+            mention={m}
+            added={added}
+            onToggle={(r) =>
+              setAdded((a) =>
+                a.some((x) => x.region === r.region && x.side === r.side)
+                  ? a.filter((x) => !(x.region === r.region && x.side === r.side))
+                  : [...a, r],
+              )
+            }
+          />
         ))}
         {state.kind === "idle" && (
           <div className="card muted">Describe the session and press Draft plan. The plan appears here.</div>
@@ -186,11 +217,18 @@ export function GeneratorPage({ member }: { member: MemberView }) {
         )}
         {state.kind === "plan" && (
           <>
+            {previous && <ChangesCard before={previous} after={state.plan} />}
             <PlanCard key={state.plan.id} plan={state.plan} onDiscard={() => setState({ kind: "idle" })} />
+            <AdjustForm key={`adj-${state.plan.id}`} onAdjust={(c) => adjust(c, state.plan)} />
             <div className="cards">
               <FilteredCard groups={state.plan.trace.excluded} />
-              {state.plan.trace.alternatives.length > 0 && (
-                <AlternativesCard alts={state.plan.trace.alternatives} planned={plannedIds(state.plan)} />
+              {(state.plan.trace.alternatives.length > 0 ||
+                (state.plan.trace.no_alternative ?? []).length > 0) && (
+                <AlternativesCard
+                  alts={state.plan.trace.alternatives}
+                  none={state.plan.trace.no_alternative ?? []}
+                  planned={plannedIds(state.plan)}
+                />
               )}
               <TraceCard plan={state.plan} />
             </div>
@@ -201,21 +239,118 @@ export function GeneratorPage({ member }: { member: MemberView }) {
   );
 }
 
+function AdjustForm({ onAdjust }: { onAdjust: (change: string) => void }) {
+  const [change, setChange] = useState("");
+  return (
+    <form
+      className="card"
+      aria-labelledby="adjust-h"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (change.trim()) onAdjust(change);
+      }}
+    >
+      <h2 id="adjust-h">Adjust this draft</h2>
+      <div className="field">
+        <label htmlFor="adjust">What should change?</label>
+        <input
+          id="adjust"
+          className="input"
+          maxLength={300}
+          value={change}
+          placeholder="No barbell today. Swap the lunges for something seated."
+          onChange={(e) => setChange(e.target.value)}
+        />
+        <div className="xsmall muted">
+          Redrafts the request with this added, through the same filter, and shows what changed.
+        </div>
+      </div>
+      <button type="submit" className="btn" disabled={!change.trim()}>
+        Redraft with this change
+      </button>
+    </form>
+  );
+}
+
+export function planChanges(before: Plan, after: Plan): { added: string[]; removed: string[] } {
+  const names = (p: Plan) => new Set(p.blocks.flatMap((b) => b.items.map((i) => i.name)));
+  const a = names(before);
+  const b = names(after);
+  return { added: [...b].filter((n) => !a.has(n)), removed: [...a].filter((n) => !b.has(n)) };
+}
+
+function ChangesCard({ before, after }: { before: Plan; after: Plan }) {
+  const { added, removed } = planChanges(before, after);
+  return (
+    <section className="card" aria-labelledby="changes-h">
+      <h2 id="changes-h">Changed from the previous draft</h2>
+      {added.length === 0 && removed.length === 0 ? (
+        <p className="small">Same exercises as before; sets and timing may differ.</p>
+      ) : (
+        <ul className="small" style={{ paddingLeft: 18, margin: 0 }}>
+          {removed.length > 0 && <li>Removed: {removed.join(", ")}</li>}
+          {added.length > 0 && <li>Added: {added.join(", ")}</li>}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function ReviewMention({ quote, ts }: { quote: string; ts: string | null }) {
+function ReviewMention({
+  mention,
+  added,
+  onToggle,
+}: {
+  mention: ReviewMentionRow;
+  added: ConfirmedRegion[];
+  onToggle: (r: ConfirmedRegion) => void;
+}) {
+  const fresh = mention.kind === "new";
   return (
-    <div className="card">
-      <div style={{ fontWeight: 600 }}>Member mentioned something to review</div>
+    <div className={fresh ? "card notice warn" : "card"}>
+      <div style={{ fontWeight: 600 }}>
+        {fresh ? "Member reported pain the record doesn't have" : "Member mentioned something to review"}
+      </div>
       <blockquote className="quote" style={{ marginTop: 8 }}>
-        <div className="xsmall muted">Member said{ts ? ` · ${ts.slice(0, 10)}` : ""}</div>“{quote}”
+        <div className="xsmall muted">Member said{mention.ts ? ` · ${mention.ts.slice(0, 10)}` : ""}</div>“
+        {mention.quote}”
       </blockquote>
-      <p className="small muted" style={{ marginBottom: 0 }}>
-        Member messages can't lift a restriction. If a clinician has cleared the member, record it in the
-        clearance setting.
-      </p>
+      {fresh ? (
+        <>
+          <p className="small" style={{ margin: "0 0 8px" }}>
+            Nothing is restricted until you add it. An added region is left out of every draft on this page.
+          </p>
+          <div className="row">
+            {mention.regions
+              .filter((r) => !r.restricted)
+              .map((r) => {
+                const conf = { region: r.concept, side: r.side, mention: null };
+                const on = added.some((x) => x.region === r.concept && x.side === r.side);
+                const name = `${r.side ? `${capitalize(r.side)} ` : ""}${r.side ? r.label.toLowerCase() : r.label}`;
+                return (
+                  <button
+                    key={`${r.concept}-${r.side ?? ""}`}
+                    type="button"
+                    className={on ? "btn primary" : "btn"}
+                    aria-pressed={on}
+                    onClick={() => onToggle(conf)}
+                  >
+                    {on ? `Restricting ${name} (undo)` : `Restrict ${name} in drafts`}
+                  </button>
+                );
+              })}
+          </div>
+        </>
+      ) : (
+        <p className="small muted" style={{ marginBottom: 0 }}>
+          Member messages can&apos;t lift a restriction. If a clinician has cleared the member, record it in
+          the clearance setting.
+        </p>
+      )}
     </div>
   );
 }
@@ -543,7 +678,15 @@ function plannedIds(plan: Plan): Set<string> {
   return new Set(plan.blocks.flatMap((b) => b.items.map((i) => i.exercise_id)));
 }
 
-function AlternativesCard({ alts, planned }: { alts: Alternative[]; planned: Set<string> }) {
+function AlternativesCard({
+  alts,
+  none,
+  planned,
+}: {
+  alts: Alternative[];
+  none: string[];
+  planned: Set<string>;
+}) {
   return (
     <section className="card" aria-labelledby="alts-h">
       <h2 id="alts-h">Equivalent alternatives</h2>
@@ -551,27 +694,36 @@ function AlternativesCard({ alts, planned }: { alts: Alternative[]; planned: Set
         For exercises left out only for missing equipment: exercises that passed the filter and share a
         movement pattern and a target muscle in the graph.
       </p>
-      <ul className="list">
-        {alts.map((a) => (
-          <li key={`${a.instead_of_id}|${a.use_id}`}>
-            <div style={{ fontWeight: 500 }}>
-              {a.use} instead of {a.instead_of}
-            </div>
-            <div className="small" style={{ color: "var(--ink-2)" }}>
-              {a.instead_of} needs {a.needs.join(", ")}. Both train {a.shared_patterns.join(", ")} and target{" "}
-              {a.shared_muscles.join(", ")}.
-            </div>
-            <div className="chips">
-              {planned.has(a.use_id) && <span className="chip ok">in this plan</span>}
-              {a.substitute && (
-                <span className="chip">
-                  {a.substitute.use} substitutes for {a.substitute.for} (signed)
-                </span>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+      {alts.length > 0 && (
+        <ul className="list">
+          {alts.map((a) => (
+            <li key={`${a.instead_of_id}|${a.use_id}`}>
+              <div style={{ fontWeight: 500 }}>
+                {a.use} instead of {a.instead_of}
+              </div>
+              <div className="small" style={{ color: "var(--ink-2)" }}>
+                {a.instead_of} needs {a.needs.join(", ")}. Both train {a.shared_patterns.join(", ")} and
+                target {a.shared_muscles.join(", ")}.
+              </div>
+              <div className="chips">
+                {planned.has(a.use_id) && <span className="chip ok">in this plan</span>}
+                {a.substitute && (
+                  <span className="chip">
+                    {a.substitute.use} substitutes for {a.substitute.for} (signed)
+                  </span>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {none.length > 0 && (
+        <p className="small" style={{ margin: alts.length > 0 ? "12px 0 0" : 0 }}>
+          No equivalent alternative for {none.slice(0, 5).join(", ")}
+          {none.length > 5 ? ` and ${none.length - 5} more` : ""}: nothing that passed the filter shares a
+          movement pattern and a target muscle with {none.length === 1 ? "it" : "them"}, so none is suggested.
+        </p>
+      )}
     </section>
   );
 }

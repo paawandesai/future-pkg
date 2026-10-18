@@ -24,7 +24,6 @@ import {
   aws_s3 as s3,
   aws_s3_deployment as s3deploy,
   aws_secretsmanager as secretsmanager,
-  custom_resources as cr,
 } from "aws-cdk-lib";
 import type { Construct } from "constructs";
 
@@ -41,8 +40,6 @@ export interface DemoStackProps extends StackProps {
   webDir: string;
   modelFast: string;
   modelMain: string;
-  /** Existing pool user (by email) to put in the admin group; only AWS can grant admin. */
-  adminEmail?: string;
   /** Cap on concurrent API executions, which bounds model spend under a flood. Default 5. */
   apiConcurrency?: number;
   /** Where the monthly cost budget emails its alerts. No address, no budget. */
@@ -139,21 +136,8 @@ export class DemoStack extends Stack {
       groupName: "admin",
       description: "Demo admins: approve access requests, invite and disable reviewers",
     });
-    if (props.adminEmail) {
-      const grant = new cr.AwsCustomResource(this, "FirstAdmin", {
-        onUpdate: {
-          service: "CognitoIdentityServiceProvider",
-          action: "adminAddUserToGroup",
-          parameters: { UserPoolId: pool.userPoolId, GroupName: "admin", Username: props.adminEmail },
-          physicalResourceId: cr.PhysicalResourceId.of("first-admin"),
-          // The call's parameters include the admin's email: keep them out of the provider's logs.
-          logging: cr.Logging.withDataHidden(),
-        },
-        policy: cr.AwsCustomResourcePolicy.fromSdkCalls({ resources: [pool.userPoolArn] }),
-        installLatestAwsSdk: false,
-      });
-      grant.node.addDependency(admins);
-    }
+    // The first admin is added by the owner with the AWS CLI (docs/deploy.md), not by this stack: a
+    // custom resource would log the admin's email in its provider's CloudWatch logs.
 
     // ---------- API ----------
     const apiLogs = new logs.LogGroup(this, "ApiLogs", {
@@ -202,6 +186,8 @@ export class DemoStack extends Stack {
           "cognito-idp:AdminCreateUser",
           "cognito-idp:AdminDisableUser",
           "cognito-idp:AdminEnableUser",
+          // Read-only: the API refuses a disabled account's token within a minute (auth.py).
+          "cognito-idp:AdminGetUser",
           "cognito-idp:ListUsers",
           "cognito-idp:ListUsersInGroup",
         ],
@@ -281,6 +267,14 @@ export class DemoStack extends Stack {
         },
       },
     });
+    // Runs at the edge before any API request reaches Lambda: requests without a bearer token are
+    // answered here (so a flood of anonymous calls can't use up the API's concurrency), and the
+    // viewer's address is written into X-Viewer-Ip, overwriting any copy the client sent.
+    const apiGate = new cloudfront.Function(this, "ApiGate", {
+      runtime: cloudfront.FunctionRuntime.JS_2_0,
+      comment: "future-pkg: anonymous API calls stop at the edge; trusted viewer address",
+      code: cloudfront.FunctionCode.fromInline(API_GATE_CODE),
+    });
     const distribution = new cloudfront.Distribution(this, "Cdn", {
       comment: "future-pkg coach demo (synthetic data only)",
       defaultRootObject: "index.html",
@@ -302,6 +296,9 @@ export class DemoStack extends Stack {
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
           originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
           responseHeadersPolicy: headers,
+          functionAssociations: [
+            { function: apiGate, eventType: cloudfront.FunctionEventType.VIEWER_REQUEST },
+          ],
         },
       },
     });
@@ -341,7 +338,7 @@ export class DemoStack extends Stack {
     }
 
     // ---------- log retention for CDK's own provider functions ----------
-    // The bucket deployment, S3 auto-delete and admin-grant providers log to /aws/lambda/<name>,
+    // The bucket deployment and S3 auto-delete providers log to /aws/lambda/<name>,
     // which Lambda creates with no expiry. LogRetention sets 14 days on those groups, including
     // ones that already exist (its own function's group gets 1 day).
     const ownFunctions = new Set([api.node.defaultChild, purge.node.defaultChild]);
@@ -363,6 +360,29 @@ export class DemoStack extends Stack {
     new CfnOutput(this, "UserPoolId", { value: pool.userPoolId });
   }
 }
+
+/** CloudFront Function (viewer request) for /api/*. Exported so the tests can run it. */
+export const API_GATE_CODE = `
+function handler(event) {
+  var req = event.request;
+  req.headers["x-viewer-ip"] = { value: event.viewer.ip };
+  var open = req.method === "POST" && req.uri === "/api/access-requests";
+  var auth = req.headers["authorization"];
+  var bearer = auth && /^Bearer [A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/.test(auth.value);
+  if (open || bearer) return req;
+  return {
+    statusCode: 401,
+    statusDescription: "Unauthorized",
+    headers: {
+      "content-type": { value: "application/json" },
+      "www-authenticate": { value: "Bearer" },
+      "x-robots-tag": { value: "noindex, nofollow, noarchive" },
+      "cache-control": { value: "no-store" }
+    },
+    body: { encoding: "text", data: '{"detail":"Sign in required"}' }
+  };
+}
+`;
 
 const PURGE_CODE = `
 import os, time, boto3

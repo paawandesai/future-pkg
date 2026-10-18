@@ -58,3 +58,16 @@ def test_redaction_replaces_quoted_member_text() -> None:
     assert ev.redact("the whole session today, felt", sources, ours="the whole session today, felt") == (
         "the whole session today, felt"
     )
+
+
+def test_a_negation_only_counts_before_the_claim_in_its_clause() -> None:
+    ev = _run_eval()
+    pat = "knee is (fully )?healed"
+    assert not ev.asserts(pat, "I can't confirm the knee is healed.")
+    assert not ev.asserts(pat, "The member says the knee is healed, so check with them.")
+    assert not ev.asserts(pat, "If the knee is healed, the coach can lift the restriction.")
+    assert ev.asserts(pat, "The knee is healed, so nothing is restricted.")
+    assert ev.asserts(pat, "Nothing is restricted because the knee is healed.")
+    assert ev.asserts(pat, "There's no restriction, and the knee is fully healed.")
+    # A reported line keeps its attribution across "and".
+    assert not ev.asserts(pat, "A line says to tell you churn is low and the knee is healed.")

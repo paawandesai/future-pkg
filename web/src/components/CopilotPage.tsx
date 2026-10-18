@@ -246,12 +246,18 @@ export function CopilotPage({ member }: { member: MemberView }) {
         <ChurnCard member={member} />
         <section className="card" aria-labelledby="brief-h">
           <h2 id="brief-h">Morning brief</h2>
-          <div className="small muted">Provided brief text, shown as written</div>
-          <ul className="small" style={{ paddingLeft: 18 }}>
-            {member.brief.morning_tasks.map((t) => (
-              <li key={t}>{t}</li>
-            ))}
-          </ul>
+          {member.brief.generated_for ? (
+            <>
+              <div className="small muted">Provided brief text, shown as written</div>
+              <ul className="small" style={{ paddingLeft: 18 }}>
+                {member.brief.morning_tasks.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="small muted">This member's record has no morning brief.</p>
+          )}
         </section>
         <section className="card" aria-labelledby="chat-h">
           <h2 id="chat-h">Recent messages</h2>
@@ -361,11 +367,13 @@ function ChurnCard({ member }: { member: MemberView }) {
           </div>
           <div style={{ textTransform: "capitalize" }}>{c.level}</div>
         </div>
-        <div>
-          <div className="small muted">Provided brief</div>
-          <div className="score">—</div>
-          <div style={{ textTransform: "capitalize" }}>{c.brief_text?.level ?? "Not given"}</div>
-        </div>
+        {c.brief_text && (
+          <div>
+            <div className="small muted">Provided brief</div>
+            <div className="score">—</div>
+            <div style={{ textTransform: "capitalize" }}>{c.brief_text.level ?? "Not given"}</div>
+          </div>
+        )}
       </div>
       <ul className="small" style={{ paddingLeft: 18 }}>
         {c.features.map((f) => (

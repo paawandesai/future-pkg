@@ -33,6 +33,7 @@ proprietary license appears.
 | certifi | 2026.7.22 | Mozilla Public License 2.0 (MPL 2.0) |
 | cffi | 2.1.1 | MIT-0 |
 | click | 8.5.0 | BSD-3-Clause |
+| colorama | 0.4.6 | BSD License (installed on Windows only) |
 | cryptography | 50.0.2 | Apache-2.0 OR BSD-3-Clause |
 | docstring_parser | 0.18.0 | MIT License |
 | execnet | 2.1.2 | MIT |
@@ -43,6 +44,7 @@ proprietary license appears.
 | httptools | 0.9.0 | MIT |
 | httpx | 0.28.1 | BSD License |
 | httpx2 | 2.13.1 | BSD-3-Clause |
+| httpx2-jsfetch | 1.0 | BSD-3-Clause (installed on Emscripten only) |
 | idna | 3.20 | BSD-3-Clause |
 | iniconfig | 2.3.1 | MIT |
 | jiter | 0.17.0 | MIT |

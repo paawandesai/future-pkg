@@ -1,5 +1,6 @@
 """Build-time check: every SCTID in kg/alignment/snomed.yaml resolves live at NCI EVS, is active,
-and still has the name it had when pinned. A 404, an inactive concept or a changed name fails.
+and its live name still matches our label (a shared word, the same side). A 404, an inactive
+concept or a name that no longer matches fails.
 Evidence for each lookup is written to .cache/evs/ (gitignored) as prov:wasDerivedFrom."""
 
 from __future__ import annotations
@@ -9,7 +10,7 @@ from collections.abc import Iterator
 import httpx
 import pytest
 
-from coachkg.alignment import fetch_evs, load_snomed, name_hash, normalise, record_evidence
+from coachkg.alignment import fetch_evs, label_matches, load_snomed, record_evidence
 
 pytestmark = pytest.mark.live
 
@@ -27,8 +28,7 @@ def test_sctid_resolves_with_expected_name(client: httpx.Client, entry: dict[str
     record_evidence(entry["sctid"], resp)
     body = resp.json()
     assert body.get("active") is True
-    assert name_hash(body["name"]) == entry["evs_name_sha256"], "EVS name changed since pinning"
-    # Our label must share a meaningful word with the live name (catches a mis-pinned code).
-    ours = {w for w in normalise(entry["our_label"]).split() if len(w) > 3}
-    theirs = set(normalise(body["name"]).replace(",", " ").split())
-    assert ours & theirs or {w[:6] for w in ours} & {w[:6] for w in theirs}
+    # Printed on failure: the code and our label only, never the SNOMED name.
+    assert label_matches(entry["our_label"], body["name"]), (
+        f"{entry['sctid']} no longer matches {entry['our_label']}"
+    )

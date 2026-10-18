@@ -3,14 +3,20 @@
 import { App, Tags } from "aws-cdk-lib";
 import { DemoStack } from "../lib/stack.ts";
 
+function required(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`${name} is not set; model ids are configuration (see .env.example)`);
+  return v;
+}
+
 const app = new App();
 const stack = new DemoStack(app, "FuturePkgDemo", {
   env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: "us-east-1" },
   lambdaDir: process.env.LAMBDA_DIR ?? "build/lambda",
   webDir: process.env.WEB_DIR ?? "../web/dist",
-  modelFast: process.env.LLM_MODEL_FAST ?? "claude-haiku-5-5",
-  modelMain: process.env.LLM_MODEL_MAIN ?? "claude-sonnet-5-5",
-  adminEmail: process.env.DEMO_ADMIN_EMAIL || undefined,
+  // Model ids are configuration (CI variables or the environment), never defaults in code.
+  modelFast: required("LLM_MODEL_FAST"),
+  modelMain: required("LLM_MODEL_MAIN"),
   // Context (-c key=value or cdk.json) or environment. The budget is skipped without an address.
   apiConcurrency: Number(app.node.tryGetContext("apiConcurrency") ?? 5),
   budgetEmail: app.node.tryGetContext("budgetEmail") ?? (process.env.BUDGET_ALERT_EMAIL || undefined),

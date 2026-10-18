@@ -134,3 +134,30 @@ def test_dynamo_store_round_trip_with_ttl() -> None:
     assert confirmed is not None and confirmed["status"] == "confirmed"
     assert store.get("p1")["status"] == "confirmed"  # type: ignore[index]
     assert store.get("missing") is None
+
+
+def test_a_disabled_account_is_refused_within_a_minute() -> None:
+    from coachkg import auth as a
+
+    calls: list[str] = []
+
+    def lookup(pool: str, user: str) -> bool:
+        calls.append(user)
+        return user != "disabled-user"
+
+    a._enabled.clear()
+    assert a.user_enabled("us-east-1_x", "reviewer", lookup)
+    assert a.user_enabled("us-east-1_x", "reviewer", lookup)  # cached
+    assert calls == ["reviewer"]
+    assert not a.user_enabled("us-east-1_x", "disabled-user", lookup)
+    assert not a.user_enabled("us-east-1_x", "", lookup)
+
+
+def test_a_failed_lookup_fails_closed() -> None:
+    from coachkg import auth as a
+
+    def broken(pool: str, user: str) -> bool:
+        raise RuntimeError("cognito unavailable")
+
+    a._enabled.clear()
+    assert not a.user_enabled("us-east-1_x", "someone", broken)
