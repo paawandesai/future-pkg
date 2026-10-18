@@ -170,6 +170,30 @@ describe("GeneratorPage", () => {
     );
   });
 
+  it("redrafts with an adjustment and shows what changed", async () => {
+    const item = plan.blocks[0].items[0];
+    const swapped: Plan = {
+      ...plan,
+      id: "p2",
+      blocks: [{ ...plan.blocks[0], items: [{ ...item, exercise_id: "e2", name: "Glute Bridge" }] }],
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(sse([{ event: "plan", plan }]))
+      .mockResolvedValueOnce(sse([{ event: "plan", plan: swapped }]));
+    render(wrap(<GeneratorPage member={member} />));
+    fireEvent.change(screen.getByLabelText(/focus on/i), { target: { value: "upper body." } });
+    fireEvent.click(screen.getByRole("button", { name: "Draft plan" }));
+    await screen.findByText("Dumbbell Neutral-Grip Bench Press");
+    fireEvent.change(screen.getByLabelText("What should change?"), { target: { value: "No bench press." } });
+    fireEvent.click(screen.getByRole("button", { name: "Redraft with this change" }));
+    expect(await screen.findByText("Changed from the previous draft")).toBeTruthy();
+    expect(screen.getByText("Removed: Dumbbell Neutral-Grip Bench Press")).toBeTruthy();
+    expect(screen.getByText("Added: Glute Bridge")).toBeTruthy();
+    const body = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    expect(body.prompt).toBe("upper body. No bench press.");
+  });
+
   it("stops at a blocker and offers the candidate regions", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       sse([

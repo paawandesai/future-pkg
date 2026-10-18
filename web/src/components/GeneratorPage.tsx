@@ -49,10 +49,15 @@ export function GeneratorPage({ member }: { member: MemberView }) {
   // every draft as coach-confirmed restrictions until the coach removes them.
   const [added, setAdded] = useState<ConfirmedRegion[]>([]);
   const abort = useRef<AbortController | null>(null);
+  // The draft an adjustment started from, to show what changed, and the regions the coach
+  // confirmed for it, so an adjustment keeps them.
+  const [previous, setPrevious] = useState<Plan | null>(null);
+  const lastConfirmed = useRef<ConfirmedRegion[]>([]);
   const activeInjuries = member.injuries.filter((i) => i.active && i.clearable);
 
-  async function run(confirmedRegions: ConfirmedRegion[] = []) {
+  async function run(confirmedRegions: ConfirmedRegion[] = [], text: string = prompt) {
     abort.current?.abort();
+    lastConfirmed.current = confirmedRegions;
     const ctl = new AbortController();
     abort.current = ctl;
     setState({ kind: "running", stage: "start" });
@@ -60,7 +65,7 @@ export function GeneratorPage({ member }: { member: MemberView }) {
       for await (const ev of generate(
         {
           member_id: member.id,
-          prompt,
+          prompt: text,
           minutes: minutes.trim() ? Number(minutes) : null,
           cleared_low_impact: Object.keys(cleared),
           confirmed_regions: [...added, ...confirmedRegions],
@@ -86,7 +91,18 @@ export function GeneratorPage({ member }: { member: MemberView }) {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    setPrevious(null);
     if (prompt.trim()) void run();
+  };
+
+  // An adjustment is a new draft of the request plus the change, through the same filter, so it
+  // can only be as permissive as a fresh request; the coach sees what changed.
+  const adjust = (change: string, from: Plan) => {
+    const base = prompt.trim().replace(/[.!\s]*$/, "");
+    const text = `${base}. ${change.trim()}`;
+    setPrompt(text);
+    setPrevious(from);
+    void run(lastConfirmed.current, text);
   };
 
   return (
@@ -201,7 +217,9 @@ export function GeneratorPage({ member }: { member: MemberView }) {
         )}
         {state.kind === "plan" && (
           <>
+            {previous && <ChangesCard before={previous} after={state.plan} />}
             <PlanCard key={state.plan.id} plan={state.plan} onDiscard={() => setState({ kind: "idle" })} />
+            <AdjustForm key={`adj-${state.plan.id}`} onAdjust={(c) => adjust(c, state.plan)} />
             <div className="cards">
               <FilteredCard groups={state.plan.trace.excluded} />
               {(state.plan.trace.alternatives.length > 0 ||
@@ -218,6 +236,63 @@ export function GeneratorPage({ member }: { member: MemberView }) {
         )}
       </div>
     </div>
+  );
+}
+
+function AdjustForm({ onAdjust }: { onAdjust: (change: string) => void }) {
+  const [change, setChange] = useState("");
+  return (
+    <form
+      className="card"
+      aria-labelledby="adjust-h"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (change.trim()) onAdjust(change);
+      }}
+    >
+      <h2 id="adjust-h">Adjust this draft</h2>
+      <div className="field">
+        <label htmlFor="adjust">What should change?</label>
+        <input
+          id="adjust"
+          className="input"
+          maxLength={300}
+          value={change}
+          placeholder="No barbell today. Swap the lunges for something seated."
+          onChange={(e) => setChange(e.target.value)}
+        />
+        <div className="xsmall muted">
+          Redrafts the request with this added, through the same filter, and shows what changed.
+        </div>
+      </div>
+      <button type="submit" className="btn" disabled={!change.trim()}>
+        Redraft with this change
+      </button>
+    </form>
+  );
+}
+
+export function planChanges(before: Plan, after: Plan): { added: string[]; removed: string[] } {
+  const names = (p: Plan) => new Set(p.blocks.flatMap((b) => b.items.map((i) => i.name)));
+  const a = names(before);
+  const b = names(after);
+  return { added: [...b].filter((n) => !a.has(n)), removed: [...a].filter((n) => !b.has(n)) };
+}
+
+function ChangesCard({ before, after }: { before: Plan; after: Plan }) {
+  const { added, removed } = planChanges(before, after);
+  return (
+    <section className="card" aria-labelledby="changes-h">
+      <h2 id="changes-h">Changed from the previous draft</h2>
+      {added.length === 0 && removed.length === 0 ? (
+        <p className="small">Same exercises as before; sets and timing may differ.</p>
+      ) : (
+        <ul className="small" style={{ paddingLeft: 18, margin: 0 }}>
+          {removed.length > 0 && <li>Removed: {removed.join(", ")}</li>}
+          {added.length > 0 && <li>Added: {added.join(", ")}</li>}
+        </ul>
+      )}
+    </section>
   );
 }
 
