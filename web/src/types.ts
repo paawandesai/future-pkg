@@ -152,6 +152,8 @@ export interface Plan {
     }[];
     excluded: ExcludedGroup[];
     alternatives: Alternative[];
+    /** Exercises left out for missing equipment with no equivalent that passed the filter. */
+    no_alternative?: string[];
     unverified: string[];
     notes: string[];
     model_calls: { purpose: string; model: string; ms: number }[];

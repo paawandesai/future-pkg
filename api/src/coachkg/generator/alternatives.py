@@ -97,12 +97,17 @@ def find(
     focus_muscles: set[str],
     said_missing: set[str],
     edge_patterns: AbstractSet[str] = frozenset(),
+    none_for: list[str] | None = None,
 ) -> list[Alternative]:
     """Alternatives for exercises left out for equipment the request said is missing, or, when the
     request named a focus, for on-focus exercises the member lacks equipment for.
 
     `edge_patterns` are the warm-up and cool-down patterns: only main-block exercises get
-    stand-ins, and only from other main-block exercises, so nothing is "replaced" by a neck circle."""
+    stand-ins, and only from other main-block exercises, so nothing is "replaced" by a neck circle.
+
+    `none_for`, when given, collects the names of exercises left out for equipment the request said
+    is missing that got no stand-in, so the plan can say so instead of leaving the coach to guess
+    (none is ever invented)."""
     missing_ids = _equipment_only(safety)
     if not missing_ids:
         return []
@@ -157,6 +162,8 @@ def find(
             ranked.append((key, alt))
         ranked.sort(key=lambda r: r[0])
         picked = [a for _, a in ranked[:PER_EXCLUDED]]
+        if not picked and none_for is not None and said(ex):
+            none_for.append(ex.name)
         used |= {a.use.id for a in picked}
         out += picked
         if len(out) >= MAX_TOTAL:

@@ -204,8 +204,13 @@ export function GeneratorPage({ member }: { member: MemberView }) {
             <PlanCard key={state.plan.id} plan={state.plan} onDiscard={() => setState({ kind: "idle" })} />
             <div className="cards">
               <FilteredCard groups={state.plan.trace.excluded} />
-              {state.plan.trace.alternatives.length > 0 && (
-                <AlternativesCard alts={state.plan.trace.alternatives} planned={plannedIds(state.plan)} />
+              {(state.plan.trace.alternatives.length > 0 ||
+                (state.plan.trace.no_alternative ?? []).length > 0) && (
+                <AlternativesCard
+                  alts={state.plan.trace.alternatives}
+                  none={state.plan.trace.no_alternative ?? []}
+                  planned={plannedIds(state.plan)}
+                />
               )}
               <TraceCard plan={state.plan} />
             </div>
@@ -598,7 +603,15 @@ function plannedIds(plan: Plan): Set<string> {
   return new Set(plan.blocks.flatMap((b) => b.items.map((i) => i.exercise_id)));
 }
 
-function AlternativesCard({ alts, planned }: { alts: Alternative[]; planned: Set<string> }) {
+function AlternativesCard({
+  alts,
+  none,
+  planned,
+}: {
+  alts: Alternative[];
+  none: string[];
+  planned: Set<string>;
+}) {
   return (
     <section className="card" aria-labelledby="alts-h">
       <h2 id="alts-h">Equivalent alternatives</h2>
@@ -606,27 +619,36 @@ function AlternativesCard({ alts, planned }: { alts: Alternative[]; planned: Set
         For exercises left out only for missing equipment: exercises that passed the filter and share a
         movement pattern and a target muscle in the graph.
       </p>
-      <ul className="list">
-        {alts.map((a) => (
-          <li key={`${a.instead_of_id}|${a.use_id}`}>
-            <div style={{ fontWeight: 500 }}>
-              {a.use} instead of {a.instead_of}
-            </div>
-            <div className="small" style={{ color: "var(--ink-2)" }}>
-              {a.instead_of} needs {a.needs.join(", ")}. Both train {a.shared_patterns.join(", ")} and target{" "}
-              {a.shared_muscles.join(", ")}.
-            </div>
-            <div className="chips">
-              {planned.has(a.use_id) && <span className="chip ok">in this plan</span>}
-              {a.substitute && (
-                <span className="chip">
-                  {a.substitute.use} substitutes for {a.substitute.for} (signed)
-                </span>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+      {alts.length > 0 && (
+        <ul className="list">
+          {alts.map((a) => (
+            <li key={`${a.instead_of_id}|${a.use_id}`}>
+              <div style={{ fontWeight: 500 }}>
+                {a.use} instead of {a.instead_of}
+              </div>
+              <div className="small" style={{ color: "var(--ink-2)" }}>
+                {a.instead_of} needs {a.needs.join(", ")}. Both train {a.shared_patterns.join(", ")} and
+                target {a.shared_muscles.join(", ")}.
+              </div>
+              <div className="chips">
+                {planned.has(a.use_id) && <span className="chip ok">in this plan</span>}
+                {a.substitute && (
+                  <span className="chip">
+                    {a.substitute.use} substitutes for {a.substitute.for} (signed)
+                  </span>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {none.length > 0 && (
+        <p className="small" style={{ margin: alts.length > 0 ? "12px 0 0" : 0 }}>
+          No equivalent alternative for {none.slice(0, 5).join(", ")}
+          {none.length > 5 ? ` and ${none.length - 5} more` : ""}: nothing that passed the filter shares a
+          movement pattern and a target muscle with {none.length === 1 ? "it" : "them"}, so none is suggested.
+        </p>
+      )}
     </section>
   );
 }

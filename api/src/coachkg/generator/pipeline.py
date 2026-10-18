@@ -302,6 +302,7 @@ async def run(
     # 4. Score and 5. pool.
     said_missing = {str(world.store.node(q)["label"]) for q in unavailable}
     blocks_cfg = world.programming.blocks
+    no_alternative: list[str] = []
     alts = alt.find(
         safety,
         world.store,
@@ -309,6 +310,7 @@ async def run(
         focus.muscles,
         said_missing,
         set(blocks_cfg.warmup.patterns) | set(blocks_cfg.cooldown.patterns),
+        none_for=no_alternative,
     )
     stands_in: dict[str, str] = {}
     for a in alts:
@@ -460,6 +462,8 @@ async def run(
             "restrictions": trace.restriction_rows(safety),
             "excluded": trace.excluded_groups(safety, world.rules),
             "alternatives": [a.json() for a in alts],
+            # Left out for missing equipment, but nothing that passed the filter is equivalent.
+            "no_alternative": sorted(no_alternative),
             "unverified": trace.unverified_lines(safety, world.programming.review.trusted),
             "notes": notes,
             "model_calls": [

@@ -243,6 +243,15 @@ def test_missing_equipment_surfaces_equivalent_alternatives(world: World) -> Non
     assert {"has-pattern", "targets"} <= kinds
 
 
+def test_the_plan_says_when_no_equivalent_exists(world: World) -> None:
+    # Nothing is invented: the exercises that lost their equipment are named, with no stand-in.
+    llm = FakeLLM(_intent(focus=["core"], unavailable_equipment=["Bench"]), _all_offered)
+    plan = _run_for(world, "mbr_01HXGEN0002", llm, "core, the bench is taken", minutes=30)
+    none = plan["trace"]["no_alternative"]
+    assert none and "Dumbbell Hip Thrust" in none
+    assert not {a["instead_of"] for a in plan["trace"]["alternatives"]} & set(none)
+
+
 def test_a_stand_in_never_has_more_impact_than_what_it_replaces(world: World) -> None:
     # The brief's no-barbell row: before this rule a broad jump stood in for a partial-range squat.
     from coachkg.generator.alternatives import impact_level

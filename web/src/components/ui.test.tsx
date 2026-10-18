@@ -263,6 +263,15 @@ describe("GeneratorPage", () => {
     expect(screen.getAllByText(check)).toHaveLength(1); // not repeated in the notes
   });
 
+  it("says when no equivalent alternative exists instead of showing nothing", async () => {
+    const none = { ...plan, trace: { ...plan.trace, no_alternative: ["Dumbbell Hip Thrust"] } };
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(sse([{ event: "plan", plan: none }]));
+    render(wrap(<GeneratorPage member={member} />));
+    fireEvent.change(screen.getByLabelText(/focus on/i), { target: { value: "core, no bench" } });
+    fireEvent.click(screen.getByRole("button", { name: "Draft plan" }));
+    expect(await screen.findByText(/No equivalent alternative for Dumbbell Hip Thrust/)).toBeTruthy();
+  });
+
   it("shows member text as a quote that can't lift the restriction", () => {
     render(wrap(<GeneratorPage member={member} />));
     expect(screen.getByText(/can't lift a restriction/)).toBeTruthy();
