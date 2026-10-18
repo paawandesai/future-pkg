@@ -32,6 +32,19 @@ FORBIDDEN = re.compile(
 REVIEWED: dict[str, str] = {}
 
 
+# Lockfile packages that install only on other platforms, so pip-licenses never sees them here.
+# Licences checked on PyPI (2026-10-18). A new one that isn't listed shows as UNKNOWN and fails.
+PLATFORM_ONLY = {
+    "colorama": "BSD License (installed on Windows only)",
+    "httpx2-jsfetch": "BSD-3-Clause (installed on Emscripten only)",
+}
+
+
+def lock_packages() -> dict[str, str]:
+    text = (ROOT / "api" / "uv.lock").read_text()
+    return dict(re.findall(r'\[\[package\]\]\nname = "([^"]+)"\nversion = "([^"]+)"', text))
+
+
 def python_rows() -> list[tuple[str, str, str]]:
     raw = subprocess.run(
         # Every dependency group, and pip-licenses' own dependencies (--with-system), so the table
@@ -41,6 +54,10 @@ def python_rows() -> list[tuple[str, str, str]]:
         cwd=ROOT / "api", check=True, capture_output=True, text=True,
     ).stdout
     rows = [(p["Name"], p["Version"], p["License"]) for p in json.loads(raw)]
+    seen = {n.lower().replace("_", "-") for n, _, _ in rows}
+    for name, version in lock_packages().items():
+        if name not in seen and name != "coachkg":
+            rows.append((name, version, PLATFORM_ONLY.get(name, "UNKNOWN")))
     return sorted((n, v, lic) for n, v, lic in rows if n != "coachkg")
 
 
