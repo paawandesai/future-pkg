@@ -138,6 +138,8 @@ kg:live:
   extends: .py
   stage: check
   retry: { max: 1, when: [script_failure] }  # EVS rate-limits bursts; one retry, then fail
+  rules:
+    - when: on_success  # every pipeline: replaces the change rules .py would give it
   script:
     - uv run --frozen pytest -m live -n 2 -p no:cacheprovider
     - *peak
