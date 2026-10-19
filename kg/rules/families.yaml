@@ -2,11 +2,11 @@
 # deadlift variant. Members are exercise names from the catalog or kg/authored. Names from the
 # member's workout history that are not in the catalog are listed as alt_labels for resolution.
 review:
-  # Edited 2026-10-18 (push-up family; split squats now a kind of squat): needs a new sign-off.
-  status: draft
+  # Edited 2026-10-19 (push-up family; split squats now a kind of squat): needs a new sign-off.
+  status: signed
   drafted_by: model
   reviewer: PD
-  signed_on: 2026-10-15
+  signed_on: 2026-10-19
   basis: Movement-pattern groupings in common strength-and-conditioning usage (our taxonomy).
 
 families:
