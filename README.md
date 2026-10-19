@@ -386,7 +386,7 @@ through the tool results it asks for, plus at most six earlier turns.
   signed it can only make the filter stricter (each use is marked "unverified"), never allow
   anything. Four files were edited and re-signed after the second review, and `programming.yaml`
   was edited and re-signed on 2026-10-17, as was `anatomy.yaml`. `families.yaml` was edited on
-  2026-10-18 and waits for PD's signature (see Known constraints).
+  2026-10-18 and signed again by PD on 2026-10-19 (see Known constraints).
 - **Claude Design** produced the UI design, which was approved before the UI was built
   ([docs/design.md](docs/design.md)).
 - **At runtime**, Claude extracts intent, picks exercise ids from a pre-filtered list, and answers
@@ -481,10 +481,9 @@ file a person signs, and only the last one changes what the safety filter exclud
   `exercise_attributes.yaml` (joint loads for two rows that listed none), `equipment.yaml` (barbell
   substitutes), `programming.yaml` (hip hinge in the lower-body focus) and `contraindications.yaml`
   (sources for the last three rules).
-- **`families.yaml` was edited on 2026-10-18 and waits for PD to sign it again.** It adds a
+- **`families.yaml` was edited on 2026-10-18 and signed again by PD on 2026-10-19.** It adds a
   push-up family and puts split squats under squats, so "no push-ups" and "no squats" leave out
-  what a coach means. Until it is signed it can only make the filter stricter, and plans mark its
-  use "unverified". An exclusion the resolver can't tell apart ("benchh") now stops the draft and
+  what a coach means. An exclusion the resolver can't tell apart ("benchh") now stops the draft and
   asks, instead of guessing.
 - **Injury words switch a clearance off.** With the coach's low-impact clearance on, a request
   that says the region is sprained, torn, twisted, operated on, popped, or "killing her" drafts as
